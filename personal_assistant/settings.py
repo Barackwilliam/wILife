@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-import dj_database_url
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -12,12 +12,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-uumrcu3+qqjweuz&l$)yt_n+tsl^colq%wic^m)^m#%zg2*+bs'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ["*"]
 
 
 # Application definition
+
+
+# import dj_database_url
+
+# DATABASES = {
+#     'default': dj_database_url.config(conn_max_age=600, ssl_require=True)
+# }
+
 
 INSTALLED_APPS = [
     # 'jazzmin',
@@ -146,10 +154,6 @@ EMAIL_HOST_USER = "info@nyumbachap.online"  # Badilisha na email yako ya Zoho
 EMAIL_HOST_PASSWORD = "Chipindi@123"  # Badilisha na password yako ya Zoho
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
-
-DATABASES = {
-    'default': dj_database_url.config(conn_max_age=600)
-}
 
 
 # JAZZMIN_SETTINGS = {
