@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}My Tasks{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold"><i class="bi bi-check2-square me-2"></i>Tasks</h2>
+    <a href="{% url 'task_create' %}" class="btn btn-primary">
+      <i class="bi bi-plus-circle me-1"></i> Add New Task
+    </a>
+  </div>
+
+  {% if tasks %}
+  <div class="table-responsive">
+    <table class="table table-bordered table-hover align-middle shadow-sm">
+      <thead class="table-light">
+        <tr>
+          <th>Title</th>
+          <th>Status</th>
+          <th>Due Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for task in tasks %}
+        <tr>
+          <td class="fw-medium">{{ task.title }}</td>
+          <td>
+            {% if task.status == 'done' %}
+              <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Done</span>
+            {% elif task.status == 'pending' %}
+              <span class="badge bg-warning text-dark"><i class="bi bi-clock-history me-1"></i>Pending</span>
+            {% else %}
+              <span class="badge bg-secondary">{{ task.status }}</span>
+            {% endif %}
+          </td>
+          <td>{{ task.due_date|date:"M d, Y" }}</td>
+          <td>
+            <a href="{% url 'task_update' task.id %}" class="btn btn-sm btn-outline-secondary me-1">
+              <i class="bi bi-pencil-square"></i> Edit
+            </a>
+            <a href="{% url 'task_delete' task.id %}" class="btn btn-sm btn-outline-danger"
+               onclick="return confirm('Are you sure you want to delete this task?');">
+              <i class="bi bi-trash"></i> Delete
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="alert alert-info">
+      <i class="bi bi-info-circle"></i> No tasks found. <a href="{% url 'task_create' %}">Add your first task</a>.
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

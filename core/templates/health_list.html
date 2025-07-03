@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}Health Records{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Health Records</h1>
+    <a href="{% url 'health_create' %}" class="btn btn-primary">Add New Health Record</a>
+  </div>
+
+  {% if health_records %}
+  <div class="table-responsive">
+    <table class="table table-striped table-hover align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Date</th>
+          <th>Weight (kg)</th>
+          <th>Exercise (minutes)</th>
+          <th>Sleep (hours)</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for record in health_records %}
+        <tr>
+          <td>{{ record.date|date:"M d, Y" }}</td>
+          <td>{{ record.weight|default:"-" }}</td>
+          <td>{{ record.exercise_minutes|default:"-" }}</td>
+          <td>{{ record.sleep_hours|default:"-" }}</td>
+          <td>
+            <a href="{% url 'health_update' record.id %}" class="btn btn-sm btn-outline-secondary me-2">Edit</a>
+            <a href="{% url 'health_delete' record.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to delete this record?');">Delete</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p>No health records found. <a href="{% url 'health_create' %}" class="btn btn-link">Add your first health record</a>.</p>
+  {% endif %}
+</div>
+{% endblock %}

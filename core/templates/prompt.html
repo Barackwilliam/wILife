@@ -1,0 +1,648 @@
+nakupa model.py, form.py, view.py na urls.py nitengenee complete frontend responsive na inayofanya kazi kwa ubora mkubwa na hiyo frontend iwe ya kisasa sana tena kwa asilimia kubwa itumie charts na progressive bars uku ikizingatia real time responsiveness "from django.db import models
+
+# Create your models here.
+from django.db import models
+from django.contrib.auth.models import User
+from django.utils import timezone
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+
+
+
+class Income(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='incomes')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    source = models.CharField(max_length=255)
+    date = models.DateField()
+    notes = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.source} - {self.amount}"
+
+class Expense(models.Model):
+    CATEGORY_CHOICES = [
+        ('food', 'Food'),
+        ('transport', 'Transport'),
+        ('entertainment', 'Entertainment'),
+        ('bills', 'Bills'),
+        ('health', 'Health'),
+        ('education', 'Education'),
+        ('other', 'Other'),
+    ]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='expenses')
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
+    date = models.DateField()
+    notes = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.category} - {self.amount}"
+
+
+
+class Task(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('done', 'Done'),
+    ]
+    PRIORITY_CHOICES = [
+        ('low', 'Low'),
+        ('medium', 'Medium'),
+        ('high', 'High'),
+    ]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tasks')
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    date = models.DateField()
+    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='medium')
+
+    def __str__(self):
+        return f"{self.title} - {self.status}"
+
+
+
+class HealthRecord(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='health_records')
+    date = models.DateField()
+    weight = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)  # in kg
+    exercise_minutes = models.PositiveIntegerField(null=True, blank=True)
+    sleep_hours = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+
+    def __str__(self):
+        return f"Health on {self.date}"
+
+
+class Schedule(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True, null=True)
+    start_datetime = models.DateTimeField()
+    end_datetime = models.DateTimeField()
+    location = models.CharField(max_length=200, blank=True, null=True)
+    reminder_datetime = models.DateTimeField(blank=True, null=True)
+    reminder_sent = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.title
+
+class Notification(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    message = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    read = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Notification for {self.user.username}: {self.message}"
+
+class Profile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    bio = models.TextField(blank=True, null=True)
+    location = models.CharField(max_length=100, blank=True, null=True)
+    birth_date = models.DateField(blank=True, null=True)
+
+    @receiver(post_save, sender=User)
+    def create_or_update_user_profile(sender, instance, created, **kwargs):
+        if created:
+            Profile.objects.create(user=instance)
+        instance.profile.save()
+"                          "from django import forms
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.models import User
+from .models import Schedule, Profile
+from .models import Income,HealthRecord, Expense, Task
+
+class IncomeForm(forms.ModelForm):
+    class Meta:
+        model = Income
+        fields = ['amount', 'source', 'date', 'notes']
+        widgets = {
+            'date': forms.DateInput(attrs={'type': 'date'}),
+            'notes': forms.Textarea(attrs={'rows': 2}),
+        }
+
+class ExpenseForm(forms.ModelForm):
+    class Meta:
+        model = Expense
+        fields = ['amount', 'category', 'date', 'notes']
+        widgets = {
+            'date': forms.DateInput(attrs={'type': 'date'}),
+            'notes': forms.Textarea(attrs={'rows': 2}),
+        }
+
+class TaskForm(forms.ModelForm):
+    class Meta:
+        model = Task
+        fields = ['title', 'description', 'status', 'date', 'priority']
+        widgets = {
+            'date': forms.DateInput(attrs={'type': 'date'}),
+            'description': forms.Textarea(attrs={'rows': 2}),
+        }
+
+class HealthRecordForm(forms.ModelForm):
+    class Meta:
+        model = HealthRecord
+        fields = ['date', 'weight', 'exercise_minutes', 'sleep_hours']
+        widgets = {
+            'date': forms.DateInput(attrs={'type': 'date'}),
+        }
+
+
+
+class UserRegisterForm(UserCreationForm):
+    email = forms.EmailField(required=True)
+
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'password1', 'password2']
+
+class ScheduleForm(forms.ModelForm):
+    class Meta:
+        model = Schedule
+        fields = ['title', 'description', 'start_datetime', 'end_datetime', 'location', 'reminder_datetime']
+        widgets = {
+            'start_datetime': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+            'end_datetime': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+            'reminder_datetime': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+        }
+
+class UserUpdateForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ['username', 'email']
+
+class ProfileUpdateForm(forms.ModelForm):
+    class Meta:
+        model = Profile
+        fields = ['bio', 'location', 'birth_date']
+        widgets = {
+            'birth_date': forms.DateInput(attrs={'type': 'date'}),
+        }
+"         "
+# Create your views here.
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth import login
+from django.contrib import messages
+from .forms import UserRegisterForm, UserUpdateForm, ProfileUpdateForm
+from .models import Notification, Schedule,HealthRecord
+from django.http import JsonResponse
+
+
+from django.contrib.auth.decorators import login_required
+from .models import Income, Expense, Task
+from .forms import IncomeForm, ExpenseForm, TaskForm
+from django.db.models import Sum, Count, Avg
+
+from datetime import date, timedelta
+from django.http import HttpResponse
+import pandas as pd
+from xhtml2pdf import pisa
+from django.template.loader import render_to_string
+
+
+
+@login_required
+def dashboard(request):
+    user = request.user
+
+    incomes = Income.objects.filter(user=user)
+    expenses = Expense.objects.filter(user=user)
+    tasks = Task.objects.filter(user=user)
+    #Totals
+    income_total = incomes.aggregate(total=Sum('amount'))['total'] or 0
+    expense_total = expenses.aggregate(total=Sum('amount'))['total'] or 0
+    tasks_pending = tasks.filter(status='pending').count()
+    tasks_done = tasks.filter(status='done').count()
+    # Health averages last 7 days
+    week_ago = date.today() - timedelta(days=7)
+    health_avg = HealthRecord.objects.filter(user=user, date__gte=week_ago).aggregate(
+        avg_weight=Avg('weight'),
+        avg_exercise=Avg('exercise_minutes'),
+        avg_sleep=Avg('sleep_hours'),
+    )
+
+
+    # Recommendations
+    recommendations = []
+    if expense_total > income_total:
+        recommendations.append("Your expenses exceed your income. Consider budgeting better.")
+    if tasks_pending > 5:
+        recommendations.append("You have many pending tasks. Try to complete or reschedule them.")
+    if health_avg['avg_sleep'] and health_avg['avg_sleep'] < 6:
+        recommendations.append("You are sleeping less than recommended. Try to get more rest.")
+
+    today = date.today()
+    week_ago = today - timedelta(days=7)
+
+    current_week_food = expenses.filter(category='food', date__gte=week_ago).aggregate(total=Sum('amount'))['total'] or 0
+    previous_week_food = expenses.filter(category='food', date__lt=week_ago, date__gte=week_ago - timedelta(days=7)).aggregate(total=Sum('amount'))['total'] or 0
+
+    if current_week_food > previous_week_food * 1.2:
+        recommendations.append(f"You spent more than usual this week on food: ${current_week_food:.2f}")
+
+    if tasks_pending > 0:
+        recommendations.append(f"You have {tasks_pending} pending tasks — consider rescheduling or completing them.")
+
+    month_ago = today - timedelta(days=30)
+    income_last_month = incomes.filter(date__gte=month_ago).aggregate(total=Sum('amount'))['total'] or 0
+    expense_last_month = expenses.filter(date__gte=month_ago).aggregate(total=Sum('amount'))['total'] or 0
+    if expense_last_month > income_last_month:
+        recommendations.append("Your expenses exceeded your income in the last month. Consider reviewing your budget.")
+
+    context = {
+        'income_total': income_total,
+        'expense_total': expense_total,
+        'tasks_pending': tasks_pending,
+        'tasks_done': tasks_done,
+        'health_avg': health_avg,
+        'recommendations': recommendations,
+    }
+    return render(request, 'dashboard.html', context)
+
+# CRUD Views for Income
+
+@login_required
+def income_list(request):
+    incomes = Income.objects.filter(user=request.user).order_by('-date')
+    return render(request, 'income_list.html', {'incomes': incomes})
+
+@login_required
+def income_create(request):
+    if request.method == 'POST':
+        form = IncomeForm(request.POST)
+        if form.is_valid():
+            income = form.save(commit=False)
+            income.user = request.user
+            income.save()
+            messages.success(request, 'Income added successfully.')
+            return redirect('income_list')
+    else:
+        form = IncomeForm()
+    return render(request, 'income_form.html', {'form': form})
+
+@login_required
+def income_update(request, pk):
+    income = get_object_or_404(Income, pk=pk, user=request.user)
+    if request.method == 'POST':
+        form = IncomeForm(request.POST, instance=income)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Income updated successfully.')
+            return redirect('income_list')
+    else:
+        form = IncomeForm(instance=income)
+    return render(request, 'income_form.html', {'form': form})
+
+@login_required
+def income_delete(request, pk):
+    income = get_object_or_404(Income, pk=pk, user=request.user)
+    if request.method == 'POST':
+        income.delete()
+        messages.success(request, 'Income deleted successfully.')
+        return redirect('income_list')
+    return render(request, 'income_confirm_delete.html', {'income': income})
+
+
+@login_required
+def expense_list(request):
+    expenses = Expense.objects.filter(user=request.user).order_by('-date')
+    return render(request, 'expense_list.html', {'expenses': expenses})
+
+
+@login_required
+def expense_create(request):
+    if request.method == 'POST':
+        form = ExpenseForm(request.POST)
+        if form.is_valid():
+            expense = form.save(commit=False)
+            expense.user = request.user
+            expense.save()
+            messages.success(request, 'Expense added successfully.')
+            return redirect('expense_list')
+    else:
+        form = ExpenseForm()
+    return render(request, 'expense_form.html', {'form': form})
+
+@login_required
+def expense_update(request, pk):
+    expense = get_object_or_404(Expense, pk=pk, user=request.user)
+    if request.method == 'POST':
+        form = ExpenseForm(request.POST, instance=expense)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Expense updated successfully.')
+            return redirect('expense_list')
+    else:
+        form = ExpenseForm(instance=expense)
+    return render(request, 'expense_form.html', {'form': form})
+
+
+@login_required
+def expense_delete(request, pk):
+    expense = get_object_or_404(Expense, pk=pk, user=request.user)
+    if request.method == 'POST':
+        expense.delete()
+        messages.success(request, 'Expense deleted successfully.')
+        return redirect('expense_list')
+    return render(request, 'expense_confirm_delete.html', {'expense': expense})
+
+
+@login_required
+def task_list(request):
+    tasks = Task.objects.filter(user=request.user).order_by('-date')
+    return render(request, 'task_list.html', {'tasks': tasks})
+
+@login_required
+def task_create(request):
+    if request.method == 'POST':
+        form = TaskForm(request.POST)
+        if form.is_valid():
+            task = form.save(commit=False)
+            task.user = request.user
+            task.save()
+            messages.success(request, 'Task added successfully.')
+            return redirect('task_list')
+    else:
+        form = TaskForm()
+    return render(request, 'task_form.html', {'form': form})
+
+@login_required
+def task_update(request, pk):
+    task = get_object_or_404(Task, pk=pk, user=request.user)
+    if request.method == 'POST':
+        form = TaskForm(request.POST, instance=task)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Task updated successfully.')
+            return redirect('task_list')
+    else:
+        form = TaskForm(instance=task)
+    return render(request, 'task_form.html', {'form': form})
+
+@login_required
+def task_delete(request, pk):
+    task = get_object_or_404(Task, pk=pk, user=request.user)
+    if request.method == 'POST':
+        task.delete()
+        messages.success(request, 'Task deleted successfully.')
+        return redirect('task_list')
+    return render(request, 'task_confirm_delete.html', {'task': task})
+
+
+
+# HealthRecord CRUD
+
+@login_required
+def health_list(request):
+    health_records = HealthRecord.objects.filter(user=request.user).order_by('-date')
+    return render(request, 'health_list.html', {'health_records': health_records})
+
+@login_required
+def health_create(request):
+    if request.method == 'POST':
+        form = HealthRecordForm(request.POST)
+        if form.is_valid():
+            health = form.save(commit=False)
+            health.user = request.user
+            health.save()
+            messages.success(request, 'Health record added successfully.')
+            return redirect('health_list')
+    else:
+        form = HealthRecordForm()
+    return render(request, 'health_form.html', {'form': form})
+
+@login_required
+def health_update(request, pk):
+    health = get_object_or_404(HealthRecord, pk=pk, user=request.user)
+    if request.method == 'POST':
+        form = HealthRecordForm(request.POST, instance=health)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Health record updated successfully.')
+            return redirect('health_list')
+    else:
+        form = HealthRecordForm(instance=health)
+    return render(request, 'health_form.html', {'form': form})
+
+@login_required
+def health_delete(request, pk):
+    health = get_object_or_404(HealthRecord, pk=pk, user=request.user)
+    if request.method == 'POST':
+        health.delete()
+        messages.success(request, 'Health record deleted successfully.')
+        return redirect('health_list')
+    return render(request, 'health_confirm_delete.html', {'health': health})
+
+@login_required
+def schedule_list(request):
+    schedules = Schedule.objects.filter(user=request.user).order_by('start_datetime')
+    return render(request, 'schedule_list.html', {'schedules': schedules})
+
+
+@login_required
+def schedule_create(request):
+    if request.method == 'POST':
+        form = ScheduleForm(request.POST)
+        if form.is_valid():
+            schedule = form.save(commit=False)
+            schedule.user = request.user
+            schedule.save()
+            messages.success(request, 'Schedule added successfully.')
+            return redirect('schedule_list')
+    else:
+        form = ScheduleForm()
+    return render(request, 'schedule_form.html', {'form': form})
+
+@login_required
+def schedule_update(request, pk):
+    schedule = get_object_or_404(Schedule, pk=pk, user=request.user)
+    if request.method == 'POST':
+        form = ScheduleForm(request.POST, instance=schedule)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Schedule updated successfully.')
+            return redirect('schedule_list')
+    else:
+        form = ScheduleForm(instance=schedule)
+    return render(request, 'schedule_form.html', {'form': form})
+
+@login_required
+def schedule_delete(request, pk):
+    schedule = get_object_or_404(Schedule, pk=pk, user=request.user)
+    if request.method == 'POST':
+        schedule.delete()
+        messages.success(request, 'Schedule deleted successfully.')
+        return redirect('schedule_list')
+    return render(request, 'schedule_confirm_delete.html', {'schedule': schedule})
+
+
+
+# Repeat similar CRUD views for Expense and Task (omitted here for brevity)
+
+# Export reports as Excel
+
+
+@login_required
+def export_excel(request):
+    user = request.user
+    incomes = Income.objects.filter(user=user).values('amount', 'source', 'date', 'notes')
+    expenses = Expense.objects.filter(user=user).values('amount', 'category', 'date', 'notes')
+    tasks = Task.objects.filter(user=user).values('title', 'description', 'status', 'date', 'priority')
+    health = HealthRecord.objects.filter(user=user).values('date', 'weight', 'exercise_minutes', 'sleep_hours')
+    schedules = Schedule.objects.filter(user=user).values('title', 'description', 'start_datetime', 'end_datetime', 'location')
+
+    with pd.ExcelWriter('report.xlsx', engine='openpyxl') as writer:
+        pd.DataFrame(list(incomes)).to_excel(writer, sheet_name='Incomes', index=False)
+        pd.DataFrame(list(expenses)).to_excel(writer, sheet_name='Expenses', index=False)
+        pd.DataFrame(list(tasks)).to_excel(writer, sheet_name='Tasks', index=False)
+        pd.DataFrame(list(health)).to_excel(writer, sheet_name='Health', index=False)
+        pd.DataFrame(list(schedules)).to_excel(writer, sheet_name='Schedule', index=False)
+
+    with open('report.xlsx', 'rb') as f:
+        response = HttpResponse(f.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = 'attachment; filename=report.xlsx'
+        return response
+
+# Export reports as PDF
+
+
+@login_required
+def export_pdf(request):
+    user = request.user
+    incomes = Income.objects.filter(user=user)
+    expenses = Expense.objects.filter(user=user)
+    tasks = Task.objects.filter(user=user)
+    health = HealthRecord.objects.filter(user=user)
+    schedules = Schedule.objects.filter(user=user)
+
+    html = render_to_string('report_pdf.html', {
+        'incomes': incomes,
+        'expenses': expenses,
+        'tasks': tasks,
+        'health': health,
+        'schedules': schedules,
+        'user': user,
+    })
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="report.pdf"'
+    pisa_status = pisa.CreatePDF(html, dest=response)
+    if pisa_status.err:
+        return HttpResponse('Error generating PDF', status=500)
+    return response
+
+
+
+def register(request):
+    if request.method == 'POST':
+        form = UserRegisterForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            messages.success(request, 'Registration successful.')
+            return redirect('dashboard')
+    else:
+        form = UserRegisterForm()
+    return render(request, 'register.html', {'form': form})
+
+@login_required
+def notifications_list(request):
+    notifications = Notification.objects.filter(user=request.user).order_by('-created_at')
+    return render(request, 'notifications.html', {'notifications': notifications})
+
+@login_required
+def mark_notification_read(request, pk):
+    notification = get_object_or_404(Notification, pk=pk, user=request.user)
+    notification.read = True
+    notification.save()
+    return redirect('notifications_list')
+
+@login_required
+def calendar_view(request):
+    schedules = Schedule.objects.filter(user=request.user)
+    events = []
+    for s in schedules:
+        events.append({
+            'title': s.title,
+            'start': s.start_datetime.isoformat(),
+            'end': s.end_datetime.isoformat(),
+            'url': '',  # optional: link to edit
+
+        })
+    return render(request, 'calendar.html', {'events': events})
+
+@login_required
+def profile(request):
+    if request.method == 'POST':
+        u_form = UserUpdateForm(request.POST, instance=request.user)
+        p_form = ProfileUpdateForm(request.POST, instance=request.user.profile)
+        if u_form.is_valid() and p_form.is_valid():
+            u_form.save()
+            p_form.save()
+            messages.success(request, 'Your profile has been updated.')
+            return redirect('profile')
+    else:
+        u_form = UserUpdateForm(instance=request.user)
+        p_form = ProfileUpdateForm(instance=request.user.profile)
+    return render(request, 'profile.html', {'u_form': u_form, 'p_form': p_form})
+
+from django.views.decorators.http import require_POST
+
+
+
+def toggle_dark_mode(request):
+    current = request.COOKIES.get('theme', 'light')
+    new_theme = 'dark' if current == 'light' else 'light'
+    response = JsonResponse({'theme': new_theme})
+    response.set_cookie('theme', new_theme, max_age=365*24*60*60)
+    return response
+"        "from django.urls import path
+from django.contrib.auth import views as auth_views
+from django.contrib.auth.views import LogoutView
+
+
+from . import views
+
+urlpatterns = [
+    path('', views.dashboard, name='dashboard'),
+    path('income/', views.income_list, name='income_list'),
+    path('income/add/', views.income_create, name='income_create'),
+    path('income/<int:pk>/edit/', views.income_update, name='income_update'),
+    path('income/<int:pk>/delete/', views.income_delete, name='income_delete'),
+   
+    path('export/excel/', views.export_excel, name='export_excel'),
+    path('export/pdf/', views.export_pdf, name='export_pdf'),
+    path('toggle-dark-mode/', views.toggle_dark_mode, name='toggle_dark_mode'),
+
+
+    path('task/', views.task_list, name='task_list'),
+    path('task/add/', views.task_create, name='task_create'),
+    path('task/<int:pk>/edit/', views.task_update, name='task_update'),
+    path('task/<int:pk>/delete/', views.task_delete, name='task_delete'),
+
+    path('health/', views.health_list, name='health_list'),
+    path('health/add/', views.health_create, name='health_create'),
+    path('health/<int:pk>/edit/', views.health_update, name='health_update'),
+    path('health/<int:pk>/delete/', views.health_delete, name='health_delete'),
+
+    path('schedule/', views.schedule_list, name='schedule_list'),
+    path('schedule/add/', views.schedule_create, name='schedule_create'),
+    path('schedule/<int:pk>/edit/', views.schedule_update, name='schedule_update'),
+    path('schedule/<int:pk>/delete/', views.schedule_delete, name='schedule_delete'),
+
+    path('expense/', views.expense_list, name='expense_list'),
+    path('expense/add/', views.expense_create, name='expense_create'),
+    path('expense/<int:pk>/edit/', views.expense_update, name='expense_update'),
+    path('expense/<int:pk>/delete/', views.expense_delete, name='expense_delete'),
+
+    path('register/', views.register, name='register'),
+    path('login/', auth_views.LoginView.as_view(template_name='login.html'), name='login'),
+    path('logout/', LogoutView.as_view(next_page='/login/'), name='logout'),
+
+    path('notifications/', views.notifications_list, name='notifications_list'),
+    path('notifications/<int:pk>/read/', views.mark_notification_read, name='mark_notification_read'),
+    path('calendar/', views.calendar_view, name='calendar'),
+    path('profile/', views.profile, name='profile'),
+    # Ongeza URLs nyingine kama login, logout, dashboard n.k.
+]
+"

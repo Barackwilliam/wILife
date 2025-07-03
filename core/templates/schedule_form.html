@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}{{ form.instance.pk|yesno:"Edit Schedule,Add Schedule" }}{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 700px;">
+  <h2>{{ form.instance.pk|yesno:"Edit Schedule,Add Schedule" }}      <a href="{% url 'schedule_list' %}" class="btn btn-sm btn-danger" title="Back to List">
+            <i class="bi bi-arrow-left"></i>
+          </a></h2>
+  <form method="post" novalidate>
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+
+      <div class="mb-3">
+          {{ form.title.label_tag }}
+          {{ form.title }}
+          <div class="text-danger">{{ form.title.errors }}</div>
+      </div>
+
+      <div class="mb-3">
+          {{ form.description.label_tag }}
+          {{ form.description }}
+          <div class="text-danger">{{ form.description.errors }}</div>
+      </div>
+
+      <div class="mb-3">
+          {{ form.start_datetime.label_tag }}
+          {{ form.start_datetime }}
+          <div class="text-danger">{{ form.start_datetime.errors }}</div>
+      </div>
+
+      <div class="mb-3">
+          {{ form.end_datetime.label_tag }}
+          {{ form.end_datetime }}
+          <div class="text-danger">{{ form.end_datetime.errors }}</div>
+      </div>
+
+      <div class="mb-3">
+          {{ form.location.label_tag }}
+          {{ form.location }}
+          <div class="text-danger">{{ form.location.errors }}</div>
+      </div>
+
+      <div class="mb-3">
+          {{ form.reminder_datetime.label_tag }}
+          {{ form.reminder_datetime }}
+          <div class="text-danger">{{ form.reminder_datetime.errors }}</div>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Save</button>
+      <a href="{% url 'schedule_list' %}" class="btn btn-secondary">Cancel</a>
+  </form>
+</div>
+{% endblock %}

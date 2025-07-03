@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}Notifications{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <h2 class="mb-4">📬 All Notifications</h2>
+
+  <ul class="list-group shadow-sm">
+    {% for notification in notifications %}
+      <li class="list-group-item d-flex justify-content-between align-items-start {% if not notification.read %}list-group-item-warning{% endif %}">
+        <div class="me-3">
+          <p class="fw-bold mb-1">{{ notification.message }}</p>
+          <small class="text-muted">{{ notification.created_at|date:"M d, Y H:i" }}</small>
+        </div>
+        <div class="d-flex flex-column gap-2">
+          {% if not notification.read %}
+          <a href="{% url 'mark_notification_read' notification.pk %}" class="btn btn-sm btn-outline-success">Mark as Read</a>
+          {% endif %}
+          <a href="{% url 'notification_delete' notification.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
+        </div>
+      </li>
+    {% empty %}
+      <li class="list-group-item text-center text-muted">📭 No notifications found.</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endblock %}

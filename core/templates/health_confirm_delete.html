@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}Delete Health Record{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 600px;">
+  <h1 class="mb-4 text-danger">Delete Health Record</h1>
+  <p class="lead">
+    Are you sure you want to delete the health record dated 
+    <strong>{{ health.date }}</strong> with weight 
+    <strong>{{ health.weight|default:"N/A" }} kg</strong>, exercise 
+    <strong>{{ health.exercise_minutes|default:"N/A" }} minutes</strong>, and sleep 
+    <strong>{{ health.sleep_hours|default:"N/A" }} hours</strong>?
+  </p>
+
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger">Yes, Delete</button>
+    <a href="{% url 'health_list' %}" class="btn btn-secondary ms-2">Cancel</a>
+  </form>
+</div>
+{% endblock %}

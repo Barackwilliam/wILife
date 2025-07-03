@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+
+<style>
+  .login-container {
+    max-width: 420px;
+    margin: auto;
+    padding-top: 6vh;
+    padding-bottom: 4vh;
+  }
+
+  .card {
+    border: none;
+    border-radius: 1rem;
+    box-shadow: 0 0 25px rgba(0, 0, 0, 0.05);
+  }
+
+  .form-label {
+    font-weight: 500;
+  }
+
+  .input-with-icon {
+    position: relative;
+  }
+
+  .input-with-icon i {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #aaa;
+    pointer-events: none;
+  }
+
+  .input-with-icon input {
+    padding-left: 2.5rem !important;
+  }
+
+  @media (max-width: 575.98px) {
+    .login-container {
+      padding: 2rem 1rem;
+    }
+  }
+</style>
+
+<div class="container login-container">
+  <div class="card p-4">
+    <div class="text-center mb-4">
+      <h3 class="fw-bold">Welcome Back</h3>
+      <p class="text-muted mb-0">Please log in to continue</p>
+    </div>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger">
+          {{ form.non_field_errors }}
+        </div>
+      {% endif %}
+
+      <!-- Username Field -->
+      <div class="mb-3">
+        <label for="{{ form.username.id_for_label }}" class="form-label">Username</label>
+        <div class="input-with-icon">
+          <i class="fa fa-user"></i>
+          {{ form.username }}
+        </div>
+        {% for error in form.username.errors %}
+          <div class="text-danger small mt-1">{{ error }}</div>
+        {% endfor %}
+      </div>
+
+      <!-- Password Field -->
+      <div class="mb-3">
+        <label for="{{ form.password.id_for_label }}" class="form-label">Password</label>
+        <div class="input-with-icon">
+          <i class="fa fa-lock"></i>
+          {{ form.password }}
+        </div>
+        {% for error in form.password.errors %}
+          <div class="text-danger small mt-1">{{ error }}</div>
+        {% endfor %}
+      </div>
+
+      <button type="submit" class="btn btn-primary w-100 mb-3">
+        <i class="fas fa-sign-in-alt me-1"></i> Login
+      </button>
+    </form>
+
+    <a href="{% url 'register' %}" class="btn btn-outline-secondary w-100 mb-2">
+      <i class="fas fa-user-plus me-1"></i> Create an Account
+    </a>
+
+    <p class="text-center mt-3 mb-0">
+      <a href="{% url 'password_reset' %}" class="text-decoration-none">
+        <i class="fas fa-unlock-alt me-1"></i> Forgot your password?
+      </a>
+    </p>
+  </div>
+</div>
+{% endblock %}

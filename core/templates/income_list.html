@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block title %}Income List{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 fw-bold">Income Records</h1>
+    <a href="{% url 'income_create' %}" class="btn btn-primary shadow-sm">
+      <i class="bi bi-plus-lg"></i> Add New Income
+    </a>
+  </div>
+
+  {% if incomes %}
+  <div class="table-responsive">
+    <table class="table table-striped table-hover align-middle">
+      <thead class="table-light text-uppercase small">
+        <tr>
+          <th>Date</th>
+          <th>Source</th>
+          <th class="text-end">Amount (USD)</th>
+          <th class="text-center">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for income in incomes %}
+        <tr>
+          <td>{{ income.date|date:"M d, Y" }}</td>
+          <td>{{ income.source }}</td>
+          <td class="text-end">Tsh.{{ income.amount|floatformat:2 }}/=</td>
+          <td class="text-center">
+            <a href="{% url 'income_update' income.id %}" class="btn btn-sm btn-outline-secondary me-2" title="Edit">
+              <i class="bi bi-pencil"></i>
+            </a>
+            <a href="{% url 'income_delete' income.id %}" class="btn btn-sm btn-outline-danger" title="Delete" onclick="return confirm('Are you sure you want to delete this income?');">
+              <i class="bi bi-trash"></i>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="alert alert-info">
+    No income records found. <a href="{% url 'income_create' %}" class="alert-link">Add your first income</a>.
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

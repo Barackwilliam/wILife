@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+
+<div class="container py-5">
+  <h2 class="text-center mb-5">📊 Personal Dashboard for {{ request.user.username }}</h2>
+
+  <div class="row g-4 mb-4">
+    <div class="col-md-4">
+      <div class="card p-3">
+        <h5>💰 Total Income</h5>
+        <h3 class="text-success">Tsh.{{ income_total }}/=</h3>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card p-3">
+        <h5>💸 Total Expenses</h5>
+        <h3 class="text-danger">Tsh.{{ expense_total }}/=</h3>
+        <small>Spending vs Income</small>
+        <div class="progress">
+          <div class="progress-bar bg-danger" style="width: {{ expense_vs_income_percent }}%">{{ expense_vs_income_percent|floatformat:0 }}%</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card p-3">
+        <h5>📅 Tasks Overview</h5>
+        <div>Pending: {{ tasks_pending }}</div>
+        <div class="progress mb-2">
+          <div class="progress-bar bg-warning" style="width: {{ tasks_pending_percent }}%">{{ tasks_pending_percent|floatformat:0 }}%</div>
+        </div>
+        <div>Completed: {{ tasks_done }}</div>
+        <div class="progress">
+          <div class="progress-bar bg-success" style="width: {{ tasks_done_percent }}%">{{ tasks_done_percent|floatformat:0 }}%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4 mb-4">
+    <div class="col-md-6">
+      <div class="card p-3">
+        <h5 class="section-title">🏥 Health Insights</h5>
+        <ul class="list-group list-group-flush">
+          <li class="list-group-item bg-transparent text-dark">Weight (avg): {{ health_avg.avg_weight|default:"N/A" }}</li>
+          <li class="list-group-item bg-transparent text-dark">Exercise (avg): {{ health_avg.avg_exercise|default:"N/A" }} min</li>
+          <li class="list-group-item bg-transparent text-dark">Sleep (avg): {{ health_avg.avg_sleep|default:"N/A" }} hrs</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card p-3">
+        <h5 class="section-title">📊 Expense Categories - Bar Chart</h5>
+        <canvas id="expenseBarChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4 mb-4">
+    <div class="col-md-12">
+      <div class="card p-3">
+        <h5 class="section-title">🧁 Expense Categories - Pie Chart</h5>
+        <canvas id="expensePieChart" style="max-width: 400px; max-height: 400px; margin: auto; display: block;"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="card p-4">
+    <h5 class="section-title">💡 Smart Recommendations</h5>
+    {% if recommendations %}
+      <ul class="list-group list-group-flush">
+        {% for r in recommendations %}
+          <li class="list-group-item bg-transparent text-dark">⚠️ {{ r }}</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-success">✅ Everything looks great! Keep it up!</p>
+    {% endif %}
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const barCtx = document.getElementById('expenseBarChart').getContext('2d');
+  const pieCtx = document.getElementById('expensePieChart').getContext('2d');
+  const expenseLabels = {{ categories|safe }};
+  const expenseData = {{ expense_data|safe }};
+
+  new Chart(barCtx, {
+    type: 'bar',
+    data: {
+      labels: expenseLabels,
+      datasets: [{
+        label: 'Expenses (Tsh)',
+        data: expenseData,
+        backgroundColor: '#0dcaf0'
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
+
+  new Chart(pieCtx, {
+    type: 'pie',
+    data: {
+      labels: expenseLabels,
+      datasets: [{
+        label: 'Expense Share',
+        data: expenseData,
+        backgroundColor: [
+          '#0dcaf0', '#ffc107', '#fd7e14', '#dc3545', '#20c997', '#6f42c1', '#198754'
+        ]
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          position: 'bottom'
+        }
+      }
+    }
+  });
+</script>
+
+{% endblock %}

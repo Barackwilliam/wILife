@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block title %}Register{% endblock %}
+{% block content %}
+<div class="container py-4" style="max-width: 500px;">
+  <h2 class="mb-4">Create an Account</h2>
+  <form method="post" novalidate>
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+
+      <div class="mb-3">
+          {{ form.username.label_tag }}<br>
+          {{ form.username }}
+          <div class="text-danger">{{ form.username.errors }}</div>
+      </div>
+
+      <div class="mb-3">
+          {{ form.email.label_tag }}<br>
+          {{ form.email }}
+          <div class="text-danger">{{ form.email.errors }}</div>
+      </div>
+
+      <div class="mb-3">
+          {{ form.password1.label_tag }}<br>
+          {{ form.password1 }}
+          <div class="text-danger">{{ form.password1.errors }}</div>
+      </div>
+
+      <div class="mb-3">
+          {{ form.password2.label_tag }}<br>
+          {{ form.password2 }}
+          <div class="text-danger">{{ form.password2.errors }}</div>
+      </div>
+
+      <button type="submit" class="btn btn-primary w-100">Register</button>
+  </form>
+
+  <!-- Login Button -->
+  <div class="text-center mt-3">
+    <p class="mb-1 text-muted">Already have an account?</p>
+    <a href="{% url 'login' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-box-arrow-in-right"></i> Login
+    </a>
+  </div>
+</div>
+{% endblock %}

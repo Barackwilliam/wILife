@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block title %}{{ form.instance.pk|yesno:"Edit Health Record,Add Health Record" }}{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 600px;">
+  <h2>{{ form.instance.pk|yesno:"Edit Health Record,Add Health Record" }} <a href="{% url 'health_list' %}" class="btn btn-sm btn-danger" title="Back to List">
+            <i class="bi bi-arrow-left"></i>
+          </a></h2>
+  <form method="post" novalidate>
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+
+      <div class="mb-3">
+          {{ form.date.label_tag }}
+          {{ form.date }}
+          <div class="text-danger">{{ form.date.errors }}</div>
+      </div>
+
+      <div class="mb-3">
+          {{ form.weight.label_tag }}
+          {{ form.weight }}
+          <div class="text-danger">{{ form.weight.errors }}</div>
+      </div>
+
+      <div class="mb-3">
+          {{ form.exercise_minutes.label_tag }}
+          {{ form.exercise_minutes }}
+          <div class="text-danger">{{ form.exercise_minutes.errors }}</div>
+      </div>
+
+      <div class="mb-3">
+          {{ form.sleep_hours.label_tag }}
+          {{ form.sleep_hours }}
+          <div class="text-danger">{{ form.sleep_hours.errors }}</div>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Save</button>
+      <a href="{% url 'health_list' %}" class="btn btn-secondary">Cancel</a>
+  </form>
+</div>
+{% endblock %}

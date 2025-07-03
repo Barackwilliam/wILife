@@ -1,0 +1,256 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}📅 My Schedule{% endblock %}
+
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet" />
+<style>
+   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
+  body {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    font-family: 'Inter', sans-serif;
+    color: #2c3e50;
+    margin: 0;
+    padding: 0;
+  }
+
+  #calendar-container {
+    max-width: 900px;
+    margin: 50px auto;
+    background: #ffffffcc;
+    padding: 40px 35px;
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    transition: box-shadow 0.3s ease;
+  }
+  #calendar-container:hover {
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+  }
+
+  #calendar {
+    width: 100%;
+  }
+
+  h1 {
+    text-align: center;
+    font-weight: 700;
+    font-size: 2.8rem;
+    color: #4a4a4a;
+    margin-bottom: 40px;
+    letter-spacing: 1.2px;
+    user-select: none;
+  }
+
+  /* FullCalendar overrides */
+  .fc {
+    --fc-border-color: #e0e0e0;
+    --fc-daygrid-event-dot-width: 12px;
+  }
+
+  .fc .fc-toolbar-title {
+    font-weight: 700;
+    font-size: 1.8rem;
+    color: #333;
+  }
+
+  .fc .fc-button {
+    background: #667eea;
+    border: none;
+    color: white;
+    font-weight: 600;
+    border-radius: 6px;
+    padding: 8px 16px;
+    box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+    transition: background-color 0.3s ease;
+  }
+  .fc .fc-button:hover, .fc .fc-button:focus {
+    background: #5a67d8;
+    box-shadow: 0 6px 12px rgba(90, 103, 216, 0.6);
+  }
+  .fc .fc-button:disabled {
+    background: #a0aec0;
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+
+  .fc .fc-daygrid-event {
+    border-radius: 12px;
+    padding: 4px 10px;
+    font-weight: 600;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    transition: transform 0.2s ease;
+  }
+  .fc .fc-daygrid-event:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+    cursor: pointer;
+  }
+
+  /* Responsive improvements */
+  @media (max-width: 1024px) {
+    #calendar-container {
+      max-width: 95%;
+      padding: 30px 25px;
+      margin: 40px auto;
+    }
+    h1 {
+      font-size: 2.4rem;
+      margin-bottom: 35px;
+    }
+    .fc .fc-toolbar-title {
+      font-size: 1.5rem;
+    }
+    .fc .fc-button {
+      padding: 6px 12px;
+      font-size: 0.9rem;
+    }
+  }
+
+  @media (max-width: 768px) {
+    #calendar-container {
+      padding: 25px 20px;
+      margin: 30px 15px;
+      border-radius: 16px;
+    }
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 30px;
+    }
+    .fc .fc-toolbar-title {
+      font-size: 1.3rem;
+    }
+    .fc .fc-button {
+      padding: 5px 10px;
+      font-size: 0.85rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    #calendar-container {
+      padding: 20px 15px;
+      margin: 20px 10px;
+      border-radius: 14px;
+    }
+    h1 {
+      font-size: 1.6rem;
+      margin-bottom: 25px;
+    }
+    .fc .fc-toolbar-title {
+      font-size: 1.1rem;
+    }
+    .fc .fc-button {
+      padding: 4px 8px;
+      font-size: 0.8rem;
+    }
+
+    /* Simplify header toolbar on very small screens */
+    .fc-header-toolbar {
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+    .fc-header-toolbar > div {
+      flex: 1 1 100%;
+      text-align: center;
+    }
+
+    /* Make event titles smaller */
+    .fc .fc-daygrid-event {
+      font-size: 0.75rem;
+      padding: 3px 6px;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div id="calendar-container" role="region" aria-label="My Personal Schedule Calendar">
+    <h1>🗓️ My Personal Schedule</h1>
+    <div id="calendar"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const calendarEl = document.getElementById('calendar');
+
+    const events = [
+      {% for event in events %}
+      {
+        title: "{{ event.title|escapejs }}",
+        start: "{{ event.start }}",
+        end: "{{ event.end }}",
+        color: "#667eea", // Soft blue for events
+        textColor: "#fff"
+      },
+      {% endfor %}
+    ];
+
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+      initialView: 'dayGridMonth',
+      themeSystem: 'standard',
+      headerToolbar: {
+        left: 'prev,next today',
+        center: 'title',
+        right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
+      },
+      height: "auto",
+      navLinks: true,
+      nowIndicator: true,
+      editable: false,
+      events: events,
+      eventClick: function (info) {
+        const start = new Date(info.event.start).toLocaleString();
+        const end = info.event.end ? new Date(info.event.end).toLocaleString() : "N/A";
+
+        // Custom modal instead of alert for better UX
+        const modal = document.createElement('div');
+        modal.style.position = 'fixed';
+        modal.style.top = '0';
+        modal.style.left = '0';
+        modal.style.width = '100vw';
+        modal.style.height = '100vh';
+        modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+        modal.style.display = 'flex';
+        modal.style.justifyContent = 'center';
+        modal.style.alignItems = 'center';
+        modal.style.zIndex = '9999';
+
+        const content = document.createElement('div');
+        content.style.background = '#fff';
+        content.style.padding = '25px 30px';
+        content.style.borderRadius = '12px';
+        content.style.boxShadow = '0 10px 30px rgba(0,0,0,0.2)';
+        content.style.maxWidth = '400px';
+        content.style.textAlign = 'center';
+        content.style.fontFamily = "'Inter', sans-serif";
+
+        content.innerHTML = `
+          <h2 style="margin-bottom: 15px; color: #667eea;">📌 Event Details</h2>
+          <p><strong>Event:</strong> ${info.event.title}</p>
+          <p><strong>Start:</strong> ${start}</p>
+          <p><strong>End:</strong> ${end}</p>
+          <button id="closeModal" style="margin-top: 20px; background: #667eea; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600;">Close</button>
+        `;
+
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+
+        document.getElementById('closeModal').addEventListener('click', () => {
+          document.body.removeChild(modal);
+        });
+
+        info.jsEvent.preventDefault();
+      }
+    });
+
+    calendar.render();
+  });
+</script>
+{% endblock %}

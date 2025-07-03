@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}Welcome{% endblock %}
+
+{% block content %}
+<style>
+  .welcome-section {
+    min-height: 92vh;
+    background: linear-gradient(
+        rgba(0, 0, 0, 0.4), 
+        rgba(0, 0, 0, 0.4)
+      ),
+      url("https://source.unsplash.com/1600x900/?technology,lifestyle") center/cover no-repeat;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    text-align: center;
+    border-radius: 1rem;
+    box-shadow: 0 0 30px rgba(0,0,0,0.2);
+  }
+
+  .welcome-content h1 {
+    font-size: 3rem;
+    font-weight: 700;
+  }
+
+  .welcome-content p {
+    font-size: 1.2rem;
+    max-width: 600px;
+    margin: 1rem auto 2rem;
+  }
+
+  .welcome-buttons a {
+    margin: 0.5rem;
+    padding: 0.7rem 1.5rem;
+    border-radius: 50px;
+    font-weight: 500;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+  }
+
+  .btn-register {
+    background-color: #0d6efd;
+    color: white;
+  }
+
+  .btn-register:hover {
+    background-color: #0b5ed7;
+  }
+
+  .btn-login {
+    background-color: white;
+    color: #0d6efd;
+    border: 1px solid #0d6efd;
+  }
+
+  .btn-login:hover {
+    background-color: #e9f2ff;
+  }
+
+  .btn-explore {
+    background-color: transparent;
+    border: 1px solid white;
+    color: white;
+  }
+
+  .btn-explore:hover {
+    background-color: rgba(255,255,255,0.1);
+  }
+
+  /* Dark mode styles */
+  .dark-mode .welcome-section {
+    background: linear-gradient(
+        rgba(0, 0, 0, 0.7), 
+        rgba(0, 0, 0, 0.7)
+      ),
+      url("https://source.unsplash.com/1600x900/?abstract,dark") center/cover no-repeat;
+    color: #f8f9fa;
+  }
+
+  .dark-mode .btn-login {
+    background-color: transparent;
+    color: white;
+    border: 1px solid white;
+  }
+
+  .dark-mode .btn-login:hover {
+    background-color: rgba(255,255,255,0.1);
+  }
+
+</style>
+{% if user.is_authenticated %}
+<section class="container my-5 py-4 px-3 rounded shadow-sm bg-success dark-mode-bg">
+  <h2 class="mb-3 fw-bold">Welcome back, {{ user.first_name|default:user.username|capfirst }} 👋</h2>
+  <p class="text-muted fs-6">
+    Here’s a quick overview of your life today. Use the menu to navigate between your finances, tasks, schedule, and health updates.
+  </p>
+
+  <div class="row g-3 mt-4">
+    <div class="col-md-3">
+      <div class="card text-center border-0 shadow-sm h-100">
+        <div class="card-body">
+          <i class="bi bi-cash-stack fs-1 text-success"></i>
+          <h5 class="mt-2">Track Income</h5>
+          <p class="small text-muted">View, add or manage your earnings.</p>
+          <a href="{% url 'income_list' %}" class="btn btn-sm btn-outline-success">Go</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-center border-0 shadow-sm h-100">
+        <div class="card-body">
+          <i class="bi bi-credit-card fs-1 text-danger"></i>
+          <h5 class="mt-2">Manage Expenses</h5>
+          <p class="small text-muted">Keep your spending in check.</p>
+          <a href="{% url 'expense_list' %}" class="btn btn-sm btn-outline-danger">Go</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-center border-0 shadow-sm h-100">
+        <div class="card-body">
+          <i class="bi bi-heart-pulse fs-1 text-warning"></i>
+          <h5 class="mt-2">Health Logs</h5>
+          <p class="small text-muted">Monitor your wellness activities.</p>
+          <a href="{% url 'health_list' %}" class="btn btn-sm btn-outline-warning">Go</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-center border-0 shadow-sm h-100">
+        <div class="card-body">
+          <i class="bi bi-list-task fs-1 text-primary"></i>
+          <h5 class="mt-2">Tasks & To-Dos</h5>
+          <p class="small text-muted">Stay on top of your plans.</p>
+          <a href="{% url 'task_list' %}" class="btn btn-sm btn-outline-primary">Go</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% else %}
+
+<section class="welcome-section">
+  <div class="welcome-content">
+    <h1 style="color:green">Welcome to wILife</h1>
+    <p class="lead fw-semibold">
+      Take control of your life like never before.  
+      Track your finances, health, tasks, and schedule effortlessly — all in one powerful, easy-to-use platform designed just for you.
+    </p>
+    <p>
+      Join thousands of users transforming their daily routines into success stories.  
+      Ready to unlock your full potential? Let’s get started!
+    </p>
+    <div class="welcome-buttons">
+      <a href="{% url 'register' %}" class="btn btn-register">Get Started</a>
+      <a href="{% url 'login' %}" class="btn btn-login">Login</a>
+      <a href="{% url 'dashboard' %}" class="btn btn-explore">Explore Dashboard</a>
+    </div>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

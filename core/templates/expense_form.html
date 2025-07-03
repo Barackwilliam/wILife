@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}{{ form.instance.pk|yesno:"Edit Expense,Add Expense" }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="card shadow-sm">
+    <div class="card-header bg-primary text-white">
+      <h4 class="mb-0">{{ form.instance.pk|yesno:"Edit Expense,Add Expense" }}  ___ 
+        <a href="{% url 'expense_list' %}" class="btn btn-sm btn-danger" title="Back to List">
+            <i class="bi bi-arrow-left"></i>
+          </a>
+      </h4>
+      
+    </div>
+    <div class="card-body">
+      <form method="post" novalidate>
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+
+        <div class="mb-3">
+          {{ form.amount.label_tag }}
+          {{ form.amount }}
+          <div class="text-danger small">{{ form.amount.errors }}</div>
+        </div>
+
+        <div class="mb-3">
+          {{ form.category.label_tag }}
+          {{ form.category }}
+          <div class="text-danger small">{{ form.category.errors }}</div>
+        </div>
+
+        <div class="mb-3">
+          {{ form.date.label_tag }}
+          {{ form.date }}
+          <div class="text-danger small">{{ form.date.errors }}</div>
+        </div>
+
+        <div class="mb-3">
+          {{ form.notes.label_tag }}
+          {{ form.notes }}
+          <div class="text-danger small">{{ form.notes.errors }}</div>
+        </div>
+
+        <div class="d-flex justify-content-between">
+          <button type="submit" class="btn btn-success">
+            <i class="bi bi-check-circle-fill"></i> Save
+          </button>
+          <a href="{% url 'expense_list' %}" class="btn btn-secondary">
+            <i class="bi bi-x-circle-fill"></i> Cancel
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

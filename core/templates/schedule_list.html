@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Schedule{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Schedule</h2>
+    <a href="{% url 'schedule_create' %}" class="btn btn-success">Add Schedule</a>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped table-hover align-middle">
+        <thead class="table-light">
+            <tr>
+                <th>Title</th>
+                <th>Start</th>
+                <th>End</th>
+                <th>Location</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for event in schedules %}
+            <tr>
+                <td>{{ event.title }}</td>
+                <td>{{ event.start_datetime|date:"M d, Y H:i" }}</td>
+                <td>{{ event.end_datetime|date:"M d, Y H:i" }}</td>
+                <td>{{ event.location|default:"-" }}</td>
+                <td>
+                    <a href="{% url 'schedule_update' event.pk %}" class="btn btn-sm btn-primary">Edit</a>
+                    <a href="{% url 'schedule_delete' event.pk %}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this event?');">Delete</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-center">No scheduled events found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
