@@ -238,6 +238,37 @@ body,
           </button>
         </div>
       </nav>
+
+      <!-- Button ya Print -->
+<div style="text-align: right; margin-bottom: 20px;">
+  <button onclick="window.print()" 
+          style="
+            background-color: #0dcaf0;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(13,202,240,0.5);
+            transition: background-color 0.3s ease;
+          "
+          onmouseover="this.style.backgroundColor='#0bb8d7'"
+          onmouseout="this.style.backgroundColor='#0dcaf0'">
+    🖨️ Print Report
+  </button>
+</div>
+
+
+
+      {% if messages %}
+  {% for message in messages %}
+    <div class="alert alert-success">
+      {{ message }}
+    </div>
+  {% endfor %}
+{% endif %}
+
       
         <main class="container-fluid py-4 main-content">
   {% block content %}

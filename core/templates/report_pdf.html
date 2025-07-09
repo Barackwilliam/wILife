@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>User Detailed Report</title>
+  <style>
+    /* --- General Styles --- */
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-size: 13px;
+      color: #2c3e50;
+      background: #f7f9fc;
+      margin: 20px;
+      line-height: 1.4;
+    }
+    h1, h2 {
+      color: #34495e;
+      margin-bottom: 8px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+    }
+    h1 {
+      font-size: 28px;
+      border-bottom: 3px solid #2980b9;
+      padding-bottom: 6px;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    h2 {
+      font-size: 18px;
+      background-color: #2980b9;
+      color: white;
+      padding: 10px 15px;
+      border-radius: 4px 4px 0 0;
+      margin-top: 30px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 25px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      background: white;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #ddd;
+      text-align: left;
+    }
+    th {
+      background-color: #3498db;
+      color: white;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 13px;
+    }
+    tr:nth-child(even) td {
+      background-color: #f3f6fb;
+    }
+    tr:hover td {
+      background-color: #d6eaf8;
+    }
+    .section {
+      page-break-inside: avoid;
+    }
+    .no-data {
+      font-style: italic;
+      color: #888;
+      padding: 10px 0;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>User Detailed Report</h1>
+
+  <!-- USER PROFILE -->
+  <div class="section">
+    <h2>👤 User Profile</h2>
+    <table>
+      <tr><th>Full Name</th><td>{{ user.get_full_name|default:user.username }}</td></tr>
+      <tr><th>Email</th><td>{{ user.email }}</td></tr>
+      {% if profile %}
+        <tr><th>Location</th><td>{{ profile.location|default:"N/A" }}</td></tr>
+        <tr><th>Bio</th><td>{{ profile.bio|default:"N/A" }}</td></tr>
+        <tr><th>Date of Birth</th><td>{{ profile.birth_date|date:"F d, Y"|default:"N/A" }}</td></tr>
+      {% endif %}
+    </table>
+  </div>
+
+  <!-- INCOME -->
+  <div class="section">
+    <h2>💰 Income Summary</h2>
+    {% if incomes %}
+      <table>
+        <thead>
+          <tr><th>Date</th><th>Source</th><th>Amount (Tsh)</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          {% for i in incomes %}
+          <tr>
+            <td>{{ i.date }}</td>
+            <td>{{ i.source }}</td>
+            <td>{{ i.amount }}</td>
+            <td>{{ i.notes|default:"-" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="no-data">No income records found.</p>
+    {% endif %}
+  </div>
+
+  <!-- EXPENSES -->
+  <div class="section">
+    <h2>💸 Expenses Summary</h2>
+    {% if expenses %}
+      <table>
+        <thead>
+          <tr><th>Date</th><th>Category</th><th>Amount (Tsh)</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          {% for e in expenses %}
+          <tr>
+            <td>{{ e.date }}</td>
+            <td>{{ e.get_category_display }}</td>
+            <td>{{ e.amount }}</td>
+            <td>{{ e.notes|default:"-" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="no-data">No expense records found.</p>
+    {% endif %}
+  </div>
+
+  <!-- TASKS -->
+  <div class="section">
+    <h2>✅ Tasks Overview</h2>
+    {% if tasks %}
+      <table>
+        <thead>
+          <tr><th>Title</th><th>Status</th><th>Priority</th><th>Date</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          {% for t in tasks %}
+          <tr>
+            <td>{{ t.title }}</td>
+            <td>{{ t.status|title }}</td>
+            <td>{{ t.priority|title }}</td>
+            <td>{{ t.date }}</td>
+            <td>{{ t.description|default:"-" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="no-data">No tasks recorded.</p>
+    {% endif %}
+  </div>
+
+  <!-- HEALTH RECORDS -->
+  <div class="section">
+    <h2>🏥 Health Records</h2>
+    {% if health %}
+      <table>
+        <thead>
+          <tr><th>Date</th><th>Weight (kg)</th><th>Sleep (hrs)</th><th>Exercise (min)</th></tr>
+        </thead>
+        <tbody>
+          {% for h in health %}
+          <tr>
+            <td>{{ h.date }}</td>
+            <td>{{ h.weight|default:"-" }}</td>
+            <td>{{ h.sleep_hours|default:"-" }}</td>
+            <td>{{ h.exercise_minutes|default:"-" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="no-data">No health records found.</p>
+    {% endif %}
+  </div>
+
+  <!-- SCHEDULE -->
+  <div class="section">
+    <h2>📅 Scheduled Events</h2>
+    {% if schedules %}
+      <table>
+        <thead>
+          <tr><th>Title</th><th>Start</th><th>End</th><th>Location</th><th>Reminder</th></tr>
+        </thead>
+        <tbody>
+          {% for s in schedules %}
+          <tr>
+            <td>{{ s.title }}</td>
+            <td>{{ s.start_datetime }}</td>
+            <td>{{ s.end_datetime }}</td>
+            <td>{{ s.location|default:"-" }}</td>
+            <td>{{ s.reminder_datetime|default:"None" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="no-data">No events scheduled.</p>
+    {% endif %}
+  </div>
+
+  <!-- MENSTRUAL CYCLE -->
+  <div class="section">
+    <h2>🩸 Menstrual Records</h2>
+    {% if menstrual %}
+      <table>
+        <thead>
+          <tr><th>Start</th><th>End</th><th>Flow</th><th>Pain Level</th><th>Mood</th><th>Symptoms</th></tr>
+        </thead>
+        <tbody>
+          {% for m in menstrual %}
+          <tr>
+            <td>{{ m.start_date }}</td>
+            <td>{{ m.end_date }}</td>
+            <td>{{ m.flow_level|title }}</td>
+            <td>{{ m.pain_level }}</td>
+            <td>{{ m.mood|default:"-" }}</td>
+            <td>{{ m.symptoms|default:"-" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="no-data">No menstrual records found.</p>
+    {% endif %}
+  </div>
+
+  <!-- NOTIFICATIONS -->
+  <div class="section">
+    <h2>🔔 Notifications</h2>
+    {% if notifications %}
+      <table>
+        <thead>
+          <tr><th>Date</th><th>Message</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          {% for n in notifications %}
+          <tr>
+            <td>{{ n.created_at|date:"M d, Y H:i" }}</td>
+            <td>{{ n.message }}</td>
+            <td>{% if n.read %}Read{% else %}Unread{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="no-data">No notifications yet.</p>
+    {% endif %}
+  </div>
+  
+</body>
+</html>

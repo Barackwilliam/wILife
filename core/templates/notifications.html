@@ -1,26 +1,97 @@
 {% extends 'base.html' %}
+
 {% block title %}Notifications{% endblock %}
 
 {% block content %}
-<div class="container py-4">
-  <h2 class="mb-4">🔔 Your Notifications</h2>
+<div class="container py-4" style="max-width: 700px;">
+  <h2 class="mb-4 text-primary fw-bold">🔔 Your Notifications</h2>
 
-  <ul class="list-group shadow-sm">
+  <ul class="list-group shadow-sm rounded overflow-hidden">
     {% for notification in notifications %}
-      <li class="list-group-item d-flex justify-content-between align-items-center {% if not notification.read %}list-group-item-warning{% endif %}">
+      <li class="list-group-item d-flex justify-content-between align-items-start 
+          {% if not notification.read %}bg-unread border-unread{% else %}bg-white{% endif %} 
+          border-bottom">
         <div>
-          <p class="mb-1">{{ notification.message }}</p>
-          <small class="text-muted">{{ notification.created_at|date:"M d, Y H:i" }}</small>
+          <p class="mb-1 fs-6 fw-semibold" style="color: {% if not notification.read %}#663300{% else %}#333{% endif %};">
+            {{ notification.message }}
+          </p>
+          <small class="text-muted fst-italic">{{ notification.created_at|date:"M d, Y H:i" }}</small>
         </div>
-        <div>
+        <div class="d-flex flex-column gap-2">
           {% if not notification.read %}
-          <a href="{% url 'mark_notification_read' notification.pk %}" class="btn btn-sm btn-outline-success">Mark as Read</a>
+          <a href="{% url 'mark_notification_read' notification.pk %}" 
+             class="btn btn-sm btn-outline-success shadow-sm"
+             style="border-radius: 20px; font-weight: 600;">
+             Mark as Read
+          </a>
           {% endif %}
+          <a href="{% url 'notification_delete' notification.pk %}" 
+             class="btn btn-sm btn-outline-danger shadow-sm"
+             style="border-radius: 20px; font-weight: 600;"
+             onclick="return confirm('Are you sure you want to delete this notification?');">
+             Delete
+          </a>
         </div>
       </li>
     {% empty %}
-      <li class="list-group-item text-center text-muted">✅ No new notifications.</li>
+      <li class="list-group-item text-center text-muted fst-italic py-4">
+        ✅ No new notifications.
+      </li>
     {% endfor %}
   </ul>
 </div>
+
+<style>
+  /* Orange background for unread notifications */
+  .bg-unread {
+    background-color: #FFA500 !important; /* Orange */
+  }
+  .border-unread {
+    border-color: #cc8400 !important; /* Darker orange border */
+  }
+
+  /* Text color for unread */
+  .list-group-item .bg-unread p {
+    color: #663300 !important; /* Dark brown-orange text */
+  }
+
+  /* Buttons styling */
+  .btn-outline-success {
+    color: #2e7d32;
+    border-color: #2e7d32;
+  }
+  .btn-outline-success:hover {
+    background-color: #2e7d32;
+    color: white;
+  }
+
+  .btn-outline-danger {
+    color: #c62828;
+    border-color: #c62828;
+  }
+  .btn-outline-danger:hover {
+    background-color: #c62828;
+    color: white;
+  }
+
+  /* Responsive tweaks */
+  @media (max-width: 576px) {
+    .list-group-item {
+      flex-direction: column !important;
+      align-items: flex-start !important;
+      gap: 0.5rem;
+    }
+    .list-group-item > div:last-child {
+      align-self: flex-end;
+      width: 100%;
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.5rem;
+    }
+    .btn-sm {
+      font-size: 0.85rem;
+      padding: 0.25rem 0.75rem;
+    }
+  }
+</style>
 {% endblock %}

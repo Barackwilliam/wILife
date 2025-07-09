@@ -51,6 +51,8 @@ urlpatterns = [
 
     path('notifications/', views.notifications_list, name='notifications_list'),
     path('notifications/<int:pk>/read/', views.mark_notification_read, name='mark_notification_read'),
+    path('notifications/delete/<int:pk>/', views.notification_delete, name='notification_delete'),
+
     path('calendar/', views.calendar_view, name='calendar'),
     path('profile/', views.profile, name='profile'),
     # Ongeza URLs nyingine kama login, logout, dashboard n.k.

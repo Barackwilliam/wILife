@@ -6,7 +6,7 @@ from django.contrib import messages
 from .forms import UserRegisterForm, UserUpdateForm, ProfileUpdateForm
 from .models import Notification, Schedule,HealthRecord
 from django.http import JsonResponse
-
+from django.db.models import Sum
 
 from django.contrib.auth.decorators import login_required
 from .models import Income, Expense, Task
@@ -32,6 +32,7 @@ from datetime import date, timedelta
 def dashboard(request):
     user = request.user
 
+    # User's data
     incomes = Income.objects.filter(user=user)
     expenses = Expense.objects.filter(user=user)
     tasks = Task.objects.filter(user=user)
@@ -43,7 +44,7 @@ def dashboard(request):
     tasks_pending = tasks.filter(status='pending').count()
     tasks_done = tasks.filter(status='done').count()
 
-    # Health averages last 7 days
+    # Health averages (last 7 days)
     week_ago = date.today() - timedelta(days=7)
     health_avg = HealthRecord.objects.filter(user=user, date__gte=week_ago).aggregate(
         avg_weight=Avg('weight'),
@@ -51,48 +52,72 @@ def dashboard(request):
         avg_sleep=Avg('sleep_hours'),
     )
 
-    # Recommendations (yako ya zamani)
+    # Smart Recommendations (Deep, Logical, Dynamic)
     recommendations = []
-    if expense_total > income_total:
-        recommendations.append("Your expenses exceed your income. Consider budgeting better.")
-    if tasks_pending > 5:
-        recommendations.append("You have many pending tasks. Try to complete or reschedule them.")
-    if health_avg['avg_sleep'] and health_avg['avg_sleep'] < 6:
-        recommendations.append("You are sleeping less than recommended. Try to get more rest.")
-
     today = date.today()
-    week_ago = today - timedelta(days=7)
 
-    current_week_food = expenses.filter(category='food', date__gte=week_ago).aggregate(total=Sum('amount'))['total'] or 0
-    previous_week_food = expenses.filter(category='food', date__lt=week_ago, date__gte=week_ago - timedelta(days=7)).aggregate(total=Sum('amount'))['total'] or 0
+    # Financial Insight
+    if income_total > 0:
+        savings_rate = 100 - ((expense_total / income_total) * 100)
+        if savings_rate < 10:
+            recommendations.append("🚨 Your savings rate is critically low. Aim to keep at least 20% of your income untouched.")
+        elif savings_rate >= 50:
+            recommendations.append("🧠 Exceptional savings discipline! Consider exploring long-term investment opportunities.")
+    else:
+        recommendations.append("⚠️ You haven't recorded any income. The dashboard thrives on data—keep it updated!")
 
-    if current_week_food > previous_week_food * 1.2:
-        recommendations.append(f"You spent more than usual this week on food: Tsh.{current_week_food:.2f}/=")
+    # Expense category check
+    high_exp_cat = expenses.values('category').annotate(total=Sum('amount')).order_by('-total').first()
+    if high_exp_cat and expense_total > 0:
+        percentage = (high_exp_cat['total'] / expense_total) * 100
+        if percentage >= 30:
+            label = dict(Expense.CATEGORY_CHOICES).get(high_exp_cat['category'], high_exp_cat['category'])
+            recommendations.append(f"💸 You’re spending over 30% of your total expenses on '{label}'. Review this area for optimization.")
 
-    if tasks_pending > 0:
-        recommendations.append(f"You have {tasks_pending} pending tasks — consider rescheduling or completing them.")
+    # Food spike
+    current_week_food = expenses.filter(category='food', date__gte=today - timedelta(days=7)).aggregate(total=Sum('amount'))['total'] or 0
+    previous_week_food = expenses.filter(category='food', date__lt=today - timedelta(days=7), date__gte=today - timedelta(days=14)).aggregate(total=Sum('amount'))['total'] or 0
+    if previous_week_food > 0 and current_week_food > previous_week_food * 1.3:
+        diff = current_week_food - previous_week_food
+        recommendations.append(f"🍔 Food spending increased by Tsh.{diff:.2f}/= this week. Is it delivery fatigue or celebrations?")
 
+    # Tasks Insight
+    if tasks_pending > 5:
+        recommendations.append("📌 You're juggling many pending tasks. Consider breaking them into smaller sub-goals.")
+    elif tasks_pending == 0 and tasks_done > 0:
+        recommendations.append("✅ Excellent productivity streak. You’ve cleared all tasks — reward yourself!")
+
+    # Health Patterns
+    if health_avg['avg_sleep'] and health_avg['avg_sleep'] < 6:
+        recommendations.append("🌙 Sleep duration is below average. A consistent sleep schedule is crucial for mental clarity.")
+    if health_avg['avg_exercise'] and health_avg['avg_exercise'] < 30:
+        recommendations.append("💪 You exercised less than 30 minutes daily. Try micro workouts to stay active.")
+    if health_avg['avg_weight'] and health_avg['avg_weight'] > 95:
+        recommendations.append("⚖️ Your weight is trending high. Track your meals or seek nutritionist support.")
+
+    # Monthly trend
     month_ago = today - timedelta(days=30)
     income_last_month = incomes.filter(date__gte=month_ago).aggregate(total=Sum('amount'))['total'] or 0
     expense_last_month = expenses.filter(date__gte=month_ago).aggregate(total=Sum('amount'))['total'] or 0
-    if expense_last_month > income_last_month:
-        recommendations.append("Your expenses exceeded your income in the last month. Consider reviewing your budget.")
+    if income_last_month and expense_last_month > income_last_month:
+        recommendations.append("📉 Your expenses last month exceeded income. If repeated, this leads to debt — revise your strategy.")
 
-    # Calculate task percentages for progress bars
+    # Menstrual data
+    if menstrual_records.exists():
+        heavy_days = menstrual_records.filter(flow_level='heavy').count()
+        if heavy_days >= 3:
+            recommendations.append("🩸 Multiple heavy flow days recorded. If this persists, consult a health specialist.")
+        long_cycles = [r for r in menstrual_records if r.cycle_length() > 35]
+        if long_cycles:
+            recommendations.append("🔁 Some cycles are unusually long. Irregularity may signal hormonal imbalance.")
+
+    # Progress visuals
     tasks_total = tasks_pending + tasks_done
-    if tasks_total > 0:
-        tasks_pending_percent = (tasks_pending / tasks_total) * 100
-        tasks_done_percent = (tasks_done / tasks_total) * 100
-    else:
-        tasks_pending_percent = 0
-        tasks_done_percent = 0
+    tasks_pending_percent = (tasks_pending / tasks_total) * 100 if tasks_total else 0
+    tasks_done_percent = (tasks_done / tasks_total) * 100 if tasks_total else 0
+    expense_vs_income_percent = (expense_total / income_total) * 100 if income_total else 0
 
-    # Calculate expense vs income percentage for progress bar
-    if income_total > 0:
-        expense_vs_income_percent = (expense_total / income_total) * 100
-    else:
-        expense_vs_income_percent = 0
-
+    # Expense visualization
     category_totals = expenses.values('category').annotate(total=Sum('amount'))
     categories = []
     expense_data = []
@@ -101,27 +126,7 @@ def dashboard(request):
         total = next((item['total'] for item in category_totals if item['category'] == key), 0)
         expense_data.append(float(total))
 
-    # Menstrual Cycle Data processing
-
-    # Pie chart: distribution of flow_level
-    flow_counts = menstrual_records.values('flow_level').annotate(count=Count('flow_level'))
-    flow_map = {'light': 'Light', 'medium': 'Medium', 'heavy': 'Heavy'}
-    menstrual_flow_labels = []
-    menstrual_flow_data = []
-    for flow_key in ['light', 'medium', 'heavy']:
-        menstrual_flow_labels.append(flow_map[flow_key])
-        count = next((item['count'] for item in flow_counts if item['flow_level'] == flow_key), 0)
-        menstrual_flow_data.append(count)
-
-    # Bar chart: cycle length per record with start_date as label
-    cycle_lengths = menstrual_records.order_by('start_date').values_list('start_date', 'end_date')
-    menstrual_cycle_labels = []
-    menstrual_cycle_data = []
-    for start, end in cycle_lengths:
-        menstrual_cycle_labels.append(start.strftime('%b %d'))
-        length = (end - start).days + 1
-        menstrual_cycle_data.append(length)
-
+    # Base context
     context = {
         'income_total': income_total,
         'expense_total': expense_total,
@@ -134,18 +139,29 @@ def dashboard(request):
         'expense_vs_income_percent': expense_vs_income_percent,
         'categories': json.dumps(categories),
         'expense_data': json.dumps(expense_data),
-
-        'menstrual_flow_levels': {
-            'labels': json.dumps(menstrual_flow_labels),
-            'data': json.dumps(menstrual_flow_data),
-        },
-        'menstrual_cycle_lengths': {
-            'labels': json.dumps(menstrual_cycle_labels),
-            'data': json.dumps(menstrual_cycle_data),
-        },
     }
 
+    # Menstrual chart data
+    if menstrual_records.exists():
+        flow_counts = menstrual_records.values('flow_level').annotate(count=Count('flow_level'))
+        flow_map = {'light': 'Light', 'medium': 'Medium', 'heavy': 'Heavy'}
+        menstrual_flow_labels = [flow_map[k] for k in ['light', 'medium', 'heavy']]
+        menstrual_flow_data = [next((c['count'] for c in flow_counts if c['flow_level'] == k), 0) for k in ['light', 'medium', 'heavy']]
+        cycle_lengths = menstrual_records.order_by('start_date').values_list('start_date', 'end_date')
+        menstrual_cycle_labels = [start.strftime('%b %d') for start, end in cycle_lengths if start and end]
+        menstrual_cycle_data = [(end - start).days + 1 for start, end in cycle_lengths if start and end]
+
+        context['menstrual_flow_levels'] = {
+            'labels': json.dumps(menstrual_flow_labels),
+            'data': json.dumps(menstrual_flow_data),
+        }
+        context['menstrual_cycle_lengths'] = {
+            'labels': json.dumps(menstrual_cycle_labels),
+            'data': json.dumps(menstrual_cycle_data),
+        }
+
     return render(request, 'dashboard.html', context)
+
 
 # CRUD Views for Income
 
@@ -162,6 +178,10 @@ def income_create(request):
             income = form.save(commit=False)
             income.user = request.user
             income.save()
+            Notification.objects.create(
+                user=request.user,
+                message=f"New income added: {income.source} - Tsh. {income.amount}"
+            )
             messages.success(request, 'Income added successfully.')
             return redirect('income_list')
     else:
@@ -175,6 +195,10 @@ def income_update(request, pk):
         form = IncomeForm(request.POST, instance=income)
         if form.is_valid():
             form.save()
+            Notification.objects.create(
+                user=request.user,
+                message=f"Income updated: {income.source} - Tsh. {income.amount}"
+            )
             messages.success(request, 'Income updated successfully.')
             return redirect('income_list')
     else:
@@ -185,16 +209,24 @@ def income_update(request, pk):
 def income_delete(request, pk):
     income = get_object_or_404(Income, pk=pk, user=request.user)
     if request.method == 'POST':
+        source = income.source
+        amount = income.amount
         income.delete()
+        Notification.objects.create(
+            user=request.user,
+            message=f"Income deleted: {source} - Tsh. {amount}"
+        )
         messages.success(request, 'Income deleted successfully.')
         return redirect('income_list')
     return render(request, 'income_confirm_delete.html', {'income': income})
+
 
 
 @login_required
 def expense_list(request):
     expenses = Expense.objects.filter(user=request.user).order_by('-date')
     return render(request, 'expense_list.html', {'expenses': expenses})
+
 
 
 @login_required
@@ -205,6 +237,10 @@ def expense_create(request):
             expense = form.save(commit=False)
             expense.user = request.user
             expense.save()
+            Notification.objects.create(
+                user=request.user,
+                message=f"New expense added: {expense.category} - Tsh. {expense.amount}"
+            )
             messages.success(request, 'Expense added successfully.')
             return redirect('expense_list')
     else:
@@ -218,21 +254,31 @@ def expense_update(request, pk):
         form = ExpenseForm(request.POST, instance=expense)
         if form.is_valid():
             form.save()
+            Notification.objects.create(
+                user=request.user,
+                message=f"Expense updated: {expense.category} - Tsh. {expense.amount}"
+            )
             messages.success(request, 'Expense updated successfully.')
             return redirect('expense_list')
     else:
         form = ExpenseForm(instance=expense)
     return render(request, 'expense_form.html', {'form': form})
 
-
 @login_required
 def expense_delete(request, pk):
     expense = get_object_or_404(Expense, pk=pk, user=request.user)
     if request.method == 'POST':
+        category = expense.category
+        amount = expense.amount
         expense.delete()
+        Notification.objects.create(
+            user=request.user,
+            message=f"Expense deleted: {category} - Tsh. {amount}"
+        )
         messages.success(request, 'Expense deleted successfully.')
         return redirect('expense_list')
     return render(request, 'expense_confirm_delete.html', {'expense': expense})
+
 
 
 @login_required
@@ -248,6 +294,10 @@ def task_create(request):
             task = form.save(commit=False)
             task.user = request.user
             task.save()
+            Notification.objects.create(
+                user=request.user,
+                message=f"New task added: {task.title}"
+            )
             messages.success(request, 'Task added successfully.')
             return redirect('task_list')
     else:
@@ -261,6 +311,10 @@ def task_update(request, pk):
         form = TaskForm(request.POST, instance=task)
         if form.is_valid():
             form.save()
+            Notification.objects.create(
+                user=request.user,
+                message=f"Task updated: {task.title}"
+            )
             messages.success(request, 'Task updated successfully.')
             return redirect('task_list')
     else:
@@ -271,7 +325,12 @@ def task_update(request, pk):
 def task_delete(request, pk):
     task = get_object_or_404(Task, pk=pk, user=request.user)
     if request.method == 'POST':
+        title = task.title
         task.delete()
+        Notification.objects.create(
+            user=request.user,
+            message=f"Task deleted: {title}"
+        )
         messages.success(request, 'Task deleted successfully.')
         return redirect('task_list')
     return render(request, 'task_confirm_delete.html', {'task': task})
@@ -293,6 +352,10 @@ def health_create(request):
             health = form.save(commit=False)
             health.user = request.user
             health.save()
+            Notification.objects.create(
+                user=request.user,
+                message=f"New health record added for date {health.date}"
+            )
             messages.success(request, 'Health record added successfully.')
             return redirect('health_list')
     else:
@@ -306,6 +369,10 @@ def health_update(request, pk):
         form = HealthRecordForm(request.POST, instance=health)
         if form.is_valid():
             form.save()
+            Notification.objects.create(
+                user=request.user,
+                message=f"Health record updated for date {health.date}"
+            )
             messages.success(request, 'Health record updated successfully.')
             return redirect('health_list')
     else:
@@ -316,16 +383,21 @@ def health_update(request, pk):
 def health_delete(request, pk):
     health = get_object_or_404(HealthRecord, pk=pk, user=request.user)
     if request.method == 'POST':
+        date_val = health.date
         health.delete()
+        Notification.objects.create(
+            user=request.user,
+            message=f"Health record deleted for date {date_val}"
+        )
         messages.success(request, 'Health record deleted successfully.')
         return redirect('health_list')
     return render(request, 'health_confirm_delete.html', {'health': health})
+
 
 @login_required
 def schedule_list(request):
     schedules = Schedule.objects.filter(user=request.user).order_by('start_datetime')
     return render(request, 'schedule_list.html', {'schedules': schedules})
-
 
 @login_required
 def schedule_create(request):
@@ -335,6 +407,10 @@ def schedule_create(request):
             schedule = form.save(commit=False)
             schedule.user = request.user
             schedule.save()
+            Notification.objects.create(
+                user=request.user,
+                message=f"New schedule added: {schedule.title} on {schedule.start_datetime.strftime('%Y-%m-%d')}"
+            )
             messages.success(request, 'Schedule added successfully.')
             return redirect('schedule_list')
     else:
@@ -348,6 +424,10 @@ def schedule_update(request, pk):
         form = ScheduleForm(request.POST, instance=schedule)
         if form.is_valid():
             form.save()
+            Notification.objects.create(
+                user=request.user,
+                message=f"Schedule updated: {schedule.title} on {schedule.start_datetime.strftime('%Y-%m-%d')}"
+            )
             messages.success(request, 'Schedule updated successfully.')
             return redirect('schedule_list')
     else:
@@ -358,11 +438,15 @@ def schedule_update(request, pk):
 def schedule_delete(request, pk):
     schedule = get_object_or_404(Schedule, pk=pk, user=request.user)
     if request.method == 'POST':
+        title = schedule.title
         schedule.delete()
+        Notification.objects.create(
+            user=request.user,
+            message=f"Schedule deleted: {title}"
+        )
         messages.success(request, 'Schedule deleted successfully.')
         return redirect('schedule_list')
     return render(request, 'schedule_confirm_delete.html', {'schedule': schedule})
-
 
 
 # Repeat similar CRUD views for Expense and Task (omitted here for brevity)
@@ -393,33 +477,58 @@ def export_excel(request):
 
 # Export reports as PDF
 
-
 @login_required
 def export_pdf(request):
     user = request.user
-    incomes = Income.objects.filter(user=user)
-    expenses = Expense.objects.filter(user=user)
-    tasks = Task.objects.filter(user=user)
-    health = HealthRecord.objects.filter(user=user)
-    schedules = Schedule.objects.filter(user=user)
+    
+    # Data querysets
+    incomes = Income.objects.filter(user=user).order_by('-date')
+    expenses = Expense.objects.filter(user=user).order_by('-date')
+    tasks = Task.objects.filter(user=user).order_by('-date')
+    health = HealthRecord.objects.filter(user=user).order_by('-date')
+    schedules = Schedule.objects.filter(user=user).order_by('start_datetime')
+    menstrual = MenstrualCycleRecord.objects.filter(user=user).order_by('-start_date')
+    notifications = Notification.objects.filter(user=user).order_by('-created_at')
+    profile = Profile.objects.filter(user=user).first()
 
-    html = render_to_string('report_pdf.html', {
+    # Summary calculations
+    income_total = incomes.aggregate(total=Sum('amount'))['total'] or 0
+    expense_total = expenses.aggregate(total=Sum('amount'))['total'] or 0
+    tasks_pending = tasks.filter(status='pending').count()
+    tasks_done = tasks.filter(status='done').count()
+
+    # Prepare context for template
+    context = {
+        'user': user,
+        'profile': profile,
         'incomes': incomes,
         'expenses': expenses,
         'tasks': tasks,
         'health': health,
         'schedules': schedules,
-        'user': user,
-    })
+        'menstrual': menstrual,
+        'notifications': notifications,
+        # summary
+        'income_total': income_total,
+        'expense_total': expense_total,
+        'tasks_pending': tasks_pending,
+        'tasks_done': tasks_done,
+    }
+
+    # Render html content using your beautiful template
+    html = render_to_string('report_pdf.html', context)
+
+    # Create PDF response
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="report.pdf"'
+    response['Content-Disposition'] = 'attachment; filename="user_report.pdf"'
+
     pisa_status = pisa.CreatePDF(html, dest=response)
     if pisa_status.err:
         return HttpResponse('Error generating PDF', status=500)
     return response
 
 
-
+    
 def register(request):
     if request.method == 'POST':
         form = UserRegisterForm(request.POST)
@@ -442,6 +551,12 @@ def mark_notification_read(request, pk):
     notification = get_object_or_404(Notification, pk=pk, user=request.user)
     notification.read = True
     notification.save()
+    return redirect('notifications_list')
+
+@login_required
+def notification_delete(request, pk):
+    notification = get_object_or_404(Notification, pk=pk, user=request.user)
+    notification.delete()
     return redirect('notifications_list')
 
 from datetime import datetime, timedelta
@@ -618,21 +733,20 @@ def menstrual_calendar(request):
     return render(request, 'menstrual_calendar.html', context)
 
 
-
 @login_required
 def menstrual_update(request, pk):
     record = get_object_or_404(MenstrualCycleRecord, pk=pk, user=request.user)
+    
     if request.method == 'POST':
         form = MenstrualCycleForm(request.POST, instance=record)
         if form.is_valid():
             form.save()
+            messages.success(request, 'Record updated successfully!')
             return redirect('menstrual_list')
     else:
         form = MenstrualCycleForm(instance=record)
+
     return render(request, 'menstrual_form.html', {'form': form})
-
-
-
 
 
 @login_required

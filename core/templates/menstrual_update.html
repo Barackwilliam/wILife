@@ -1,0 +1,80 @@
+<!-- templates/menstrual_form.html -->
+{% extends 'base.html' %}
+{% block content %}
+<div class="container py-4" style="max-width: 800px;">
+  <h2 class="mb-4" style="color: #6a1b9a; font-weight: bold; font-size: 2rem;">🩸 Add Menstrual Cycle Record  <a href="{% url 'menstrual_list' %}" class="btn btn-sm btn-danger" title="Back to List">
+            <i class="bi bi-arrow-left"></i>
+          </a></h2>
+  <form method="post" style="background: #faf5ff; padding: 30px; border-radius: 16px; box-shadow: 0 10px 30px rgba(106, 27, 154, 0.15);">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+
+    <div class="row g-4">
+      <div class="col-md-6">
+        <label for="id_start_date" style="font-weight: bold; color: #6a1b9a; font-size: 1.1rem;">📅 Start Date</label>
+        <input type="date" name="start_date" id="id_start_date" value="{{ form.start_date.value|default_if_none:'' }}" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px;">
+        <div class="text-danger">{{ form.start_date.errors }}</div>
+      </div>
+
+      <div class="col-md-6">
+        <label for="id_end_date" style="font-weight: bold; color: #6a1b9a; font-size: 1.1rem;">📅 End Date</label>
+        <input type="date" name="end_date" id="id_end_date" value="{{ form.end_date.value|default_if_none:'' }}" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px;">
+        <div class="text-danger">{{ form.end_date.errors }}</div>
+      </div>
+
+      <div class="col-md-6">
+        <label for="id_flow_level" style="font-weight: bold; color: #6a1b9a; font-size: 1.1rem;">💧 Flow Level</label>
+        <select name="flow_level" id="id_flow_level" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px;">
+          <option value="light" {% if form.flow_level.value == "light" %}selected{% endif %}>🌸 Light</option>
+          <option value="medium" {% if form.flow_level.value == "medium" %}selected{% endif %}>💧 Medium</option>
+          <option value="heavy" {% if form.flow_level.value == "heavy" %}selected{% endif %}>💦 Heavy</option>
+        </select>
+        <div class="text-danger">{{ form.flow_level.errors }}</div>
+      </div>
+
+      <div class="col-md-6">
+        <label for="id_pain_level" style="font-weight: bold; color: #6a1b9a; font-size: 1.1rem;">😖 Pain Level</label>
+        <select name="pain_level" id="id_pain_level" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px;">
+          <option value="0">😊 No Pain</option>
+          <option value="1">🙂 Mild</option>
+          <option value="2">😣 Moderate</option>
+          <option value="3">😖 Strong</option>
+          <option value="4">😭 Severe</option>
+          <option value="5">😵‍💫 Disabling</option>
+        </select>
+        <div class="text-danger">{{ form.pain_level.errors }}</div>
+      </div>
+
+      <div class="col-md-6">
+        <label for="id_mood" style="font-weight: bold; color: #6a1b9a; font-size: 1.1rem;">🧠 Mood</label>
+        <select name="mood" id="id_mood" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px;">
+          <option value="">-- Select mood --</option>
+          <option value="Happy">😊 Happy</option>
+          <option value="Sad">😔 Sad</option>
+          <option value="Anxious">😟 Anxious</option>
+          <option value="Irritable">😠 Irritable</option>
+          <option value="Calm">😌 Calm</option>
+          <option value="Fatigued">😴 Fatigued</option>
+        </select>
+        <div class="text-danger">{{ form.mood.errors }}</div>
+      </div>
+
+      <div class="col-12">
+        <label for="id_symptoms" style="font-weight: bold; color: #6a1b9a; font-size: 1.1rem;">🩹 Symptoms</label>
+        <textarea name="symptoms" id="id_symptoms" rows="3" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px;">{{ form.symptoms.value }}</textarea>
+        <div class="text-danger">{{ form.symptoms.errors }}</div>
+      </div>
+
+      <div class="col-12">
+        <label for="id_notes" style="font-weight: bold; color: #6a1b9a; font-size: 1.1rem;">📝 Notes</label>
+        <textarea name="notes" id="id_notes" rows="3" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px;">{{ form.notes.value }}</textarea>
+        <div class="text-danger">{{ form.notes.errors }}</div>
+      </div>
+
+      <div class="col-12 text-end">
+        <button style="background-color:#6a1b9a; color:white; padding:12px 24px; border:none; border-radius:10px; font-weight: bold; font-size: 1rem;">💾 Save Record</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}
