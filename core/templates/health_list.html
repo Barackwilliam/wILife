@@ -1,4 +1,4 @@
-{% extends 'base.html' %} 
+{% extends 'base.html' %}
 {% block title %}Health Records{% endblock %}
 
 {% block content %}
@@ -59,7 +59,7 @@
   <!-- Menstrual Section -->
   <div id="menstrual-section" class="p-4 rounded shadow mb-4" style="display: none; background-color: #fdf4ff;">
     <h4 class="text-purple mb-3">🩸 Menstrual Tracker</h4>
-    <a href="{% url 'menstrual_list' %}" class="btn btn-pink text-white">Go to Menstrual Records</a>
+    <a href="{% url 'menstrual_list' %}" class="animated-btn">Go to Menstrual Records</a>
     <p style="color: black;">Track your cycle, period, pain level, and more for better reproductive health.</p>
   </div>
 
@@ -80,6 +80,39 @@
     background-color: #ec407a;
     border-radius: 8px;
     padding: 10px 20px;
+  }
+
+  .animated-btn {
+    display: inline-block;
+    padding: 15px 30px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: white;
+    background: linear-gradient(135deg, #ec407a, #ad1457);
+    border: none;
+    border-radius: 12px;
+    text-decoration: none;
+    box-shadow: 0 4px 20px rgba(236, 64, 122, 0.4);
+    transition: all 0.3s ease-in-out;
+    animation: bounceGlow 2s ease-in-out infinite;
+    letter-spacing: 1px;
+  }
+
+  .animated-btn:hover {
+    transform: scale(1.05) translateY(-3px);
+    background: linear-gradient(135deg, #d81b60, #880e4f);
+    box-shadow: 0 6px 30px rgba(173, 20, 87, 0.6);
+  }
+
+  @keyframes bounceGlow {
+    0%, 100% {
+      transform: scale(1) translateY(0);
+      box-shadow: 0 0 0 0 rgba(173, 20, 87, 0.4);
+    }
+    50% {
+      transform: scale(1.08) translateY(-5px);
+      box-shadow: 0 0 20px 6px rgba(173, 20, 87, 0.6);
+    }
   }
 
   @media (max-width: 576px) {
@@ -121,8 +154,7 @@
     "Jifunze kusimamia fedha kwa njia ya kisasa na teknolojia.",
     "Tumia muda kupumzika na kufanya vitu unavyovipenda.",
     "Hakikisha unafuatilia maendeleo yako mara kwa mara.",
-    "Jifunze kutumia mitandao ya kijamii kwa ufanisi na si kupoteza muda.",
-    // ... unaweza ongeza hadi 150 kama kwenye mfano wako wa awali
+    "Jifunze kutumia mitandao ya kijamii kwa ufanisi na si kupoteza muda."
   ];
 
   function getShownMessages() {

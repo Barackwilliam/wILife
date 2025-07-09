@@ -1,0 +1,354 @@
+{% extends 'base.html' %} 
+{% block title %}Health Records{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <!-- Header with Add Button -->
+  <div class="row mb-4 align-items-center">
+    <div class="col-12 col-md-6 mb-3 mb-md-0">
+      <h1 class="h3">Health Records</h1>
+    </div>
+    <div class="col-12 col-md-6 text-md-end">
+      <a href="{% url 'health_create' %}" class="btn btn-primary w-100 w-md-auto">Add New Health Record</a>
+    </div>
+  </div>
+
+  <!-- Health Records Table -->
+  {% if health_records %}
+  <div class="table-responsive mb-4">
+    <table class="table table-striped table-hover align-middle shadow-sm border rounded">
+      <thead class="table-dark text-white">
+        <tr>
+          <th>Date</th>
+          <th>Weight (kg)</th>
+          <th>Exercise (min)</th>
+          <th>Sleep (hrs)</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for record in health_records %}
+        <tr>
+          <td>{{ record.date|date:"M d, Y" }}</td>
+          <td>{{ record.weight|default:"-" }}</td>
+          <td>{{ record.exercise_minutes|default:"-" }}</td>
+          <td>{{ record.sleep_hours|default:"-" }}</td>
+          <td>
+            <a href="{% url 'health_update' record.id %}" class="btn btn-sm btn-outline-secondary me-2">Edit</a>
+            <a href="{% url 'health_delete' record.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to delete this record?');">Delete</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p>No health records found.</p>
+  <a href="{% url 'health_create' %}" class="btn btn-link">Add your first health record</a>
+  {% endif %}
+
+  <!-- Gender Buttons -->
+  <div class="text-center my-5">
+    <h4 class="mb-4">Select your gender to continue:</h4>
+    <div class="d-flex flex-column flex-md-row justify-content-center gap-3">
+      <button onclick="showMenstrual()" class="btn btn-lg btn-danger px-4 py-2">🚺 I'm Female</button>
+      <button onclick="showLifeAdvice()" class="btn btn-lg btn-secondary px-4 py-2">🚹 I'm Male</button>
+    </div>
+  </div>
+
+  <!-- Menstrual Section -->
+  <div id="menstrual-section" class="p-4 rounded shadow mb-4" style="display: none; background-color: #fdf4ff;">
+    <h4 class="text-purple mb-3">🩸 Menstrual Tracker</h4>
+    <a href="{% url 'menstrual_list' %}" class="btn btn-pink text-white">Go to Menstrual Records</a>
+    <p style="color: black;">Track your cycle, period, pain level, and more for better reproductive health.</p>
+  </div>
+
+  <!-- Life Advice Section -->
+  <div id="life-advice-section" class="alert alert-info text-center mb-4" style="display:none; font-size: 1.1rem;">
+    <h4>💡 Life Advice for You</h4>
+    <p id="life-advice-message" class="mt-2"></p>
+  </div>
+</div>
+
+<!-- Custom Styles -->
+<style>
+  .text-purple {
+    color: #6a1b9a;
+  }
+
+  .btn-pink {
+    background-color: #ec407a;
+    border-radius: 8px;
+    padding: 10px 20px;
+  }
+
+  @media (max-width: 576px) {
+    .btn-lg {
+      font-size: 1rem;
+      padding: 12px 16px;
+    }
+
+    table {
+      font-size: 0.9rem;
+    }
+  }
+</style>
+
+<!-- JavaScript -->
+<script>
+  function showMenstrual() {
+    document.getElementById("menstrual-section").style.display = "block";
+    document.getElementById("life-advice-section").style.display = "none";
+  }
+
+  const lifeAdvices = [
+   "Jifunze kuwekeza muda na nguvu kwenye mambo yanayokuza kitaaluma.",
+  "Epuka watu wenye mtazamo hasi ili kujiweka kwenye mazingira chanya.",
+  "Fanya bajeti ya kila mwezi na ufuate kwa uaminifu.",
+  "Tambua kwamba kila shida huja na suluhisho; usikate tamaa.",
+  "Hakikisha unajiwekea malengo yaliyo halisi na yanayoweza kufikiwa.",
+  "Usikubali kushindwa kukuzuia; jaribu tena kwa mbinu tofauti.",
+  "Tumia muda na familia na marafiki ili kujenga uhusiano imara.",
+  "Jifunze kusimamia mabadiliko kama sehemu ya maisha.",
+  "Kuwa na mtazamo wa shukrani hata katika changamoto.",
+  "Fanya mazoezi ya kupumzika na kupunguza msongo wa mawazo kila siku.",
+  "Jifunze kujitambua na kuelewa hisia zako kwa kina.",
+  "Zingatia afya ya akili sawa na afya ya mwili.",
+  "Tafuta mwalimu au mshauri katika nyanja unazotaka kufaulu.",
+  "Hakikisha unalala angalau saa 7 kila usiku kwa ufanisi.",
+  "Jifunze kupika na kula vyakula vyenye virutubisho bora.",
+  "Usiogope kuchukua hatari zilizohesabiwa kwa maendeleo.",
+  "Jifunze kusimamia fedha kwa njia ya kisasa na teknolojia.",
+  "Tumia muda kupumzika na kufanya vitu unavyovipenda.",
+  "Hakikisha unafuatilia maendeleo yako mara kwa mara.",
+  "Jifunze kutumia mitandao ya kijamii kwa ufanisi na si kupoteza muda.",
+  "Soma vitabu vya kukuza maarifa yako kila mwezi.",
+  "Zungumza na watu wenye hekima ili kujifunza kutoka kwao.",
+  "Usiache kujifunza hata kama umepata mafanikio.",
+  "Fanya tathmini ya maisha yako mara kwa mara.",
+  "Jifunze kuweka mipaka ya afya katika mahusiano.",
+  "Kuwa mvumilivu unapokutana na changamoto.",
+  "Chukua muda kila wiki kupanga malengo mapya.",
+  "Tambua mambo muhimu zaidi maishani na uyape kipaumbele.",
+  "Usitafute kuridhisha kila mtu; kuwa wewe mwenyewe.",
+  "Jifunze sanaa ya kusamehe na kusahau.",
+  "Usikate tamaa kwa sababu ya kushindwa kwa mara ya kwanza.",
+  "Fanya kazi kwa bidii bila kutegemea motisha pekee.",
+  "Weka kumbukumbu ya mafanikio yako ili kujitia moyo.",
+  "Jifunze kuomba msaada unapouhitaji.",
+  "Tumia muda kufanya kazi za kujitolea.",
+  "Zingatia usafi wa mwili na mazingira.",
+  "Usisahau kuonyesha upendo kwa watu unaowajali.",
+  "Jifunze lugha mpya ili kupanua upeo wako.",
+  "Epuka kulinganisha maisha yako na ya wengine.",
+  "Jenga nidhamu ya kufanikisha mambo bila kusukumwa.",
+  "Kuwa na ratiba ya kulala na kuamka kwa wakati.",
+  "Jifunze kutumia pesa zako kwa busara.",
+  "Usifanye kazi kupita kiasi hadi usahau kupumzika.",
+  "Zingatia muda wa kuwa mbali na teknolojia.",
+  "Shirikiana na watu kwenye miradi ya pamoja.",
+  "Tambua maana ya maisha yako na uishi kwa kusudi.",
+  "Pata muda wa kujitathmini kila wiki kuhusu maendeleo yako.",
+  "Uwe mwaminifu kwa wengine na kwa nafsi yako mwenyewe.",
+  "Jifunze kusema ‘hapana’ unapohitajika ili kujilinda.",
+  "Jiheshimu ili uweze kuheshimika na wengine.",
+  "Tumia kalenda kupanga siku zako kwa ufanisi.",
+  "Soma vitabu angalau moja kwa mwezi ili kukuza maarifa.",
+  "Kaa mbali na watu wanaoleta drama isiyo ya lazima.",
+  "Jipe muda wa kimya kila siku kwa ajili ya kutafakari.",
+  "Fanya mazoezi ya kupumua kwa kina unapokuwa na wasiwasi.",
+  "Usiweke ndoto zako kwa siri, tafuta mtu wa kukuunga mkono.",
+  "Tumia fursa unazozipata kwa busara na kwa wakati.",
+  "Tafuta kazi unayoipenda au upende kazi uliyonayo.",
+  "Epuka kuchelewesha mambo muhimu (procrastination).",
+  "Usiwe na haraka ya mafanikio, mchakato ni muhimu.",
+  "Jifunze kusikiliza zaidi ya kuongea.",
+  "Ondoa vitu visivyohitajika kwenye maisha yako — fanya declutter.",
+  "Tafuta chanzo cha msongo wako badala ya kutibu dalili zake.",
+  "Tumia muda kujifunza kuhusu afya ya akili na tabia.",
+  "Kuwa mnyenyekevu hata unapofanikiwa.",
+  "Weka lengo la kujifunza kitu kipya kila mwezi.",
+  "Usijilinganishe na watu mitandaoni, kila mtu ana safari yake.",
+  "Penda kushirikiana badala ya kushindana kila mara.",
+  "Kumbatia kushindwa kama sehemu ya mafanikio.",
+  "Usisahau kushukuru kwa kile ulichonacho sasa.",
+  "Punguza muda wa kutumia simu bila sababu.",
+  "Pokea maoni kwa moyo wa kujifunza, si kushambuliwa.",
+  "Chagua marafiki wanaokuinua kiakili na kihisia.",
+  "Kuwa mwepesi kuomba msamaha na kusamehe.",
+  "Lala mapema na amka mapema kwa ajili ya uzalishaji.",
+  "Weka bajeti ya kila wiki, hata kama ni ndogo.",
+  "Jifunze lugha mpya, huongeza uwezo wa kufikiri.",
+  "Tafuta msaada wa kitaalamu unapohisi umekwama.",
+  "Onyesha upendo kwa vitendo, si maneno tu.",
+  "Weka akiba kabla ya kutumia pesa zako.",
+  "Jipe changamoto ya kuondoka kwenye eneo la raha (comfort zone).",
+  "Amini katika uwezo wako hata kama wengine hawaoni bado.",
+  "Sikiliza mwili wako unapokuambia uchoke — pumzika.",
+  "Toa msaada kwa mtu bila kutegemea kitu kurudi.",
+  "Weka muda wa kufanya mambo yanayokupa furaha ya kweli.",
+  "Zingatia ubora kuliko wingi wa vitu au kazi.",
+  "Jifunze kuweka mipaka kati ya maisha yako binafsi na kazi.",
+  "Epuka kutumia nguvu zako kwa kupiga kelele badala ya kutatua matatizo.",
+  "Jifunze kutafakari kila siku kabla ya kuanza shughuli zako.",
+  "Hakuna mafanikio bila majaribu na kushindwa kwa muda.",
+  "Weka mkakati wa muda mrefu na ufuate hatua kwa hatua.",
+  "Tafuta ushauri kutoka kwa watu wenye uzoefu.",
+  "Hakikisha unajumuisha mazoezi ya viungo katika ratiba yako.",
+  "Tumia teknolojia kusaidia kufanya kazi kwa ufanisi zaidi.",
+  "Usiruhusu hofu ikuzuie kuchukua hatua muhimu.",
+  "Kuwa mkarimu na watu unayokutana nao kila siku.",
+  "Jifunze kuomba msaada unapohitaji, si ishara ya udhaifu.",
+  "Usifanye mambo kwa haraka sana mpaka ufanye makosa.",
+  "Tambua kuwa kila mtu ana ndoto zake na njia zake.",
+  "Jihudumie kwa chakula bora na lishe bora.",
+  "Usijaribu kufanya kila kitu peke yako; shiriki na wengine.",
+  "Weka malengo madogo yanayoweza kufikiwa haraka.",
+  "Epuka watu wanaokutia msongo wa mawazo mara kwa mara.",
+  "Jifunze kutumia muda wako wa mapumziko kwa busara.",
+  "Hakikisha unakuwa na wakati wa kujifunza kila siku.",
+  "Zingatia kuwa na maisha yenye mwelekeo na maana.",
+  "Panga matumizi yako ya fedha kwa njia ya busara.",
+  "Kuwa na nidhamu katika maisha ya kila siku.",
+  "Epuka migogoro isiyo ya lazima na jifunze kuwasiliana vyema.",
+  "Jifunze kupenda na kujitunza mwenyewe kila siku.",
+  "Tafuta njia za kuboresha mazingira yako ya kazi.",
+  "Hakikisha unajiweka katika hali nzuri ya kiakili na kimwili.",
+  "Jifunze kusahau mambo yaliyopita na kuangalia mbele.",
+  "Kuwa na mtazamo chanya hata wakati wa changamoto.",
+  "Jihusishe na shughuli za kijamii na za maendeleo.",
+  "Tumia muda kwa familia na marafiki wa karibu.",
+  "Usisahau kufanya mazoezi ya kupumzika akili na mwili.",
+  "Jifunze kusimamia wakati wako kwa kutumia kalenda.",
+  "Epuka kutumia vitu vya kijanja ambavyo vinakuumiza.",
+  "Hakikisha unapata usingizi wa kutosha kila usiku.",
+  "Tambua umuhimu wa kuendelea kujifunza na kuboresha.",
+  "Jifunze kushikilia na kutekeleza maamuzi yako.",
+  "Epuka watu wanaokuzusha maneno hasi na fitina.",
+  "Punguza matumizi ya vitu visivyohitajika ili kuokoa pesa.",
+  "Tafuta mbinu mpya za kushinda changamoto za maisha.",
+  "Jifunze kupunguza msongo wa mawazo kwa kutafakari.",
+  "Kuwa na shukrani kila siku kwa kile ulicho nacho.",
+  "Jiheshimu na kuthamini watu waliokusaidia.",
+  "Weka malengo ya muda mfupi na muda mrefu kwa usawa.",
+  "Jifunze kusamehe na kuachilia mambo yaliyopita.",
+  "Epuka kushindana na wengine kwa njia mbaya.",
+  "Kuwa na tabia nzuri katika mawasiliano yako.",
+  "Jifunze kujitambua na kuthamini uwezo wako.",
+  "Tafuta changamoto mpya za kukufanya ukue zaidi.",
+  "Panga ratiba ya kila siku kwa kuzingatia malengo.",
+  "Epuka kuwasiliana na watu wanaokuudhi au kukuathiri vibaya.",
+  "Jifunze kutumia teknolojia kwa madhumuni mazuri.",
+  "Kuwa na malengo wazi na mepesi kufuatilia maendeleo.",
+  "Jifunze kujitunza kimwili kwa lishe na mazoezi.",
+  "Epuka vishawishi vya kutumia vitu visivyohitajika.",
+  "Weka muda wa kujifunza na kufanya mazoezi ya akili.",
+  "Jihudumie na ujifunze mambo mapya kila siku.",
+  "Tafuta msaada wa kitaalamu unapohisi umekwama.",
+  "Jifunze kutafakari na kuweka kumbukumbu za maendeleo yako.",
+  "Tumia muda kwa kufanya mambo unayopenda na yanayokuleta furaha.",
+  "Epuka watu wanaokuangusha kwa maneno na matendo.",
+  "Jifunze kufurahia maisha hata wakati wa changamoto.",
+  "Tafakari kila hatua unayoichukua katika maisha yako.",
+  "Jihudumie kiroho kwa kufanya mambo yanayokufanya uwe mtu bora.",
+  "Weka mkakati wa kuepuka msongo wa mawazo na uchovu.",
+  "Epuka watu wenye tabia za kukudanganya au kukunyanyasa.",
+  "Jifunze kutambua na kushughulikia hisia zako kwa busara.",
+  "Tafuta nafasi za kujifunza kutoka kwa makosa yako.",
+  "Jihudumie kwa kuzingatia afya ya akili na mwili.",
+  "Epuka kufanya mambo kwa kutumia nguvu za ghafla; tafakari kwanza.",
+  "Jifunze kutumia muda wako kwa shughuli zinazokuongezea thamani.",
+  "Tafuta marafiki na watu wanaokuunga mkono katika malengo yako.",
+  "Weka maadili yako kuwa kielelezo katika maisha yako.",
+  "Jifunze kujitunza kupitia mazoezi ya kupumzika na kutafakari.",
+  "Epuka kula kwa haraka na bila kufikiria athari zake kwa afya.",
+  "Jifunze kuwasiliana vyema katika mazingira ya kazi na familia.",
+  "Tafuta ushauri wa kitaalamu unapokutana na changamoto.",
+  "Jihudumie kwa kula vyakula vyenye lishe bora na salama.",
+  "Epuka kuingia katika migogoro isiyo na tija.",
+  "Jifunze kupanga matumizi ya fedha kwa njia ya busara.",
+  "Weka malengo yako wazi na yafikie kwa hatua ndogo ndogo.",
+  "Epuka kutumia muda mwingi kwenye vitu visivyo na maana.",
+  "Jifunze kusamehe na kuachilia masuala ya zamani.",
+  "Tafuta mbinu mpya za kuboresha maisha yako ya kila siku.",
+  "Jihudumie kwa kutunza uhusiano mzuri na watu wa karibu.",
+  "Epuka tabia za kuoga mawazo zisizohitajika.",
+  "Jifunze kujiamini na kujiamini katika maamuzi yako.",
+  "Tafuta njia za kujifunza kutoka kwa watu waliokuwepo kabla yako.",
+  "Weka nidhamu katika ratiba yako ya kila siku.",
+  "Epuka matumizi ya vitu vinavyoweza kuathiri afya yako.",
+  "Jihudumie kwa kuzingatia usingizi wa kutosha.",
+  "Tafuta muda wa kupumzika na kufanya mambo unayopenda.",
+  "Jifunze kuzungumza kwa heshima na upendo kwa wengine.",
+  "Epuka watu wanaokuudhi na kuleta usumbufu maishani mwako.",
+  "Weka malengo ya maisha yanayoweza kufikiwa kwa urahisi.",
+  "Jihudumie kwa kufanya mazoezi ya mwili mara kwa mara.",
+  "Tafuta msaada unapohisi umekwama au kushindwa.",
+  "Epuka kujiweka kwenye mazingira yenye mazingira hasi.",
+  "Jifunze kusimamia hisia zako kwa busara na utulivu.",
+  "Weka mkakati wa kupunguza msongo wa mawazo kila siku.",
+  "Tafuta njia za kuboresha uhusiano wako na watu unaowajali.",
+  "Jihudumie kwa kula chakula bora kwa afya yako ya akili.",
+  "Epuka kutumia muda mwingi kwenye vitu visivyo na tija.",
+  "Jifunze kujitambua na kutambua thamani yako binafsi.",
+  "Tafuta marafiki wa kweli na wenye nia njema.",
+  "Weka malengo yako yakiwa na mwelekeo wa kuwa bora zaidi.",
+  "Jihudumie kwa kufuata mazoea ya maisha yenye afya.",
+  "Epuka tabia za kuchelewesha kazi au malengo yako.",
+  "Jifunze kuungana na watu wenye malengo sawa na wewe.",
+  "Tafuta mbinu za kuongeza ufanisi katika shughuli zako.",
+  "Weka mkakati wa kudhibiti msongo wa mawazo na mawazo hasi.",
+  "Jihudumie kwa kutafakari na kujiendeleza kila siku.",
+  "Epuka kujiweka kwenye hali za hatari au zisizohitajika.",
+  "Jifunze kuweka mipaka kati ya maisha ya kazi na binafsi.",
+  "Tafuta njia za kuondoa msongo wa mawazo na kuchangamka.",
+  "Weka nidhamu ya kujifunza mambo mapya kila siku.",
+  "Jihudumie kwa kufanya mazoezi ya akili na mwili pamoja.",
+  "Epuka kutumia nguvu kwa mwelekeo mbaya au wasiwasi.",
+  "Jifunze kusimamia muda wako kwa njia yenye tija.",
+  "Tafuta msaada wa kitaalamu pale inapohitajika.",
+  "Weka malengo ya maisha yanayoweza kufikiwa na yanayoweza kupimwa.",
+  "Jihudumie kwa kuzingatia mabadiliko ya afya yako.",
+  "Epuka tabia za kuingiliana na watu wasiofaa.",
+  "Jifunze kujiamini na kujiamini katika kila hatua.",
+  "Tafuta njia za kuimarisha afya yako ya akili na mwili.",
+  "Weka nidhamu ya kufuata ratiba na mipango yako.",
+  "Jihudumie kwa kufanya shughuli zinazokuleta furaha na amani.",
+  "Epuka kujiweka kwenye hali za hatari zisizokuwa za lazima.",
+  "Jifunze kusimamia msongo wa mawazo kwa njia za asili.",
+  "Tafuta mbinu za kufikia malengo yako kwa ufanisi zaidi.",
+  "Weka malengo ya maisha yanayokufanya uwe na maana zaidi.",
+  "Jihudumie kwa kufuata mazoea ya afya na lishe bora.",
+  "Epuka tabia za kuharibu uhusiano na watu unaowathamini.",
+  "Jifunze kujiamini na kuishi kwa mtazamo chanya kila siku.",
+  ];
+
+  function getShownMessages() {
+    const shown = sessionStorage.getItem('shownLifeAdvices');
+    return shown ? JSON.parse(shown) : [];
+  }
+
+  function saveShownMessages(arr) {
+    sessionStorage.setItem('shownLifeAdvices', JSON.stringify(arr));
+  }
+
+  function showLifeAdvice() {
+    document.getElementById("menstrual-section").style.display = "none";
+    document.getElementById("life-advice-section").style.display = "block";
+
+    let shownMessages = getShownMessages();
+    let availableMessages = lifeAdvices.filter((msg, idx) => !shownMessages.includes(idx));
+
+    if (availableMessages.length === 0) {
+      shownMessages = [];
+      availableMessages = lifeAdvices;
+    }
+
+    let chosenIndex = lifeAdvices.indexOf(availableMessages[Math.floor(Math.random() * availableMessages.length)]);
+    document.getElementById("life-advice-message").textContent = lifeAdvices[chosenIndex];
+
+    shownMessages.push(chosenIndex);
+    saveShownMessages(shownMessages);
+  }
+</script>
+{% endblock %}

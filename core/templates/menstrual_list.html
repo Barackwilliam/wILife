@@ -60,9 +60,9 @@
     </table>
   </div>
 
-  <!-- Calendar -->
+  <!-- Calendar Button (with animation) -->
   <div class="text-center mt-5">
-    <a href="{% url 'menstrual_calendar' %}" class="btn btn-purple text-white shadow px-5 py-3" style="font-size: 1.1rem; border-radius: 12px;">
+    <a href="{% url 'menstrual_calendar' %}" class="calendar-btn">
       📅 View Menstrual Calendar
     </a>
   </div>
@@ -97,6 +97,39 @@
     font-size: 0.9rem;
     font-weight: 600;
     padding: 6px 12px;
+  }
+
+  .calendar-btn {
+    display: inline-block;
+    padding: 15px 30px;
+    font-size: 1.15rem;
+    font-weight: bold;
+    color: white;
+    background: linear-gradient(135deg, #8e24aa, #6a1b9a);
+    border: none;
+    border-radius: 12px;
+    text-decoration: none;
+    box-shadow: 0 4px 20px rgba(138, 43, 226, 0.4);
+    transition: all 0.3s ease-in-out;
+    animation: bounceGlow 2s ease-in-out infinite;
+    letter-spacing: 1px;
+  }
+
+  .calendar-btn:hover {
+    transform: scale(1.05) translateY(-3px);
+    background: linear-gradient(135deg, #7b1fa2, #4a148c);
+    box-shadow: 0 6px 30px rgba(106, 27, 154, 0.6);
+  }
+
+  @keyframes bounceGlow {
+    0%, 100% {
+      transform: scale(1) translateY(0);
+      box-shadow: 0 0 0 0 rgba(106, 27, 154, 0.4);
+    }
+    50% {
+      transform: scale(1.08) translateY(-5px);
+      box-shadow: 0 0 20px 6px rgba(106, 27, 154, 0.6);
+    }
   }
 
   @media (max-width: 768px) {
