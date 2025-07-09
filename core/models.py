@@ -107,3 +107,33 @@ class Profile(models.Model):
         if created:
             Profile.objects.create(user=instance)
         instance.profile.save()
+
+
+
+# models.py
+
+from django.conf import settings
+
+class MenstrualCycleRecord(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    start_date = models.DateField()  # Tarehe ya kuanza hedhi
+    end_date = models.DateField()    # Tarehe ya kumaliza
+    flow_level = models.CharField(
+        max_length=20,
+        choices=[('light', 'Light'), ('medium', 'Medium'), ('heavy', 'Heavy')],
+        default='medium'
+    )
+    pain_level = models.IntegerField(default=0)  # 0–10
+    mood = models.CharField(max_length=100, blank=True, null=True)
+    symptoms = models.TextField(blank=True, null=True)  # cramps, nausea, fatigue, etc.
+    notes = models.TextField(blank=True, null=True)
+    recorded_on = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-start_date']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.start_date} to {self.end_date}"
+
+    def cycle_length(self):
+        return (self.end_date - self.start_date).days + 1

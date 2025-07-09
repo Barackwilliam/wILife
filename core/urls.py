@@ -17,6 +17,13 @@ urlpatterns = [
     path('export/pdf/', views.export_pdf, name='export_pdf'),
     path('toggle-dark-mode/', views.toggle_dark_mode, name='toggle_dark_mode'),
 
+    path('menstrual/', views.menstrual_list, name='menstrual_list'),
+    path('menstrual/add/', views.menstrual_create, name='menstrual_add'),
+    path('period', views.menstrual_calendar, name='menstrual_calendar'),
+
+    path('period/update/<int:pk>/', views.menstrual_update, name='menstrual_update'),
+    path('period/delete/<int:pk>/', views.menstrual_delete, name='menstrual_delete'),
+
 
     path('task/', views.task_list, name='task_list'),
     path('task/add/', views.task_create, name='task_create'),

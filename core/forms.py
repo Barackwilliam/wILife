@@ -143,3 +143,21 @@ class ProfileUpdateForm(forms.ModelForm):
                 'class': 'form-control',
             }),
         }
+
+
+
+
+
+from .models import MenstrualCycleRecord
+
+class MenstrualCycleForm(forms.ModelForm):
+    class Meta:
+        model = MenstrualCycleRecord
+        fields = [
+            'start_date', 'end_date', 'flow_level',
+            'pain_level', 'mood', 'symptoms', 'notes'
+        ]
+        widgets = {
+            'start_date': forms.DateInput(attrs={'type': 'date'}),
+            'end_date': forms.DateInput(attrs={'type': 'date'}),
+        }

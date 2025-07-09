@@ -180,8 +180,9 @@ body,
       <a href="{% url 'calendar' %}" class="{% if 'calendar' in request.path %}active{% endif %}">
         <i class="bi bi-calendar3"></i> Calendar
       </a>
-
-
+  {% if user.is_staff %}      
+      <a href="{% url 'admin:index' %}" class=""><i class="fa fa-lock"></i> Admin</a>
+   {% endif %}
       <a href="{% url 'notifications_list' %}" class="{% if 'notifications' in request.path %}active{% endif %}">
         <i class="bi bi-bell"></i> {% with notifications|length as count %}
     {% if count > 0 %}
@@ -254,11 +255,11 @@ body,
             <div class="col-12 col-md-6 text-md-start">
               <span class="footer-text">&copy; {{ year|default:"2025" }} wILife. All rights reserved.</span>
             </div>
-            <div class="col-12 col-md-6 text-md-end">
+            <!-- <div class="col-12 col-md-6 text-md-end">
               <a href="#" class="footer-link me-3"><i class="bi bi-github"></i> GitHub</a>
               <a href="https://www.nyumbachap.com" class="footer-link me-3"><i class="bi bi-globe"></i> Website</a>
               <a href="#" class="footer-link"><i class="bi bi-envelope"></i> Contact</a>
-            </div>
+            </div> -->
           </div>
         </div>
       </footer>

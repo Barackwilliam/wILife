@@ -1,0 +1,164 @@
+{% extends 'base.html' %}
+{% block content %}
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.7/main.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.7/main.min.js"></script>
+
+<style>
+  body {
+    background: #f3f4fa;
+    color: #333;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+
+  #calendar {
+    background: linear-gradient(120deg, #fdf4ff, #e8f0ff);
+    padding: 35px;
+    border-radius: 24px;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .fc-toolbar-title {
+    font-size: 2.2rem;
+    color: #4a148c;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px #e1bee7;
+  }
+
+  .fc-button {
+    background-color: #6a1b9a !important;
+    border: none !important;
+    color: #fff !important;
+    border-radius: 10px !important;
+    padding: 10px 20px !important;
+    font-size: 1rem !important;
+    font-weight: 600;
+  }
+
+  .fc-daygrid-event {
+    border: none;
+    padding: 8px 12px;
+    font-size: 0.95rem;
+    border-radius: 10px;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+
+  .event-period {
+    background-color: #d81b60 !important;
+    color: white;
+  }
+
+  .event-ovulation {
+    background-color: #ffd600 !important;
+    color: black;
+  }
+
+  .event-safe {
+    background-color: #00c853 !important;
+    color: white;
+  }
+
+  .event-danger {
+    background-color: #d50000 !important;
+    color: white;
+  }
+
+  .tooltip-box {
+    position: absolute;
+    background-color: #fff;
+    border: 1px solid #bbb;
+    padding: 12px 14px;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    z-index: 9999;
+    display: none;
+    color: #333;
+    font-size: 1rem;
+    font-weight: 500;
+    max-width: 300px;
+    line-height: 1.6;
+    white-space: normal;
+  }
+
+  h2, a.btn {
+    color: #4a148c;
+    text-shadow: 1px 1px 1px #fce4ec;
+  }
+
+  @media (max-width: 768px) {
+    .fc-toolbar.fc-header-toolbar {
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .fc-toolbar-chunk {
+      width: 100%;
+      justify-content: center !important;
+      display: flex;
+    }
+  }
+</style>
+
+<div class="container py-4">
+  <h2 class="mb-4" style="font-weight: bold; text-align: center; font-size: 2.2rem;">🌼 My Menstrual Calendar</h2>
+  <div class="d-flex justify-content-center mb-4">
+    <a href="{% url 'menstrual_add' %}" class="btn btn-lg" style="background-color:#6a1b9a; color:white; border-radius: 12px; padding: 14px 28px; font-size: 1.2rem;">➕ Add New Record</a>
+  </div>
+  <div id="calendar"></div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const calendarEl = document.getElementById('calendar');
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+      initialView: 'dayGridMonth',
+      height: 'auto',
+      aspectRatio: 1.5,
+      headerToolbar: {
+        left: 'prev,next today',
+        center: 'title',
+        right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
+      },
+      eventDisplay: 'block',
+      events: {{ events|safe }},
+      eventDidMount: function(info) {
+        const eventType = info.event.extendedProps.type;
+        if (eventType === 'period') info.el.classList.add('event-period');
+        if (eventType === 'ovulation') info.el.classList.add('event-ovulation');
+        if (eventType === 'safe') info.el.classList.add('event-safe');
+        if (eventType === 'danger') info.el.classList.add('event-danger');
+
+        const tooltipContent = `<strong>${info.event.title}</strong><br>` +
+          (info.event.extendedProps.flow_level ? `Flow: ${info.event.extendedProps.flow_level}<br>` : '') +
+          (info.event.extendedProps.pain_level ? `Pain: ${info.event.extendedProps.pain_level}<br>` : '') +
+          (info.event.extendedProps.mood ? `Mood: ${info.event.extendedProps.mood}<br>` : '') +
+          (info.event.extendedProps.symptoms ? `Symptoms: ${info.event.extendedProps.symptoms}<br>` : '') +
+          (info.event.extendedProps.notes ? `Notes: ${info.event.extendedProps.notes}` : '');
+
+        const tooltip = document.createElement('div');
+        tooltip.innerHTML = tooltipContent;
+        tooltip.classList.add('tooltip-box');
+
+        info.el.addEventListener('mouseenter', function(event) {
+          document.body.appendChild(tooltip);
+          tooltip.style.left = event.pageX + 15 + 'px';
+          tooltip.style.top = event.pageY + 15 + 'px';
+          tooltip.style.display = 'block';
+        });
+
+        info.el.addEventListener('mousemove', function(event) {
+          tooltip.style.left = event.pageX + 15 + 'px';
+          tooltip.style.top = event.pageY + 15 + 'px';
+        });
+
+        info.el.addEventListener('mouseleave', function() {
+          tooltip.remove();
+        });
+      }
+    });
+    calendar.render();
+  });
+</script>
+{% endblock %}

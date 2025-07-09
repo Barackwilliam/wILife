@@ -24,6 +24,9 @@ import json
 def home(request):
     return render(request, 'index.html')
 
+from django.db.models import Count, Avg
+import json
+from datetime import date, timedelta
 
 @login_required
 def dashboard(request):
@@ -32,6 +35,7 @@ def dashboard(request):
     incomes = Income.objects.filter(user=user)
     expenses = Expense.objects.filter(user=user)
     tasks = Task.objects.filter(user=user)
+    menstrual_records = MenstrualCycleRecord.objects.filter(user=user)
 
     # Totals
     income_total = incomes.aggregate(total=Sum('amount'))['total'] or 0
@@ -47,7 +51,7 @@ def dashboard(request):
         avg_sleep=Avg('sleep_hours'),
     )
 
-    # Recommendations
+    # Recommendations (yako ya zamani)
     recommendations = []
     if expense_total > income_total:
         recommendations.append("Your expenses exceed your income. Consider budgeting better.")
@@ -89,15 +93,34 @@ def dashboard(request):
     else:
         expense_vs_income_percent = 0
 
-
     category_totals = expenses.values('category').annotate(total=Sum('amount'))
     categories = []
     expense_data = []
-
     for key, label in Expense.CATEGORY_CHOICES:
         categories.append(label)
         total = next((item['total'] for item in category_totals if item['category'] == key), 0)
         expense_data.append(float(total))
+
+    # Menstrual Cycle Data processing
+
+    # Pie chart: distribution of flow_level
+    flow_counts = menstrual_records.values('flow_level').annotate(count=Count('flow_level'))
+    flow_map = {'light': 'Light', 'medium': 'Medium', 'heavy': 'Heavy'}
+    menstrual_flow_labels = []
+    menstrual_flow_data = []
+    for flow_key in ['light', 'medium', 'heavy']:
+        menstrual_flow_labels.append(flow_map[flow_key])
+        count = next((item['count'] for item in flow_counts if item['flow_level'] == flow_key), 0)
+        menstrual_flow_data.append(count)
+
+    # Bar chart: cycle length per record with start_date as label
+    cycle_lengths = menstrual_records.order_by('start_date').values_list('start_date', 'end_date')
+    menstrual_cycle_labels = []
+    menstrual_cycle_data = []
+    for start, end in cycle_lengths:
+        menstrual_cycle_labels.append(start.strftime('%b %d'))
+        length = (end - start).days + 1
+        menstrual_cycle_data.append(length)
 
     context = {
         'income_total': income_total,
@@ -111,10 +134,19 @@ def dashboard(request):
         'expense_vs_income_percent': expense_vs_income_percent,
         'categories': json.dumps(categories),
         'expense_data': json.dumps(expense_data),
+
+        'menstrual_flow_levels': {
+            'labels': json.dumps(menstrual_flow_labels),
+            'data': json.dumps(menstrual_flow_data),
+        },
+        'menstrual_cycle_lengths': {
+            'labels': json.dumps(menstrual_cycle_labels),
+            'data': json.dumps(menstrual_cycle_data),
+        },
     }
 
-   
     return render(request, 'dashboard.html', context)
+
 # CRUD Views for Income
 
 @login_required
@@ -508,3 +540,105 @@ class CustomPasswordResetView(PasswordResetView):
     email_template_name = 'password_reset_email.html'
     subject_template_name = 'password_reset_subject.txt'
     success_url = '/password-reset/done/'
+
+
+from .models import MenstrualCycleRecord
+from .forms import MenstrualCycleForm
+from django.contrib.auth.decorators import login_required
+
+@login_required
+def menstrual_list(request):
+    records = MenstrualCycleRecord.objects.filter(user=request.user)
+    return render(request, 'menstrual_list.html', {'records': records})
+
+@login_required
+def menstrual_create(request):
+    if request.method == 'POST':
+        form = MenstrualCycleForm(request.POST)
+        if form.is_valid():
+            record = form.save(commit=False)
+            record.user = request.user
+            record.save()
+            return redirect('menstrual_list')
+    else:
+        form = MenstrualCycleForm()
+    return render(request, 'menstrual_form.html', {'form': form})
+
+
+
+from datetime import timedelta
+
+def menstrual_calendar(request):
+    records = MenstrualCycleRecord.objects.filter(user=request.user).order_by('start_date')
+    events = []
+
+    for record in records:
+        # Period days
+        events.append({
+            'title': '🩸 Period',
+            'start': record.start_date.isoformat(),
+            'end': (record.end_date + timedelta(days=1)).isoformat(),
+            'type': 'period',
+            'flow_level': record.flow_level,
+            'pain_level': record.pain_level,
+            'mood': record.mood,
+            'symptoms': record.symptoms,
+            'notes': record.notes
+        })
+
+        # Predicted Ovulation (day 14 from start)
+        ovulation_day = record.start_date + timedelta(days=14)
+        events.append({
+            'title': '💛 Ovulation',
+            'start': ovulation_day.isoformat(),
+            'type': 'ovulation'
+        })
+
+        # Safe Days: days before ovulation (e.g. days 5–9)
+        for i in range(5, 10):
+            safe_day = record.start_date + timedelta(days=i)
+            events.append({
+                'title': '✅ Safe Day',
+                'start': safe_day.isoformat(),
+                'type': 'safe'
+            })
+
+        # Danger Days: around ovulation (e.g. days 12–16)
+        for i in range(12, 17):
+            danger_day = record.start_date + timedelta(days=i)
+            events.append({
+                'title': '🚨 Danger Day',
+                'start': danger_day.isoformat(),
+                'type': 'danger'
+            })
+
+    context = {
+        'events': events
+    }
+    return render(request, 'menstrual_calendar.html', context)
+
+
+
+@login_required
+def menstrual_update(request, pk):
+    record = get_object_or_404(MenstrualCycleRecord, pk=pk, user=request.user)
+    if request.method == 'POST':
+        form = MenstrualCycleForm(request.POST, instance=record)
+        if form.is_valid():
+            form.save()
+            return redirect('menstrual_list')
+    else:
+        form = MenstrualCycleForm(instance=record)
+    return render(request, 'menstrual_form.html', {'form': form})
+
+
+
+
+
+@login_required
+def menstrual_delete(request, pk):
+    record = get_object_or_404(MenstrualCycleRecord, pk=pk, user=request.user)
+    if request.method == 'POST':
+        record.delete()
+        return redirect('menstrual_list')
+    return render(request, 'menstrual_confirm_delete.html', {'record': record})
