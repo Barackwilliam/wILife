@@ -9,7 +9,7 @@ from .models import (
     HealthRecord,
     Schedule,
     Notification,
-    Profile
+    Profile,MenstrualCycleRecord
 )
 
 
