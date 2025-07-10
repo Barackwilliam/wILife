@@ -59,3 +59,11 @@ class NotificationAdmin(admin.ModelAdmin):
 class ProfileAdmin(admin.ModelAdmin):
     list_display = ('user', 'location', 'birth_date')
     search_fields = ('user__username', 'location')
+
+
+@admin.register(MenstrualCycleRecord)
+class MenstrualCycleRecordAdmin(admin.ModelAdmin):
+    list_display = ('user', 'start_date', 'end_date', 'flow_level', 'pain_level', 'mood', 'recorded_on')
+    list_filter = ('flow_level', 'pain_level', 'start_date')
+    search_fields = ('user__username', 'mood', 'symptoms', 'notes')
+    date_hierarchy = 'start_date'
