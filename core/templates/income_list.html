@@ -3,6 +3,7 @@
 
 {% block extra_head %}
 <style>
+  /* Dark mode table and alerts */
   .dark-mode .table {
     color: #e5e7eb;
     background-color: #1f2937;
@@ -17,19 +18,52 @@
     background-color: #111827;
     color: #e5e7eb;
   }
-  .dark-mode .btn-outline-secondary,
-  .dark-mode .btn-outline-danger {
-    color: #e5e7eb;
-    border-color: #6b7280;
-  }
-  .dark-mode .btn-outline-secondary:hover,
-  .dark-mode .btn-outline-danger:hover {
-    background-color: #374151;
-  }
   .dark-mode .alert-info {
     background-color: #1e3a8a;
     color: #e0f2fe;
     border-color: #3b82f6;
+  }
+
+  /* Button styles for light mode */
+  .btn-outline-secondary {
+    color: #2f855a; /* medium green */
+    border-color: #2f855a;
+    font-weight: 600;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  .btn-outline-secondary:hover {
+    background-color: #276749; /* darker green */
+    color: #d1fae5; /* very light green */
+  }
+
+  .btn-outline-danger {
+    color: #c53030; /* vibrant red */
+    border-color: #c53030;
+    font-weight: 600;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  .btn-outline-danger:hover {
+    background-color: #9b2c2c; /* dark red */
+    color: #ffe5e5; /* very light red */
+  }
+
+  /* Button styles for dark mode */
+  .dark-mode .btn-outline-secondary {
+    color: #68d391; /* light green */
+    border-color: #68d391;
+  }
+  .dark-mode .btn-outline-secondary:hover {
+    background-color: #48bb78; /* green */
+    color: #e6ffed;
+  }
+
+  .dark-mode .btn-outline-danger {
+    color: #fc8181; /* light pink/red */
+    border-color: #fc8181;
+  }
+  .dark-mode .btn-outline-danger:hover {
+    background-color: #f56565; /* pink/red */
+    color: #fff0f0;
   }
 </style>
 {% endblock %}

@@ -29,40 +29,31 @@
     letter-spacing: 1.2px;
   }
 
-  /* Light mode styles with deep green and contrasting text */
+  /* Light mode styles - attractive modern gradient */
   body:not(.dark-mode) #calendar-container {
-    background-color: #064420; /* Deep Forest Green */
-    color: #b7d5a9; /* Light Sage Green */
+    background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+    color: #2c3e50;
   }
   body:not(.dark-mode) h1 {
-    color: #b7d5a9; /* Light Sage Green */
+    color: #3b3b3b;
   }
   body:not(.dark-mode) .fc .fc-toolbar-title {
-    color: #a9cba2; /* Slightly lighter green */
+    color: #374151;
   }
   body:not(.dark-mode) .fc .fc-button {
-    background: #4caf50; /* Medium Green */
-    color: #e6f2d9; /* Off-white/light green text */
+    background: #3b82f6;
+    color: #fff;
     border-radius: 6px;
-    box-shadow: 0 4px 8px rgba(76, 175, 80, 0.6);
-    border: none;
-    font-weight: 600;
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
   }
   body:not(.dark-mode) .fc .fc-button:hover {
-    background: #388e3c; /* Darker Green on hover */
-    color: #d0e8b0;
+    background: #2563eb;
   }
   body:not(.dark-mode) .fc .fc-daygrid-event {
-    background: #81c784; /* Light Green events */
-    color: #1b3b17; /* Very dark green text */
+    background: #4f46e5;
+    color: #f9fafb;
     border-radius: 8px;
     font-size: 0.95rem;
-  }
-
-  /* Event color for period days */
-  .period-event {
-    background-color: #81c784 !important; /* Light Green for period days */
-    color: #1b3b17 !important;
   }
 
   /* Dark mode styles */
@@ -158,9 +149,8 @@
         title: "{{ event.title|escapejs }}",
         start: "{{ event.start }}",
         end: "{{ event.end }}",
-        color: "{{ event.color|default:'#81c784' }}",
-        classNames: {{ event.class_names|default:"[]"|safe }},
-        textColor: "#1b3b17"
+        color: "#4f46e5",
+        textColor: "#f9fafb"
       },
       {% endfor %}
     ];
