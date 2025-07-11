@@ -31,7 +31,7 @@
 
   /* Light mode styles with deep green and contrasting text */
   body:not(.dark-mode) #calendar-container {
-    background-color: #064420; /* Deep Forest Green */
+    background-color: #370f94; /* Deep Forest Green */
     color: #b7d5a9; /* Light Sage Green */
   }
   body:not(.dark-mode) h1 {
@@ -160,7 +160,7 @@
         end: "{{ event.end }}",
         color: "{{ event.color|default:'#81c784' }}",
         classNames: {{ event.class_names|default:"[]"|safe }},
-        textColor: "#1b3b17"
+        textColor: "{{ event.text_color|default:'#1b3b17' }}"
       },
       {% endfor %}
     ];
