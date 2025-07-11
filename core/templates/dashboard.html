@@ -1,11 +1,39 @@
 {% extends 'base.html' %}
 {% load static %}
-{% block content %}
 
+{% block title %}📊 Dashboard{% endblock %}
+
+{% block extra_head %}
+<style>
+  .card {
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  body:not(.dark-mode) .card {
+    background-color: #f4f8fb;
+    color: #1a202c;
+  }
+  body:not(.dark-mode) .list-group-item {
+    color: #2d3748;
+    background-color: transparent;
+  }
+  .dark-mode .card {
+    background-color: #1f2937;
+    color: #e5e7eb;
+  }
+  .dark-mode .list-group-item {
+    color: #e5e7eb !important;
+    background-color: transparent !important;
+  }
+  .dark-mode canvas {
+    background-color: #1a202c;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
 <div class="container py-5">
   <h2 class="text-center mb-5">📊 Personal Dashboard for {{ request.user.username }}</h2>
 
-  <!-- Income, Expense, Tasks -->
   <div class="row g-4 mb-4">
     <div class="col-md-4">
       <div class="card p-3">
@@ -38,15 +66,14 @@
     </div>
   </div>
 
-  <!-- Health + Expenses Charts -->
   <div class="row g-4 mb-4">
     <div class="col-md-6">
       <div class="card p-3">
         <h5 class="section-title">🏥 Health Insights</h5>
         <ul class="list-group list-group-flush">
-          <li class="list-group-item bg-transparent text-dark">Weight (avg): {{ health_avg.avg_weight|floatformat:2|default:"N/A" }}</li>
-          <li class="list-group-item bg-transparent text-dark">Exercise (avg): {{ health_avg.avg_exercise|default:"N/A" }} min</li>
-          <li class="list-group-item bg-transparent text-dark">Sleep (avg): {{ health_avg.avg_sleep|default:"N/A" }} hrs</li>
+          <li class="list-group-item">Weight (avg): {{ health_avg.avg_weight|floatformat:2|default:"N/A" }}</li>
+          <li class="list-group-item">Exercise (avg): {{ health_avg.avg_exercise|default:"N/A" }} min</li>
+          <li class="list-group-item">Sleep (avg): {{ health_avg.avg_sleep|default:"N/A" }} hrs</li>
         </ul>
       </div>
     </div>
@@ -67,38 +94,29 @@
     </div>
   </div>
 
-  <!-- Menstrual Charts Only If Data Exists -->
   {% if menstrual_flow_levels and menstrual_cycle_lengths %}
   <div class="row g-4 mb-4">
     <div class="col-md-6">
       <div class="card p-3">
         <h5 class="section-title">🩸 Menstrual Flow Levels - Pie Chart</h5>
         <canvas id="menstrualFlowPieChart" style="max-width: 400px; margin: auto; display: block;"></canvas>
-        <p class="mt-3 text-center text-muted">
-          This chart shows the distribution of your menstrual flow levels recorded over time.
-        </p>
       </div>
     </div>
-
     <div class="col-md-6">
       <div class="card p-3">
         <h5 class="section-title">📈 Menstrual Cycle Length - Bar Chart</h5>
         <canvas id="menstrualCycleBarChart" style="max-width: 400px; margin: auto; display: block;"></canvas>
-        <p class="mt-3 text-center text-muted">
-          This chart illustrates the length of your menstrual cycles (in days).
-        </p>
       </div>
     </div>
   </div>
   {% endif %}
 
-  <!-- Recommendations -->
   <div class="card p-4">
     <h5 class="section-title">💡 Smart Recommendations</h5>
     {% if recommendations %}
       <ul class="list-group list-group-flush">
         {% for r in recommendations %}
-          <li class="list-group-item bg-transparent text-dark">⚠️ {{ r }}</li>
+          <li class="list-group-item">⚠️ {{ r }}</li>
         {% endfor %}
       </ul>
     {% else %}
@@ -107,10 +125,8 @@
   </div>
 </div>
 
-<!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  // Expense Charts
   const barCtx = document.getElementById('expenseBarChart').getContext('2d');
   const pieCtx = document.getElementById('expensePieChart').getContext('2d');
   const expenseLabels = {{ categories|safe }};
@@ -126,12 +142,7 @@
         backgroundColor: '#0dcaf0'
       }]
     },
-    options: {
-      responsive: true,
-      scales: {
-        y: { beginAtZero: true }
-      }
-    }
+    options: { responsive: true, scales: { y: { beginAtZero: true } } }
   });
 
   new Chart(pieCtx, {
@@ -141,68 +152,45 @@
       datasets: [{
         label: 'Expense Share',
         data: expenseData,
-        backgroundColor: [
-          '#0dcaf0', '#ffc107', '#fd7e14', '#dc3545', '#20c997', '#6f42c1', '#198754'
-        ]
+        backgroundColor: ['#0dcaf0', '#ffc107', '#fd7e14', '#dc3545', '#20c997', '#6f42c1', '#198754']
       }]
     },
     options: {
       responsive: true,
-      plugins: {
-        legend: { position: 'bottom' }
-      }
+      plugins: { legend: { position: 'bottom' } }
     }
   });
 
-  // Menstrual Charts Only If Data Exists
   {% if menstrual_flow_levels and menstrual_cycle_lengths %}
-  const flowCtx = document.getElementById('menstrualFlowPieChart').getContext('2d');
-  const menstrualFlowLabels = {{ menstrual_flow_levels.labels|safe }};
-  const menstrualFlowData = {{ menstrual_flow_levels.data|safe }};
-
-  new Chart(flowCtx, {
+  new Chart(document.getElementById('menstrualFlowPieChart').getContext('2d'), {
     type: 'pie',
     data: {
-      labels: menstrualFlowLabels,
+      labels: {{ menstrual_flow_levels.labels|safe }},
       datasets: [{
-        label: 'Menstrual Flow Levels',
-        data: menstrualFlowData,
+        data: {{ menstrual_flow_levels.data|safe }},
         backgroundColor: ['#d81b60', '#ec407a', '#f48fb1']
       }]
     },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { position: 'bottom' }
-      }
-    }
+    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
   });
 
-  const cycleCtx = document.getElementById('menstrualCycleBarChart').getContext('2d');
-  const menstrualCycleLabels = {{ menstrual_cycle_lengths.labels|safe }};
-  const menstrualCycleData = {{ menstrual_cycle_lengths.data|safe }};
-
-  new Chart(cycleCtx, {
+  new Chart(document.getElementById('menstrualCycleBarChart').getContext('2d'), {
     type: 'bar',
     data: {
-      labels: menstrualCycleLabels,
+      labels: {{ menstrual_cycle_lengths.labels|safe }},
       datasets: [{
         label: 'Cycle Length (days)',
-        data: menstrualCycleData,
+        data: {{ menstrual_cycle_lengths.data|safe }},
         backgroundColor: '#6a1b9a'
       }]
     },
     options: {
       responsive: true,
       scales: {
-        y: {
-          beginAtZero: true,
-          title: { display: true, text: 'Days' }
-        }
+        y: { beginAtZero: true, title: { display: true, text: 'Days' } }
       }
     }
   });
   {% endif %}
 </script>
-
 {% endblock %}

@@ -1,6 +1,39 @@
 {% extends 'base.html' %}
 {% block title %}Income List{% endblock %}
 
+{% block extra_head %}
+<style>
+  .dark-mode .table {
+    color: #e5e7eb;
+    background-color: #1f2937;
+  }
+  .dark-mode .table-striped > tbody > tr:nth-of-type(odd) {
+    background-color: #374151;
+  }
+  .dark-mode .table-hover tbody tr:hover {
+    background-color: #4b5563;
+  }
+  .dark-mode .table-light {
+    background-color: #111827;
+    color: #e5e7eb;
+  }
+  .dark-mode .btn-outline-secondary,
+  .dark-mode .btn-outline-danger {
+    color: #e5e7eb;
+    border-color: #6b7280;
+  }
+  .dark-mode .btn-outline-secondary:hover,
+  .dark-mode .btn-outline-danger:hover {
+    background-color: #374151;
+  }
+  .dark-mode .alert-info {
+    background-color: #1e3a8a;
+    color: #e0f2fe;
+    border-color: #3b82f6;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container py-4">
   <div class="d-flex justify-content-between align-items-center mb-4">
