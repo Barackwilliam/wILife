@@ -19,6 +19,7 @@ import pandas as pd
 from xhtml2pdf import pisa
 from django.template.loader import render_to_string
 import json
+from decimal import Decimal
 
 
 def home(request):
@@ -28,23 +29,24 @@ from django.db.models import Count, Avg
 import json
 from datetime import date, timedelta
 
+
 @login_required
 def dashboard(request):
     user = request.user
 
-    # User's data
+    # Data retrieval
     incomes = Income.objects.filter(user=user)
     expenses = Expense.objects.filter(user=user)
     tasks = Task.objects.filter(user=user)
     menstrual_records = MenstrualCycleRecord.objects.filter(user=user)
 
     # Totals
-    income_total = incomes.aggregate(total=Sum('amount'))['total'] or 0
-    expense_total = expenses.aggregate(total=Sum('amount'))['total'] or 0
+    income_total = incomes.aggregate(total=Sum('amount'))['total'] or Decimal("0")
+    expense_total = expenses.aggregate(total=Sum('amount'))['total'] or Decimal("0")
     tasks_pending = tasks.filter(status='pending').count()
     tasks_done = tasks.filter(status='done').count()
 
-    # Health averages (last 7 days)
+    # Health Averages (last 7 days)
     week_ago = date.today() - timedelta(days=7)
     health_avg = HealthRecord.objects.filter(user=user, date__gte=week_ago).aggregate(
         avg_weight=Avg('weight'),
@@ -52,13 +54,13 @@ def dashboard(request):
         avg_sleep=Avg('sleep_hours'),
     )
 
-    # Smart Recommendations (Deep, Logical, Dynamic)
+    # Smart Recommendations
     recommendations = []
     today = date.today()
 
-    # Financial Insight
+    # Savings Rate
     if income_total > 0:
-        savings_rate = 100 - ((expense_total / income_total) * 100)
+        savings_rate = Decimal("100") - ((expense_total / income_total) * Decimal("100"))
         if savings_rate < 10:
             recommendations.append("🚨 Your savings rate is critically low. Aim to keep at least 20% of your income untouched.")
         elif savings_rate >= 50:
@@ -66,28 +68,28 @@ def dashboard(request):
     else:
         recommendations.append("⚠️ You haven't recorded any income. The dashboard thrives on data—keep it updated!")
 
-    # Expense category check
+    # High Expense Category
     high_exp_cat = expenses.values('category').annotate(total=Sum('amount')).order_by('-total').first()
     if high_exp_cat and expense_total > 0:
-        percentage = (high_exp_cat['total'] / expense_total) * 100
+        percentage = (Decimal(high_exp_cat['total']) / expense_total) * Decimal("100")
         if percentage >= 30:
             label = dict(Expense.CATEGORY_CHOICES).get(high_exp_cat['category'], high_exp_cat['category'])
             recommendations.append(f"💸 You’re spending over 30% of your total expenses on '{label}'. Review this area for optimization.")
 
-    # Food spike
-    current_week_food = expenses.filter(category='food', date__gte=today - timedelta(days=7)).aggregate(total=Sum('amount'))['total'] or 0
-    previous_week_food = expenses.filter(category='food', date__lt=today - timedelta(days=7), date__gte=today - timedelta(days=14)).aggregate(total=Sum('amount'))['total'] or 0
-    if previous_week_food > 0 and current_week_food > previous_week_food * 1.3:
+    # Food Spending Spike
+    current_week_food = expenses.filter(category='food', date__gte=today - timedelta(days=7)).aggregate(total=Sum('amount'))['total'] or Decimal("0")
+    previous_week_food = expenses.filter(category='food', date__lt=today - timedelta(days=7), date__gte=today - timedelta(days=14)).aggregate(total=Sum('amount'))['total'] or Decimal("0")
+    if previous_week_food > 0 and current_week_food > previous_week_food * Decimal("1.3"):
         diff = current_week_food - previous_week_food
         recommendations.append(f"🍔 Food spending increased by Tsh.{diff:.2f}/= this week. Is it delivery fatigue or celebrations?")
 
-    # Tasks Insight
+    # Task Progress
     if tasks_pending > 5:
         recommendations.append("📌 You're juggling many pending tasks. Consider breaking them into smaller sub-goals.")
     elif tasks_pending == 0 and tasks_done > 0:
         recommendations.append("✅ Excellent productivity streak. You’ve cleared all tasks — reward yourself!")
 
-    # Health Patterns
+    # Health Monitoring
     if health_avg['avg_sleep'] and health_avg['avg_sleep'] < 6:
         recommendations.append("🌙 Sleep duration is below average. A consistent sleep schedule is crucial for mental clarity.")
     if health_avg['avg_exercise'] and health_avg['avg_exercise'] < 30:
@@ -95,14 +97,14 @@ def dashboard(request):
     if health_avg['avg_weight'] and health_avg['avg_weight'] > 95:
         recommendations.append("⚖️ Your weight is trending high. Track your meals or seek nutritionist support.")
 
-    # Monthly trend
+    # Monthly Financial Trend
     month_ago = today - timedelta(days=30)
-    income_last_month = incomes.filter(date__gte=month_ago).aggregate(total=Sum('amount'))['total'] or 0
-    expense_last_month = expenses.filter(date__gte=month_ago).aggregate(total=Sum('amount'))['total'] or 0
+    income_last_month = incomes.filter(date__gte=month_ago).aggregate(total=Sum('amount'))['total'] or Decimal("0")
+    expense_last_month = expenses.filter(date__gte=month_ago).aggregate(total=Sum('amount'))['total'] or Decimal("0")
     if income_last_month and expense_last_month > income_last_month:
         recommendations.append("📉 Your expenses last month exceeded income. If repeated, this leads to debt — revise your strategy.")
 
-    # Menstrual data
+    # Menstrual Health
     if menstrual_records.exists():
         heavy_days = menstrual_records.filter(flow_level='heavy').count()
         if heavy_days >= 3:
@@ -111,13 +113,15 @@ def dashboard(request):
         if long_cycles:
             recommendations.append("🔁 Some cycles are unusually long. Irregularity may signal hormonal imbalance.")
 
-    # Progress visuals
+    # Task Chart Values
     tasks_total = tasks_pending + tasks_done
     tasks_pending_percent = (tasks_pending / tasks_total) * 100 if tasks_total else 0
     tasks_done_percent = (tasks_done / tasks_total) * 100 if tasks_total else 0
-    expense_vs_income_percent = (expense_total / income_total) * 100 if income_total else 0
 
-    # Expense visualization
+    # Expense vs Income %
+    expense_vs_income_percent = float((expense_total / income_total) * Decimal("100")) if income_total > 0 else 0
+
+    # Expense Chart Data
     category_totals = expenses.values('category').annotate(total=Sum('amount'))
     categories = []
     expense_data = []
@@ -126,7 +130,7 @@ def dashboard(request):
         total = next((item['total'] for item in category_totals if item['category'] == key), 0)
         expense_data.append(float(total))
 
-    # Base context
+    # Base Context
     context = {
         'income_total': income_total,
         'expense_total': expense_total,
@@ -141,7 +145,7 @@ def dashboard(request):
         'expense_data': json.dumps(expense_data),
     }
 
-    # Menstrual chart data
+    # Menstrual Charts (if any)
     if menstrual_records.exists():
         flow_counts = menstrual_records.values('flow_level').annotate(count=Count('flow_level'))
         flow_map = {'light': 'Light', 'medium': 'Medium', 'heavy': 'Heavy'}
