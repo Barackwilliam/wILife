@@ -35,7 +35,7 @@
           <td>{{ record.sleep_hours|default:"-" }}</td>
           <td>
             <a href="{% url 'health_update' record.id %}" class="btn btn-sm btn-outline-secondary me-2">Edit</a>
-            <a href="{% url 'health_delete' record.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to delete this record?');">Delete</a>
+            <a href="{% url 'health_delete' record.id %}" class="btn btn-sm btn-outline-danger onclick="return confirm('Are you sure you want to delete this record?');">Delete</a>
           </td>
         </tr>
         {% endfor %}

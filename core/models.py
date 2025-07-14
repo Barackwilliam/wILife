@@ -28,6 +28,10 @@ class Expense(models.Model):
         ('bills', 'Bills'),
         ('health', 'Health'),
         ('education', 'Education'),
+        ('business', 'Business'),
+        ('love', 'Love'),
+        ('debt', 'Debt'),
+        ('beauty', 'Beauty'),
         ('other', 'Other'),
     ]
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='expenses')
