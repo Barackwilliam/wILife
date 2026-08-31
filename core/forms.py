@@ -161,3 +161,45 @@ class MenstrualCycleForm(forms.ModelForm):
             'start_date': forms.DateInput(attrs={'type': 'date'}),
             'end_date': forms.DateInput(attrs={'type': 'date'}),
         }
+
+# ─── Goal Forms ─────────────────────────────────────────────────────────────
+
+from .models import Goal, GoalMilestone, GoalUpdate
+
+class GoalForm(forms.ModelForm):
+    class Meta:
+        model = Goal
+        fields = ['title', 'description', 'category', 'target_value', 'current_value',
+                  'unit', 'start_date', 'target_date', 'status']
+        widgets = {
+            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Save 1,000,000 Tsh'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Optional description'}),
+            'category': forms.Select(attrs={'class': 'form-select'}),
+            'target_value': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 1000000'}),
+            'current_value': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': '0'}),
+            'unit': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Tsh, kg, books'}),
+            'start_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'target_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'status': forms.Select(attrs={'class': 'form-select'}),
+        }
+
+
+class GoalUpdateForm(forms.ModelForm):
+    class Meta:
+        model = GoalUpdate
+        fields = ['value', 'note', 'date']
+        widgets = {
+            'value': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'New progress value'}),
+            'note': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Optional note'}),
+            'date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+        }
+
+
+class GoalMilestoneForm(forms.ModelForm):
+    class Meta:
+        model = GoalMilestone
+        fields = ['title', 'target_value']
+        widgets = {
+            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Milestone title'}),
+            'target_value': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Value to reach'}),
+        }

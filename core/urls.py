@@ -3,6 +3,8 @@ from django.contrib.auth import views as auth_views
 from .views import CustomPasswordResetView
 from django.contrib.auth.views import LogoutView
 from .views import logout_view
+from . import views_whatsapp
+
 from . import views
 
 urlpatterns = [
@@ -63,4 +65,17 @@ urlpatterns = [
     path('reset/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(template_name='password_reset_confirm.html', success_url='/reset/done/'), name='password_reset_confirm'),
     path('reset/done/', auth_views.PasswordResetCompleteView.as_view(template_name='password_reset_complete.html'), name='password_reset_complete'),
 
+
+    # Goal URLs
+    path('goals/', views.goal_list, name='goal_list'),
+    path('goals/add/', views.goal_create, name='goal_create'),
+    path('goals/<int:pk>/', views.goal_detail, name='goal_detail'),
+    path('goals/<int:pk>/edit/', views.goal_update, name='goal_update'),
+    path('goals/<int:pk>/delete/', views.goal_delete, name='goal_delete'),
+    path('goals/<int:pk>/update/', views.goal_add_update, name='goal_add_update'),
+    path('goals/<int:pk>/milestone/', views.goal_add_milestone, name='goal_add_milestone'),
+    path('goals/<int:pk>/milestone/<int:milestone_pk>/toggle/', views.goal_toggle_milestone, name='goal_toggle_milestone'),
+    path('agent/whatsapp/', views_whatsapp.whatsapp_webhook, name='whatsapp_webhook'),
+    # Dashboard preferences
+    path('dashboard/save-prefs/', views.dashboard_save_prefs, name='dashboard_save_prefs'),
 ]

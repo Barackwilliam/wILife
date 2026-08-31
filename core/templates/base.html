@@ -171,6 +171,9 @@ body,
       <a href="{% url 'task_list' %}" class="{% if 'task' in request.path %}active{% endif %}">
         <i class="bi bi-list-task"></i> Tasks
       </a>
+      <a href="{% url 'goal_list' %}" class="{% if 'goal' in request.path %}active{% endif %}">
+        <i class="bi bi-trophy"></i> Goals
+      </a>
       <a href="{% url 'health_list' %}" class="{% if 'health' in request.path %}active{% endif %}">
         <i class="bi bi-heart-pulse"></i> Health
       </a>

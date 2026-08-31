@@ -1,4 +1,3 @@
-
 # Create your views here.
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login
@@ -7,6 +6,7 @@ from .forms import UserRegisterForm, UserUpdateForm, ProfileUpdateForm
 from .models import Notification, Schedule,HealthRecord
 from django.http import JsonResponse
 from django.db.models import Sum
+from django.utils import timezone
 
 from django.contrib.auth.decorators import login_required
 from .models import Income, Expense, Task
@@ -760,3 +760,345 @@ def menstrual_delete(request, pk):
         record.delete()
         return redirect('menstrual_list')
     return render(request, 'menstrual_confirm_delete.html', {'record': record})
+
+# ─── Goal Views ──────────────────────────────────────────────────────────────
+
+from .models import Goal, GoalMilestone, GoalUpdate
+from .forms import GoalForm, GoalUpdateForm, GoalMilestoneForm
+from django.utils import timezone as tz
+
+
+@login_required
+def goal_list(request):
+    goals = Goal.objects.filter(user=request.user)
+
+    # Stats
+    active = goals.filter(status='active').count()
+    completed = goals.filter(status='completed').count()
+    overdue = [g for g in goals.filter(status='active') if g.is_overdue()]
+
+    # Category filter
+    category = request.GET.get('category', '')
+    status_filter = request.GET.get('status', '')
+    if category:
+        goals = goals.filter(category=category)
+    if status_filter:
+        goals = goals.filter(status=status_filter)
+
+    context = {
+        'goals': goals,
+        'active_count': active,
+        'completed_count': completed,
+        'overdue_count': len(overdue),
+        'categories': Goal.CATEGORY_CHOICES,
+        'selected_category': category,
+        'selected_status': status_filter,
+    }
+    return render(request, 'goal_list.html', context)
+
+
+@login_required
+def goal_create(request):
+    if request.method == 'POST':
+        form = GoalForm(request.POST)
+        if form.is_valid():
+            goal = form.save(commit=False)
+            goal.user = request.user
+            goal.save()
+            messages.success(request, 'Goal created successfully!')
+            return redirect('goal_list')
+    else:
+        form = GoalForm()
+    return render(request, 'goal_form.html', {'form': form, 'action': 'Create'})
+
+
+@login_required
+def goal_update(request, pk):
+    goal = get_object_or_404(Goal, pk=pk, user=request.user)
+    if request.method == 'POST':
+        form = GoalForm(request.POST, instance=goal)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Goal updated!')
+            return redirect('goal_detail', pk=pk)
+    else:
+        form = GoalForm(instance=goal)
+    return render(request, 'goal_form.html', {'form': form, 'action': 'Edit', 'goal': goal})
+
+
+@login_required
+def goal_delete(request, pk):
+    goal = get_object_or_404(Goal, pk=pk, user=request.user)
+    if request.method == 'POST':
+        goal.delete()
+        messages.success(request, 'Goal deleted.')
+        return redirect('goal_list')
+    return render(request, 'goal_confirm_delete.html', {'goal': goal})
+
+
+@login_required
+def goal_detail(request, pk):
+    goal = get_object_or_404(Goal, pk=pk, user=request.user)
+    updates = goal.updates.all()
+    milestones = goal.milestones.all()
+
+    # Chart data — last 10 updates
+    chart_dates = [str(u.date) for u in updates[:10]][::-1]
+    chart_values = [float(u.value) for u in updates[:10]][::-1]
+
+    # Forms
+    update_form = GoalUpdateForm(initial={'date': timezone.now().date()})
+    milestone_form = GoalMilestoneForm()
+
+    context = {
+        'goal': goal,
+        'updates': updates,
+        'milestones': milestones,
+        'update_form': update_form,
+        'milestone_form': milestone_form,
+        'chart_dates': json.dumps(chart_dates),
+        'chart_values': json.dumps(chart_values),
+    }
+    return render(request, 'goal_detail.html', context)
+
+
+@login_required
+def goal_add_update(request, pk):
+    goal = get_object_or_404(Goal, pk=pk, user=request.user)
+    if request.method == 'POST':
+        form = GoalUpdateForm(request.POST)
+        if form.is_valid():
+            update = form.save(commit=False)
+            update.goal = goal
+            update.save()
+            # Update goal's current_value to latest entry
+            goal.current_value = update.value
+            # Auto-complete if reached target
+            if goal.target_value and goal.current_value >= goal.target_value:
+                goal.status = 'completed'
+                messages.success(request, '🎉 Goal completed! Congratulations!')
+            else:
+                messages.success(request, 'Progress updated!')
+            goal.save()
+    return redirect('goal_detail', pk=pk)
+
+
+@login_required
+def goal_add_milestone(request, pk):
+    goal = get_object_or_404(Goal, pk=pk, user=request.user)
+    if request.method == 'POST':
+        form = GoalMilestoneForm(request.POST)
+        if form.is_valid():
+            milestone = form.save(commit=False)
+            milestone.goal = goal
+            milestone.save()
+            messages.success(request, 'Milestone added!')
+    return redirect('goal_detail', pk=pk)
+
+
+@login_required
+def goal_toggle_milestone(request, pk, milestone_pk):
+    goal = get_object_or_404(Goal, pk=pk, user=request.user)
+    milestone = get_object_or_404(GoalMilestone, pk=milestone_pk, goal=goal)
+    milestone.is_completed = not milestone.is_completed
+    milestone.completed_at = tz.now() if milestone.is_completed else None
+    milestone.save()
+    return redirect('goal_detail', pk=pk)
+
+
+# ─── Dashboard Preferences Views ────────────────────────────────────────────
+
+from .models import DashboardPreference
+import json as _json
+
+ALL_WIDGETS = [
+    {'key': 'finance',        'label': 'Finance Summary',      'icon': 'bi-cash-stack',    'color': 'success'},
+    {'key': 'tasks',          'label': 'Tasks Overview',        'icon': 'bi-check2-square', 'color': 'primary'},
+    {'key': 'health',         'label': 'Health Insights',       'icon': 'bi-heart-pulse',   'color': 'danger'},
+    {'key': 'goals',          'label': 'Goals Progress',        'icon': 'bi-trophy',        'color': 'warning'},
+    {'key': 'expense_chart',  'label': 'Expense Chart',         'icon': 'bi-bar-chart',     'color': 'info'},
+    {'key': 'schedule',       'label': 'Upcoming Schedule',     'icon': 'bi-calendar-event','color': 'secondary'},
+    {'key': 'recommendations','label': 'Smart Recommendations', 'icon': 'bi-lightbulb',     'color': 'warning'},
+    {'key': 'menstrual',      'label': 'Menstrual Tracker',     'icon': 'bi-calendar-heart','color': 'pink'},
+    {'key': 'net_worth',      'label': 'Net Worth',             'icon': 'bi-bank',          'color': 'success'},
+]
+
+DEFAULT_ORDER = [w['key'] for w in ALL_WIDGETS]
+
+
+def _get_or_create_prefs(user):
+    prefs, _ = DashboardPreference.objects.get_or_create(user=user)
+    return prefs
+
+
+@login_required
+def dashboard(request):
+    user = request.user
+
+    # ── Preferences ──────────────────────────────────────────────────────────
+    prefs = _get_or_create_prefs(user)
+    widget_order = prefs.get_widget_order() or DEFAULT_ORDER
+    hidden = prefs.get_hidden_widgets()
+
+    # Ensure new widgets not in saved order are appended
+    for w in DEFAULT_ORDER:
+        if w not in widget_order:
+            widget_order.append(w)
+
+    # ── Data ─────────────────────────────────────────────────────────────────
+    from .models import MenstrualCycleRecord, Goal
+    incomes  = Income.objects.filter(user=user)
+    expenses = Expense.objects.filter(user=user)
+    tasks    = Task.objects.filter(user=user)
+    menstrual_records = MenstrualCycleRecord.objects.filter(user=user)
+    goals    = Goal.objects.filter(user=user, status='active') if 'goals' not in hidden else Goal.objects.none()
+
+    income_total  = incomes.aggregate(total=Sum('amount'))['total']  or Decimal('0')
+    expense_total = expenses.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+    net_worth     = income_total - expense_total
+
+    tasks_pending = tasks.filter(status='pending').count()
+    tasks_done    = tasks.filter(status='done').count()
+    tasks_total   = tasks_pending + tasks_done
+    tasks_pending_percent = (tasks_pending / tasks_total * 100) if tasks_total else 0
+    tasks_done_percent    = (tasks_done    / tasks_total * 100) if tasks_total else 0
+
+    week_ago   = date.today() - timedelta(days=7)
+    health_avg = HealthRecord.objects.filter(user=user, date__gte=week_ago).aggregate(
+        avg_weight=Avg('weight'),
+        avg_exercise=Avg('exercise_minutes'),
+        avg_sleep=Avg('sleep_hours'),
+    )
+
+    expense_vs_income_percent = float(
+        (expense_total / income_total) * Decimal('100')
+    ) if income_total > 0 else 0
+
+    # Expense chart data
+    category_totals = expenses.values('category').annotate(total=Sum('amount'))
+    categories, expense_data = [], []
+    for key, label in Expense.CATEGORY_CHOICES:
+        categories.append(label)
+        expense_data.append(float(
+            next((i['total'] for i in category_totals if i['category'] == key), 0)
+        ))
+
+    # Upcoming schedule (next 7 days)
+    from django.utils import timezone as _tz
+    now = _tz.now()
+    upcoming_schedule = Schedule.objects.filter(
+        user=user,
+        start_datetime__gte=now,
+        start_datetime__lte=now + timedelta(days=7)
+    ).order_by('start_datetime')[:5]
+
+    # Goals summary
+    goals_list = list(goals[:4])
+
+    # Recommendations
+    recommendations = []
+    today = date.today()
+    if income_total > 0:
+        savings_rate = Decimal('100') - ((expense_total / income_total) * Decimal('100'))
+        if savings_rate < 10:
+            recommendations.append('🚨 Savings rate critically low. Aim for at least 20%.')
+        elif savings_rate >= 50:
+            recommendations.append('🧠 Exceptional savings! Consider long-term investments.')
+    else:
+        recommendations.append('⚠️ No income recorded yet. Keep your data updated!')
+
+    high_exp_cat = expenses.values('category').annotate(total=Sum('amount')).order_by('-total').first()
+    if high_exp_cat and expense_total > 0:
+        pct = (Decimal(high_exp_cat['total']) / expense_total) * Decimal('100')
+        if pct >= 30:
+            lbl = dict(Expense.CATEGORY_CHOICES).get(high_exp_cat['category'], '')
+            recommendations.append(f"💸 Over 30% of expenses on '{lbl}'. Review this area.")
+
+    if tasks_pending > 5:
+        recommendations.append('📌 Many pending tasks. Break them into smaller goals.')
+    elif tasks_pending == 0 and tasks_done > 0:
+        recommendations.append('✅ All tasks cleared — reward yourself!')
+
+    if health_avg['avg_sleep'] and health_avg['avg_sleep'] < 6:
+        recommendations.append('🌙 Sleep below 6hrs/night. Prioritise rest.')
+    if health_avg['avg_exercise'] and health_avg['avg_exercise'] < 30:
+        recommendations.append('💪 Less than 30 min exercise/day. Try micro-workouts.')
+
+    month_ago = today - timedelta(days=30)
+    inc_m = incomes.filter(date__gte=month_ago).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+    exp_m = expenses.filter(date__gte=month_ago).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+    if inc_m and exp_m > inc_m:
+        recommendations.append('📉 Last month expenses exceeded income. Revise your budget.')
+
+    if menstrual_records.exists():
+        if menstrual_records.filter(flow_level='heavy').count() >= 3:
+            recommendations.append('🩸 Multiple heavy flow days. Consider consulting a specialist.')
+
+    # Menstrual chart data
+    menstrual_flow_levels = menstrual_cycle_lengths = None
+    if menstrual_records.exists():
+        flow_counts = menstrual_records.values('flow_level').annotate(count=Count('flow_level'))
+        flow_map = {'light': 'Light', 'medium': 'Medium', 'heavy': 'Heavy'}
+        menstrual_flow_levels = {
+            'labels': _json.dumps([flow_map[k] for k in ['light', 'medium', 'heavy']]),
+            'data':   _json.dumps([next((c['count'] for c in flow_counts if c['flow_level'] == k), 0) for k in ['light', 'medium', 'heavy']]),
+        }
+        cl = menstrual_records.order_by('start_date').values_list('start_date', 'end_date')
+        menstrual_cycle_lengths = {
+            'labels': _json.dumps([s.strftime('%b %d') for s, e in cl if s and e]),
+            'data':   _json.dumps([(e - s).days + 1 for s, e in cl if s and e]),
+        }
+
+    context = {
+        # widget layout
+        'widget_order':  widget_order,
+        'hidden_widgets': hidden,
+        'all_widgets':   ALL_WIDGETS,
+        'prefs':         prefs,
+        # finance
+        'income_total':  income_total,
+        'expense_total': expense_total,
+        'net_worth':     net_worth,
+        'expense_vs_income_percent': expense_vs_income_percent,
+        'categories':    _json.dumps(categories),
+        'expense_data':  _json.dumps(expense_data),
+        # tasks
+        'tasks_pending':         tasks_pending,
+        'tasks_done':            tasks_done,
+        'tasks_pending_percent': tasks_pending_percent,
+        'tasks_done_percent':    tasks_done_percent,
+        # health
+        'health_avg': health_avg,
+        # goals
+        'goals_list': goals_list,
+        # schedule
+        'upcoming_schedule': upcoming_schedule,
+        # recommendations
+        'recommendations': recommendations,
+        # menstrual
+        'menstrual_flow_levels':  menstrual_flow_levels,
+        'menstrual_cycle_lengths': menstrual_cycle_lengths,
+    }
+    return render(request, 'dashboard.html', context)
+
+
+@login_required
+def dashboard_save_prefs(request):
+    """AJAX endpoint — saves widget order, visibility, layout, accent."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    try:
+        data  = _json.loads(request.body)
+        prefs = _get_or_create_prefs(request.user)
+        if 'order' in data:
+            prefs.widget_order   = _json.dumps(data['order'])
+        if 'hidden' in data:
+            prefs.hidden_widgets = _json.dumps(data['hidden'])
+        if 'layout' in data and data['layout'] in ('default', 'compact', 'wide'):
+            prefs.layout = data['layout']
+        if 'accent' in data and data['accent'] in ('blue', 'green', 'purple', 'orange'):
+            prefs.accent_color = data['accent']
+        prefs.save()
+        return JsonResponse({'status': 'ok'})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
