@@ -4,6 +4,7 @@ from .views import CustomPasswordResetView
 from django.contrib.auth.views import LogoutView
 from .views import logout_view
 from . import views_whatsapp
+from . import views_telegram
 
 from . import views
 
@@ -78,4 +79,5 @@ urlpatterns = [
     path('agent/whatsapp/', views_whatsapp.whatsapp_webhook, name='whatsapp_webhook'),
     # Dashboard preferences
     path('dashboard/save-prefs/', views.dashboard_save_prefs, name='dashboard_save_prefs'),
+    path('agent/telegram/', views_telegram.telegram_webhook, name='telegram_webhook'),
 ]
