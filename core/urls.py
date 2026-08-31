@@ -5,6 +5,7 @@ from django.contrib.auth.views import LogoutView
 from .views import logout_view
 from . import views_whatsapp
 from . import views_telegram
+from . import views_agent
 
 from . import views
 
@@ -37,6 +38,8 @@ urlpatterns = [
     path('health/add/', views.health_create, name='health_create'),
     path('health/<int:pk>/edit/', views.health_update, name='health_update'),
     path('health/<int:pk>/delete/', views.health_delete, name='health_delete'),
+    path('healthz/', views_agent.healthz, name='healthz'),
+    path('agent/tick/', views_agent.agent_tick, name='agent_tick'),
 
     path('schedule/', views.schedule_list, name='schedule_list'),
     path('schedule/add/', views.schedule_create, name='schedule_create'),
