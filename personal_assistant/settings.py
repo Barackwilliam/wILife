@@ -35,7 +35,7 @@ SECRET_KEY = env("DJANGO_SECRET_KEY", required=True)
 DEBUG = env_bool("DJANGO_DEBUG", False)
 
 # Comma-separated list, e.g. "wilife.onrender.com,localhost,127.0.0.1"
-ALLOWED_HOSTS = [h.strip() for h in env("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h.strip()]
+ALLOWED_HOSTS = ["*"]
 
 CSRF_TRUSTED_ORIGINS = [
     o.strip() for o in env("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()
