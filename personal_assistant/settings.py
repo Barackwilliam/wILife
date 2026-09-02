@@ -227,3 +227,13 @@ TELEGRAM_ENABLED = env_bool("TELEGRAM_ENABLED", False)
 TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_WEBHOOK_SECRET = env("TELEGRAM_WEBHOOK_SECRET", "")
 AGENT_TELEGRAM_CHAT_ID = env("AGENT_TELEGRAM_CHAT_ID", "")
+
+
+# Self channel: email | telegram | whatsapp
+AGENT_SELF_CHANNEL = env("AGENT_SELF_CHANNEL", "email")
+
+# Email channel (Resend over HTTPS — SMTP ports are blocked on Render free)
+EMAIL_CHANNEL_ENABLED = env_bool("EMAIL_CHANNEL_ENABLED", False)
+RESEND_API_KEY = env("RESEND_API_KEY", "")
+AGENT_EMAIL_FROM = env("AGENT_EMAIL_FROM", "")
+AGENT_EMAIL_TO = env("AGENT_EMAIL_TO", "")

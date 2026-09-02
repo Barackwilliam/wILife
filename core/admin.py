@@ -13,6 +13,18 @@ from .models import (
 )
 
 
+from .models import AgentRun, ApprovalRequest
+
+@admin.register(AgentRun)
+class AgentRunAdmin(admin.ModelAdmin):
+    list_display = ("job", "started_at", "ok", "processed", "failed")
+    readonly_fields = [f.name for f in AgentRun._meta.fields]
+
+@admin.register(ApprovalRequest)
+class ApprovalRequestAdmin(admin.ModelAdmin):
+    list_display = ("code", "tool", "recipient_name", "status", "created_at")
+    list_filter = ("status",)
+
 @admin.register(Income)
 class IncomeAdmin(admin.ModelAdmin):
     list_display = ('user', 'source', 'amount', 'date')

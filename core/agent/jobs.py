@@ -22,7 +22,10 @@ from django.utils import timezone
 from core.models import AgentRun, Schedule
 from core.agent import approvals
 from core.agent.brief import run_morning_brief
+from core.agent.expiry import run_expiry_watch
 from core.agent.invoices import run_invoice_watch
+from core.agent.leads import run_lead_watch
+from core.agent.review import run_weekly_review
 from core.agent.channels import DeliveryError, send_to_self
 
 log = logging.getLogger("core.agent")
@@ -69,13 +72,13 @@ def run_schedule_reminders(now=None, deadline=None, dry_run=False):
     with transaction.atomic():
         claimed = list(
             Schedule.objects
-            .select_for_update(skip_locked=True, of=("self",))
+            .select_for_update(skip_locked=True)
             .filter(
                 reminder_datetime__isnull=False,
                 reminder_datetime__lte=now,
                 reminder_sent=False,
             )
-            .select_related("user")
+            .select_related("user", "user__profile")
             .order_by("reminder_datetime")[:BATCH_SIZE]
         )
         if claimed and not dry_run:
@@ -143,7 +146,10 @@ def run_expire_approvals(now=None, deadline=None, dry_run=False):
 JOBS = {
     "schedule_reminders": run_schedule_reminders,
     "morning_brief": run_morning_brief,
+    "expiry_watch": run_expiry_watch,
     "invoice_watch": run_invoice_watch,
+    "lead_watch": run_lead_watch,
+    "weekly_review": run_weekly_review,
     "expire_approvals": run_expire_approvals,
 }
 

@@ -22,6 +22,7 @@ from django.utils import timezone
 
 from core.models import AgentRun, Expense, Income, Schedule, Task
 from core.agent.channels import DeliveryError, send_to_self
+from core.agent.goals import brief_section as goals_section
 
 log = logging.getLogger("core.agent")
 
@@ -71,8 +72,10 @@ def _brief_recipients():
 
     # On Telegram there is one configured chat — the owner's. Deliver to the
     # first active user and stop; there is no per-user routing to do.
-    if self_channel() == "telegram":
-        return [(users[0], "telegram")] if users else []
+    channel = self_channel()
+    if channel in ("telegram", "email"):
+        # One configured destination — the owner's. No per-user routing to do.
+        return [(users[0], channel)] if users else []
 
     recipients = []
     for user in users:
@@ -158,6 +161,11 @@ def build_brief(user, now=None):
     else:
         lines.append("  _Hakuna task ya leo_")
     lines.append("")
+
+    try:
+        lines.extend(goals_section(user))
+    except Exception as exc:  # a goals schema surprise must not kill the brief
+        log.warning("goals section skipped: %s", exc)
 
     if overdue_tasks:
         lines.append(f"⚠️ *Zilizopitwa na muda* ({len(overdue_tasks)})")
