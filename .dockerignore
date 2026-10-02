@@ -1,0 +1,14 @@
+.git
+.env
+*.env
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+db.sqlite3
+staticfiles/
+media/
+whatsapp_bridge/node_modules/
+whatsapp_bridge/auth_info_baileys/
+whatsapp_bridge/.env
+*.log

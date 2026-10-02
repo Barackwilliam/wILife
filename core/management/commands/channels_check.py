@@ -42,9 +42,10 @@ class Command(BaseCommand):
                 status = whatsapp.bridge_status()
                 self.stdout.write(f"WhatsApp bridge: {status.get('status')}")
                 if not status.get("connected"):
-                    self.stdout.write(self.style.WARNING(
-                        f"  not linked — open {settings.WHATSAPP_BRIDGE_URL.rstrip('/')}/qr?key=<WHATSAPP_BRIDGE_KEY>"
-                        " and scan the QR"))
+                    where = ("/agent/whatsapp/qr/ on this site (staff login)"
+                             if "127.0.0.1" in settings.WHATSAPP_BRIDGE_URL or "localhost" in settings.WHATSAPP_BRIDGE_URL
+                             else f"{settings.WHATSAPP_BRIDGE_URL.rstrip('/')}/qr?key=<WHATSAPP_BRIDGE_KEY>")
+                    self.stdout.write(self.style.WARNING(f"  not linked — open {where} and scan the QR"))
             except Exception as exc:
                 self.stdout.write(self.style.ERROR(f"WhatsApp bridge unreachable: {exc}"))
             self.stdout.write("")
