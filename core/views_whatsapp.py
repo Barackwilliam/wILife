@@ -15,6 +15,8 @@ Two entry points:
                        reply goes back in the response body and the bridge sends
                        it, so it reaches the chat even when WhatsApp hides the
                        sender's number behind a LID.
+    whatsapp_qr        Staff-only page showing the bridge's QR code, for when
+                       the bridge runs inside this service and is not public.
 """
 
 import hashlib
@@ -22,7 +24,9 @@ import hmac
 import json
 import logging
 
+import requests
 from django.conf import settings
+from django.contrib.admin.views.decorators import staff_member_required
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -149,6 +153,24 @@ def baileys_incoming(request):
         log.exception("bridge message handling failed")
 
     return JsonResponse({"reply": reply or ""})
+
+
+@staff_member_required
+def whatsapp_qr(request):
+    """Show the bridge's QR page without exposing the bridge or its key."""
+    base = getattr(settings, "WHATSAPP_BRIDGE_URL", "")
+    key = getattr(settings, "WHATSAPP_BRIDGE_KEY", "")
+    if not base or not key:
+        return HttpResponse("WhatsApp bridge is not configured "
+                            "(WHATSAPP_BRIDGE_URL / WHATSAPP_BRIDGE_KEY).", status=503)
+    try:
+        response = requests.get(base.rstrip("/") + "/qr", params={"key": key}, timeout=10)
+    except requests.RequestException as exc:
+        return HttpResponse(f"WhatsApp bridge unreachable: {exc}", status=502)
+    page = HttpResponse(response.content, status=response.status_code,
+                        content_type=response.headers.get("Content-Type", "text/html"))
+    page["Cache-Control"] = "no-store"
+    return page
 
 
 def _handle_message(from_number, text):

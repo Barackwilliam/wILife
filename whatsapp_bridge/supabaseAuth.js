@@ -29,7 +29,8 @@ async function useSupabaseAuthState(connectionString, sessionName = 'default') {
 
     const pool = new Pool({
         connectionString,
-        ssl: { rejectUnauthorized: false },
+        // Supabase requires SSL; DATABASE_SSL=false is for a local Postgres.
+        ssl: process.env.DATABASE_SSL === 'false' ? false : { rejectUnauthorized: false },
         max: 3,
     });
 

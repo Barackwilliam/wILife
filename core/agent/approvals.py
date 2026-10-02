@@ -112,7 +112,6 @@ def execute_approved(approval):
 
 
 @transaction.atomic
-@transaction.atomic
 def approve(code, user=None):
     """
     Approve by code and send. Returns (ok, message) for the reply to William.

@@ -28,47 +28,52 @@ simu yako ──"OK 1234"──▶ bridge ──▶ Django /agent/whatsapp/baile
 Ukitumia namba ileile, ujumbe unaingia kwenye "Message yourself" bila arifa,
 na majibu yako ya `OK 1234` hayatafika kwa agent.
 
-### Deploy kwenye Render
+### Deploy kwenye Render — huduma MOJA (Docker)
 
-1. Render → **New → Web Service** → chagua repo hii.
-2. **Root Directory:** `whatsapp_bridge`
-   **Build Command:** `npm install`
-   **Start Command:** `node server.js`
-3. Environment:
+Django na bridge zinaendesha ndani ya huduma moja (`Dockerfile` + `start.sh`).
+Bridge inasikiliza ndani tu (`127.0.0.1:3001`); haionekani nje.
 
-   | Variable | Thamani |
-   |---|---|
-   | `BRIDGE_API_KEY` | siri ndefu, sawa na `WHATSAPP_BRIDGE_KEY` ya Django |
-   | `DJANGO_URL` | `https://your-app.onrender.com` |
-   | `DATABASE_URL` | connection string ya Supabase (URI) — session inabaki baada ya deploy |
-   | `SESSION_NAME` | `wilife` |
+1. Render → huduma yako ya wILife → **Settings**.
+   - Kama kuna chaguo la **Runtime/Language**, badilisha kuwa **Docker**.
+   - Kama halipo, tengeneza **New → Web Service → Docker** kutoka repo hii,
+     hamisha Environment variables zote, kisha futa huduma ya zamani.
+   - Build Command na Start Command ziache **tupu** (Dockerfile inashughulikia,
+     ikiwemo `collectstatic` na `migrate`).
+2. Ongeza kwenye Environment:
 
-4. Deploy ikimaliza, fungua `https://your-bridge.onrender.com/qr?key=<BRIDGE_API_KEY>`.
+   ```
+   WHATSAPP_ENABLED=true
+   WHATSAPP_PROVIDER=baileys
+   WHATSAPP_BRIDGE_KEY=<siri ndefu>
+   AGENT_DEFAULT_RECIPIENT=2557XXXXXXXX     # namba yako binafsi (inapokea ujumbe)
+   ```
+
+   Usiweke `WHATSAPP_BRIDGE_URL` — image tayari inajua bridge iko wapi.
+   Session ya WhatsApp inahifadhiwa kwenye Postgres ileile (kutoka `DB_*`),
+   kwa hiyo deploy mpya haihitaji kuscan QR tena.
+3. Deploy ikimaliza: ingia kama admin (superuser), fungua
+   `https://your-app.onrender.com/agent/whatsapp/qr/`.
    Kwenye simu ya namba ya bridge: WhatsApp → Settings → Linked Devices →
    Link a Device → scan. Ukurasa utaonyesha **✅ Connected**.
 
-### Django (Render → Environment ya app kuu)
+### Render free tier
 
-```
-WHATSAPP_ENABLED=true
-WHATSAPP_PROVIDER=baileys
-WHATSAPP_BRIDGE_URL=https://your-bridge.onrender.com
-WHATSAPP_BRIDGE_KEY=<sawa na BRIDGE_API_KEY>
-AGENT_DEFAULT_RECIPIENT=2557XXXXXXXX     # namba yako binafsi (inapokea ujumbe)
-```
-
-Au weka namba yako kwenye Profile ndani ya wILife.
-
-### Render free tier — muhimu
-
-- Huduma za bure **hulala** baada ya dakika 15 bila maombi, na bridge ikilala
-  WhatsApp inakatika. Weka pinger (k.m. cron-job.org) kwenye
-  `https://your-bridge.onrender.com/health` kila dakika 10.
-- Free tier ina saa 750 kwa mwezi **kwa huduma zote kwa pamoja**. Huduma mbili
-  zikiwa macho saa 24 zinahitaji ~1,460, kwa hiyo moja wapo (bora bridge) iwe
-  kwenye plan ya Starter, au iendeshwe kwenye seva nyingine (VPS, Railway, n.k.).
+- Huduma moja inayokaa macho saa 24 ni ~saa 720 kwa mwezi — inatosha ndani
+  ya saa 750 za bure.
+- Pinger ileile inayogonga `/agent/tick/` (k.m. kila dakika 5–10) inaiweka
+  huduma macho, na bridge nayo inabaki imeunganishwa.
+- Kila deploy ya Django inaanzisha bridge upya kwa sekunde chache; ujumbe
+  unaotumwa wakati huo unajaribiwa tena kwenye tick inayofuata.
 - Baileys si API rasmi ya Meta. Kutuma ujumbe kwako mwenyewe kwa kiwango
   kidogo kuna hatari ndogo, lakini ndiyo sababu namba ya pili inapendekezwa.
+
+### Njia mbadala: bridge kama huduma tofauti
+
+Kama siku moja utataka bridge iwe huduma yake (k.m. plan ya Starter): Render →
+New Web Service, Root Directory `whatsapp_bridge`, Build `npm install`, Start
+`node server.js`, Environment `BRIDGE_API_KEY`, `DJANGO_URL`, `DATABASE_URL`.
+Kisha kwenye Django weka `WHATSAPP_BRIDGE_URL=https://your-bridge.onrender.com`.
+QR iko kwenye `https://your-bridge.onrender.com/qr?key=<BRIDGE_API_KEY>`.
 
 ---
 

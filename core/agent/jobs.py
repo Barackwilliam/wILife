@@ -72,7 +72,7 @@ def run_schedule_reminders(now=None, deadline=None, dry_run=False):
     with transaction.atomic():
         claimed = list(
             Schedule.objects
-            .select_for_update(skip_locked=True)
+            .select_for_update(skip_locked=True, of=("self",))
             .filter(
                 reminder_datetime__isnull=False,
                 reminder_datetime__lte=now,

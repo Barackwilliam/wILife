@@ -14,6 +14,8 @@
  *   GET /health           liveness, no auth — point the uptime pinger here
  *   GET /status           connection state, no auth, no secrets
  *   GET /qr?key=...       page with the QR code to link the number
+ *                         (in the single-service Docker setup, open
+ *                         /agent/whatsapp/qr/ on the Django site instead)
  *   POST /logout          unlink the number                (X-Bridge-Key)
  */
 
@@ -34,6 +36,7 @@ const {
 const { useSupabaseAuthState } = require('./supabaseAuth');
 
 const PORT = process.env.PORT || 3001;
+const HOST = process.env.BRIDGE_HOST || '0.0.0.0';
 const DJANGO_URL = (process.env.DJANGO_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
 const BRIDGE_API_KEY = process.env.BRIDGE_API_KEY || '';
 const SESSION_NAME = process.env.SESSION_NAME || 'wilife';
@@ -286,8 +289,8 @@ async function connectToWhatsApp() {
 }
 
 
-app.listen(PORT, () => {
-    console.log(`wILife WhatsApp bridge on port ${PORT}, Django at ${DJANGO_URL}`);
+app.listen(PORT, HOST, () => {
+    console.log(`wILife WhatsApp bridge on ${HOST}:${PORT}, Django at ${DJANGO_URL}`);
 });
 
 loadAuth()

@@ -39,6 +39,16 @@ python manage.py runserver
 The database is Postgres only — `DB_USER`, `DB_PASSWORD` and `DB_HOST` are
 required. Never commit `.env`.
 
+## Deploy (Render)
+
+One Docker web service runs both Django and the WhatsApp bridge
+(`Dockerfile` + `start.sh`): migrations run at boot, the bridge listens on
+`127.0.0.1:3001`, gunicorn on `$PORT`. See `CHANNELS_SETUP.md`.
+
+```bash
+docker build -t wilife . && docker run --env-file .env -p 8000:8000 wilife
+```
+
 ## Agent
 
 The agent does its work in short "ticks". Trigger them either way:
@@ -51,8 +61,9 @@ The agent does its work in short "ticks". Trigger them either way:
 (Django admin) records every tick — check it to confirm the agent is alive.
 
 Channels: set `AGENT_SELF_CHANNEL=all` to deliver on every configured channel.
-WhatsApp goes through the Baileys bridge in `whatsapp_bridge/` (a separate Node
-service). Setup for all three: `CHANNELS_SETUP.md`.
+WhatsApp goes through the Baileys bridge in `whatsapp_bridge/`, which runs inside
+the same container; link the number at `/agent/whatsapp/qr/` (staff only).
+Setup for all three: `CHANNELS_SETUP.md`.
 
 Inbound endpoints: `/agent/telegram/`, `/agent/whatsapp/baileys/` (bridge) and
 `/agent/whatsapp/` (Meta Cloud API).

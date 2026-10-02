@@ -180,3 +180,46 @@ class ExportTests(TestCase):
         r = self.client.get("/export/pdf/")
         self.assertEqual(r.status_code, 200)
         self.assertTrue(r.content.startswith(b"%PDF"))
+
+
+@override_settings(**ALL_CHANNELS)
+class WhatsAppQrPageTests(TestCase):
+    url = "/agent/whatsapp/qr/"
+
+    def test_requires_staff(self):
+        user = User.objects.create_user("plain", password="x")
+        self.client.force_login(user)
+        self.assertEqual(self.client.get(self.url).status_code, 302)
+
+    def test_staff_sees_bridge_page_without_key_in_html(self):
+        admin = User.objects.create_user("admin", password="x", is_staff=True)
+        self.client.force_login(admin)
+        bridge = mock.Mock(status_code=200, content=b"<h2>Scan with WhatsApp</h2>",
+                           headers={"Content-Type": "text/html"})
+        with mock.patch("requests.get", return_value=bridge) as get:
+            r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 200)
+        self.assertIn(b"Scan with WhatsApp", r.content)
+        self.assertNotIn(b"bridge-key", r.content)
+        self.assertEqual(get.call_args.kwargs["params"], {"key": "bridge-key"})
+
+
+@override_settings(**ALL_CHANNELS)
+class ScheduleReminderJobTests(TestCase):
+    def test_due_reminder_is_sent_and_marked(self):
+        from core.agent.jobs import run_schedule_reminders
+        from core.models import Profile, Schedule
+
+        user = User.objects.create_user("owner", password="x")
+        Profile.objects.get_or_create(user=user)
+        now = timezone.now()
+        schedule = Schedule.objects.create(
+            user=user, title="Kikao", start_datetime=now + timezone.timedelta(minutes=30),
+            end_datetime=now + timezone.timedelta(hours=1), reminder_datetime=now - timezone.timedelta(minutes=1),
+        )
+        with mock.patch("requests.post", side_effect=_fake_post):
+            result = run_schedule_reminders(now=now)
+
+        self.assertEqual((result["sent"], result["failed"]), (1, 0))
+        schedule.refresh_from_db()
+        self.assertTrue(schedule.reminder_sent)
