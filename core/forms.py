@@ -127,8 +127,14 @@ from .models import Profile
 class ProfileUpdateForm(forms.ModelForm):
     class Meta:
         model = Profile
-        fields = ['bio', 'location', 'birth_date']
+        fields = ['bio', 'location', 'birth_date', 'whatsapp_number']
+        labels = {'whatsapp_number': 'WhatsApp number'}
         widgets = {
+            'whatsapp_number': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'e.g. 0712 345 678',
+                'inputmode': 'tel',
+            }),
             'bio': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': 3,
@@ -160,6 +166,8 @@ class MenstrualCycleForm(forms.ModelForm):
         widgets = {
             'start_date': forms.DateInput(attrs={'type': 'date'}),
             'end_date': forms.DateInput(attrs={'type': 'date'}),
+            'symptoms': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Cramps, headache, fatigue…'}),
+            'notes': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Anything else worth remembering'}),
         }
 
 # ─── Goal Forms ─────────────────────────────────────────────────────────────

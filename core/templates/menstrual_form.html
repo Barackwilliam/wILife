@@ -1,80 +1,62 @@
-<!-- templates/menstrual_form.html -->
-{% extends 'base.html' %}
-{% block content %}
-<div class="container py-4" style="max-width: 800px;">
-  <h2 class="mb-4" style="color: #6a1b9a; font-weight: bold; font-size: 2rem;">🩸 Add Menstrual Cycle Record  <a href="{% url 'menstrual_list' %}" class="btn btn-sm btn-danger" title="Back to List">
-            <i class="bi bi-arrow-left"></i>
-          </a></h2>
-  <form method="post" style="background: #faf5ff; padding: 30px; border-radius: 16px; box-shadow: 0 10px 30px rgba(106, 27, 154, 0.15);">
-    {% csrf_token %}
-    {{ form.non_field_errors }}
+{% extends 'layouts/form.html' %}
+{% load wilife %}
+{% block title %}{{ form.instance.pk|yesno:"Edit cycle record,Log cycle" }}{% endblock %}
+{% block section %}Wellbeing{% endblock %}{% block crumb %}{{ form.instance.pk|yesno:"Edit cycle record,New cycle record" }}{% endblock %}
+{% block back_url %}{% url 'menstrual_list' %}{% endblock %}{% block back_label %}Cycle tracker{% endblock %}
+{% block tone %}t-rose{% endblock %}{% block icon %}bi-moon-stars{% endblock %}
+{% block heading %}{{ form.instance.pk|yesno:"Edit cycle record,Log your period" }}{% endblock %}
+{% block subheading %}Private to you. The more you log, the better the predictions.{% endblock %}
+{% block fields %}
+<div class="row g-3">
+  <div class="col-md-6">{% include 'partials/field.html' with field=form.start_date icon='bi-calendar-heart' wrap='' %}</div>
+  <div class="col-md-6">{% include 'partials/field.html' with field=form.end_date icon='bi-calendar-check' wrap='' %}</div>
 
-    <div class="row g-4">
-      <div class="col-md-6">
-        <label for="id_start_date" style="font-weight: bold; color: #6a1b9a; font-size: 1.1rem;">📅 Start Date</label>
-        <input type="date" name="start_date" id="id_start_date" value="{{ form.start_date.value|default_if_none:'' }}" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px;">
-        <div class="text-danger">{{ form.start_date.errors }}</div>
-      </div>
-
-      <div class="col-md-6">
-        <label for="id_end_date" style="font-weight: bold; color: #6a1b9a; font-size: 1.1rem;">📅 End Date</label>
-        <input type="date" name="end_date" id="id_end_date" value="{{ form.end_date.value|default_if_none:'' }}" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px;">
-        <div class="text-danger">{{ form.end_date.errors }}</div>
-      </div>
-
-      <div class="col-md-6">
-        <label for="id_flow_level" style="font-weight: bold; color: #6a1b9a; font-size: 1.1rem;">💧 Flow Level</label>
-        <select name="flow_level" id="id_flow_level" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px;">
-          <option value="light" {% if form.flow_level.value == "light" %}selected{% endif %}>🌸 Light</option>
-          <option value="medium" {% if form.flow_level.value == "medium" %}selected{% endif %}>💧 Medium</option>
-          <option value="heavy" {% if form.flow_level.value == "heavy" %}selected{% endif %}>💦 Heavy</option>
-        </select>
-        <div class="text-danger">{{ form.flow_level.errors }}</div>
-      </div>
-
-      <div class="col-md-6">
-        <label for="id_pain_level" style="font-weight: bold; color: #6a1b9a; font-size: 1.1rem;">😖 Pain Level</label>
-        <select name="pain_level" id="id_pain_level" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px;">
-          <option value="0">😊 No Pain</option>
-          <option value="1">🙂 Mild</option>
-          <option value="2">😣 Moderate</option>
-          <option value="3">😖 Strong</option>
-          <option value="4">😭 Severe</option>
-          <option value="5">😵‍💫 Disabling</option>
-        </select>
-        <div class="text-danger">{{ form.pain_level.errors }}</div>
-      </div>
-
-      <div class="col-md-6">
-        <label for="id_mood" style="font-weight: bold; color: #6a1b9a; font-size: 1.1rem;">🧠 Mood</label>
-        <select name="mood" id="id_mood" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px;">
-          <option value="">-- Select mood --</option>
-          <option value="Happy">😊 Happy</option>
-          <option value="Sad">😔 Sad</option>
-          <option value="Anxious">😟 Anxious</option>
-          <option value="Irritable">😠 Irritable</option>
-          <option value="Calm">😌 Calm</option>
-          <option value="Fatigued">😴 Fatigued</option>
-        </select>
-        <div class="text-danger">{{ form.mood.errors }}</div>
-      </div>
-
-      <div class="col-12">
-        <label for="id_symptoms" style="font-weight: bold; color: #6a1b9a; font-size: 1.1rem;">🩹 Symptoms</label>
-        <textarea name="symptoms" id="id_symptoms" rows="3" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px;">{{ form.symptoms.value }}</textarea>
-        <div class="text-danger">{{ form.symptoms.errors }}</div>
-      </div>
-
-      <div class="col-12">
-        <label for="id_notes" style="font-weight: bold; color: #6a1b9a; font-size: 1.1rem;">📝 Notes</label>
-        <textarea name="notes" id="id_notes" rows="3" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:8px;">{{ form.notes.value }}</textarea>
-        <div class="text-danger">{{ form.notes.errors }}</div>
-      </div>
-
-      <div class="col-12 text-end">
-        <button style="background-color:#6a1b9a; color:white; padding:12px 24px; border:none; border-radius:10px; font-weight: bold; font-size: 1rem;">💾 Save Record</button>
-      </div>
+  <div class="col-12">
+    <label class="form-label">Flow</label>
+    {% with fv=form.flow_level.value|default:'medium' %}
+    <div class="choice-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="choice"><input type="radio" name="flow_level" id="flow_light" value="light" {% if fv == 'light' %}checked{% endif %}><label for="flow_light"><span class="emo">🌸</span>Light</label></div>
+      <div class="choice"><input type="radio" name="flow_level" id="flow_medium" value="medium" {% if fv == 'medium' %}checked{% endif %}><label for="flow_medium"><span class="emo">💧</span>Medium</label></div>
+      <div class="choice"><input type="radio" name="flow_level" id="flow_heavy" value="heavy" {% if fv == 'heavy' %}checked{% endif %}><label for="flow_heavy"><span class="emo">🌊</span>Heavy</label></div>
     </div>
-  </form>
+    {% endwith %}
+    {% if form.flow_level.errors %}<div class="field-error">{{ form.flow_level.errors }}</div>{% endif %}
+  </div>
+
+  <div class="col-12">
+    <label class="form-label">Pain level</label>
+    {% with pv=form.pain_level.value|default:0|stringformat:"s" %}
+    <div class="choice-grid" style="grid-template-columns:repeat(auto-fill,minmax(96px,1fr))">
+      <div class="choice"><input type="radio" name="pain_level" id="pain0" value="0" {% if pv == '0' %}checked{% endif %}><label for="pain0"><span class="emo">😊</span>None</label></div>
+      <div class="choice"><input type="radio" name="pain_level" id="pain1" value="1" {% if pv == '1' %}checked{% endif %}><label for="pain1"><span class="emo">🙂</span>Mild</label></div>
+      <div class="choice"><input type="radio" name="pain_level" id="pain2" value="2" {% if pv == '2' %}checked{% endif %}><label for="pain2"><span class="emo">😣</span>Moderate</label></div>
+      <div class="choice"><input type="radio" name="pain_level" id="pain3" value="3" {% if pv == '3' %}checked{% endif %}><label for="pain3"><span class="emo">😖</span>Strong</label></div>
+      <div class="choice"><input type="radio" name="pain_level" id="pain4" value="4" {% if pv == '4' %}checked{% endif %}><label for="pain4"><span class="emo">😭</span>Severe</label></div>
+      <div class="choice"><input type="radio" name="pain_level" id="pain5" value="5" {% if pv == '5' %}checked{% endif %}><label for="pain5"><span class="emo">😵‍💫</span>Disabling</label></div>
+    </div>
+    {% endwith %}
+    {% if form.pain_level.errors %}<div class="field-error">{{ form.pain_level.errors }}</div>{% endif %}
+  </div>
+
+  <div class="col-12">
+    <label class="form-label">Mood</label>
+    {% with mv=form.mood.value|default:'' %}
+    <div class="choice-grid" style="grid-template-columns:repeat(auto-fill,minmax(96px,1fr))">
+      <div class="choice"><input type="radio" name="mood" id="mood_none" value="" {% if not mv %}checked{% endif %}><label for="mood_none"><span class="emo">—</span>Skip</label></div>
+      <div class="choice"><input type="radio" name="mood" id="mood_happy" value="Happy" {% if mv == 'Happy' %}checked{% endif %}><label for="mood_happy"><span class="emo">😊</span>Happy</label></div>
+      <div class="choice"><input type="radio" name="mood" id="mood_calm" value="Calm" {% if mv == 'Calm' %}checked{% endif %}><label for="mood_calm"><span class="emo">😌</span>Calm</label></div>
+      <div class="choice"><input type="radio" name="mood" id="mood_sad" value="Sad" {% if mv == 'Sad' %}checked{% endif %}><label for="mood_sad"><span class="emo">😔</span>Sad</label></div>
+      <div class="choice"><input type="radio" name="mood" id="mood_anxious" value="Anxious" {% if mv == 'Anxious' %}checked{% endif %}><label for="mood_anxious"><span class="emo">😟</span>Anxious</label></div>
+      <div class="choice"><input type="radio" name="mood" id="mood_irritable" value="Irritable" {% if mv == 'Irritable' %}checked{% endif %}><label for="mood_irritable"><span class="emo">😠</span>Irritable</label></div>
+      <div class="choice"><input type="radio" name="mood" id="mood_fatigued" value="Fatigued" {% if mv == 'Fatigued' %}checked{% endif %}><label for="mood_fatigued"><span class="emo">😴</span>Fatigued</label></div>
+    </div>
+    {% endwith %}
+    {% if form.mood.errors %}<div class="field-error">{{ form.mood.errors }}</div>{% endif %}
+  </div>
+
+  <div class="col-md-6">{% include 'partials/field.html' with field=form.symptoms wrap='' %}</div>
+  <div class="col-md-6">{% include 'partials/field.html' with field=form.notes wrap='' %}</div>
 </div>
 {% endblock %}
+{% block cancel_url %}{% url 'menstrual_list' %}{% endblock %}
+{% block submit_label %}{{ form.instance.pk|yesno:"Save changes,Save record" }}{% endblock %}

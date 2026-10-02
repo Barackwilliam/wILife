@@ -7,6 +7,8 @@ from .models import Notification, Schedule, HealthRecord, Profile
 from django.http import JsonResponse
 from django.db.models import Sum
 from django.utils import timezone
+from django.views.decorators.http import require_POST
+from django.urls import reverse
 
 from django.contrib.auth.decorators import login_required
 from .models import Income, Expense, Task
@@ -24,6 +26,8 @@ from decimal import Decimal
 
 
 def home(request):
+    if request.user.is_authenticated:
+        return redirect('dashboard')
     return render(request, 'index.html')
 
 from django.db.models import Count, Avg
@@ -173,7 +177,15 @@ def dashboard(request):
 @login_required
 def income_list(request):
     incomes = Income.objects.filter(user=request.user).order_by('-date')
-    return render(request, 'income_list.html', {'incomes': incomes})
+    month_start = date.today().replace(day=1)
+    top = incomes.values('source').annotate(total=Sum('amount')).order_by('-total').first()
+    return render(request, 'income_list.html', {
+        'incomes': incomes,
+        'total': incomes.aggregate(t=Sum('amount'))['t'] or 0,
+        'month_total': incomes.filter(date__gte=month_start).aggregate(t=Sum('amount'))['t'] or 0,
+        'average': incomes.aggregate(a=Avg('amount'))['a'] or 0,
+        'top_source': top,
+    })
 
 @login_required
 def income_create(request):
@@ -230,7 +242,20 @@ def income_delete(request, pk):
 @login_required
 def expense_list(request):
     expenses = Expense.objects.filter(user=request.user).order_by('-date')
-    return render(request, 'expense_list.html', {'expenses': expenses})
+    month_start = date.today().replace(day=1)
+    total = expenses.aggregate(t=Sum('amount'))['t'] or 0
+    labels = dict(Expense.CATEGORY_CHOICES)
+    by_category = [
+        {'key': row['category'], 'label': labels.get(row['category'], row['category']),
+         'total': row['total'], 'pct': round(float(row['total']) / float(total) * 100) if total else 0}
+        for row in expenses.values('category').annotate(total=Sum('amount')).order_by('-total')
+    ]
+    return render(request, 'expense_list.html', {
+        'expenses': expenses,
+        'total': total,
+        'month_total': expenses.filter(date__gte=month_start).aggregate(t=Sum('amount'))['t'] or 0,
+        'by_category': by_category,
+    })
 
 
 
@@ -288,8 +313,24 @@ def expense_delete(request, pk):
 
 @login_required
 def task_list(request):
-    tasks = Task.objects.filter(user=request.user).order_by('-date')
-    return render(request, 'task_list.html', {'tasks': tasks})
+    tasks = Task.objects.filter(user=request.user).order_by('-status', 'date')
+    pending = tasks.filter(status='pending')
+    return render(request, 'task_list.html', {
+        'tasks': tasks,
+        'pending_count': pending.count(),
+        'done_count': tasks.filter(status='done').count(),
+        'overdue_count': pending.filter(date__lt=date.today()).count(),
+        'today': date.today(),
+    })
+
+
+@login_required
+@require_POST
+def task_toggle(request, pk):
+    task = get_object_or_404(Task, pk=pk, user=request.user)
+    task.status = 'pending' if task.status == 'done' else 'done'
+    task.save(update_fields=['status'])
+    return redirect(request.POST.get('next') or 'task_list')
 
 @login_required
 def task_create(request):
@@ -347,7 +388,18 @@ def task_delete(request, pk):
 @login_required
 def health_list(request):
     health_records = HealthRecord.objects.filter(user=request.user).order_by('-date')
-    return render(request, 'health_list.html', {'health_records': health_records})
+    recent = list(health_records[:30])[::-1]
+    week_ago = date.today() - timedelta(days=7)
+    return render(request, 'health_list.html', {
+        'health_records': health_records,
+        'latest': health_records.first(),
+        'week_avg': health_records.filter(date__gte=week_ago).aggregate(
+            weight=Avg('weight'), exercise=Avg('exercise_minutes'), sleep=Avg('sleep_hours')),
+        'chart_labels': json.dumps([r.date.strftime('%d %b') for r in recent]),
+        'chart_weight': json.dumps([float(r.weight) if r.weight is not None else None for r in recent]),
+        'chart_sleep': json.dumps([float(r.sleep_hours) if r.sleep_hours is not None else None for r in recent]),
+        'chart_exercise': json.dumps([r.exercise_minutes for r in recent]),
+    })
 
 @login_required
 def health_create(request):
@@ -402,7 +454,13 @@ def health_delete(request, pk):
 @login_required
 def schedule_list(request):
     schedules = Schedule.objects.filter(user=request.user).order_by('start_datetime')
-    return render(request, 'schedule_list.html', {'schedules': schedules})
+    now = timezone.now()
+    return render(request, 'schedule_list.html', {
+        'schedules': schedules,
+        'upcoming': schedules.filter(end_datetime__gte=now),
+        'past': schedules.filter(end_datetime__lt=now).order_by('-start_datetime')[:20],
+        'reminders_pending': schedules.filter(reminder_datetime__gte=now, reminder_sent=False).count(),
+    })
 
 @login_required
 def schedule_create(request):
@@ -581,15 +639,24 @@ from .models import Schedule
 
 @login_required
 def calendar_view(request):
-    schedules = Schedule.objects.filter(user=request.user)
     events = []
-
-    for s in schedules:
+    for s in Schedule.objects.filter(user=request.user):
         events.append({
             'title': s.title,
-            'start': s.start_datetime.replace(microsecond=0).isoformat(),
-            'end': s.end_datetime.replace(microsecond=0).isoformat(),
-            'url': '',  # Optional: You can add link to update page
+            'start': timezone.localtime(s.start_datetime).replace(microsecond=0).isoformat(),
+            'end': timezone.localtime(s.end_datetime).replace(microsecond=0).isoformat(),
+            'url': reverse('schedule_update', args=[s.pk]),
+            'kind': 'event',
+            'location': s.location or '',
+        })
+    for t in Task.objects.filter(user=request.user):
+        events.append({
+            'title': t.title,
+            'start': t.date.isoformat(),
+            'allDay': True,
+            'url': reverse('task_update', args=[t.pk]),
+            'kind': 'task-done' if t.status == 'done' else f'task-{t.priority}',
+            'location': '',
         })
 
     return render(request, 'calendar.html', {'events': events})
@@ -678,7 +745,20 @@ from django.contrib.auth.decorators import login_required
 @login_required
 def menstrual_list(request):
     records = MenstrualCycleRecord.objects.filter(user=request.user)
-    return render(request, 'menstrual_list.html', {'records': records})
+    starts = sorted(r.start_date for r in records)
+    gaps = [(b - a).days for a, b in zip(starts, starts[1:]) if 15 <= (b - a).days <= 60]
+    avg_cycle = round(sum(gaps) / len(gaps)) if gaps else 28
+    avg_period = round(sum(r.cycle_length() for r in records) / len(records)) if records else None
+    next_start = starts[-1] + timedelta(days=avg_cycle) if starts else None
+    return render(request, 'menstrual_list.html', {
+        'records': records,
+        'avg_cycle': avg_cycle,
+        'avg_period': avg_period,
+        'last_start': starts[-1] if starts else None,
+        'next_start': next_start,
+        'days_to_next': (next_start - date.today()).days if next_start else None,
+        'cycle_estimated': not gaps,
+    })
 
 @login_required
 def menstrual_create(request):
@@ -697,6 +777,7 @@ def menstrual_create(request):
 
 from datetime import timedelta
 
+@login_required
 def menstrual_calendar(request):
     records = MenstrualCycleRecord.objects.filter(user=request.user).order_by('start_date')
     events = []
@@ -704,7 +785,7 @@ def menstrual_calendar(request):
     for record in records:
         # Period days
         events.append({
-            'title': '🩸 Period',
+            'title': 'Period',
             'start': record.start_date.isoformat(),
             'end': (record.end_date + timedelta(days=1)).isoformat(),
             'type': 'period',
@@ -718,7 +799,7 @@ def menstrual_calendar(request):
         # Predicted Ovulation (day 14 from start)
         ovulation_day = record.start_date + timedelta(days=14)
         events.append({
-            'title': '💛 Ovulation',
+            'title': 'Ovulation (est.)',
             'start': ovulation_day.isoformat(),
             'type': 'ovulation'
         })
@@ -727,7 +808,7 @@ def menstrual_calendar(request):
         for i in range(5, 10):
             safe_day = record.start_date + timedelta(days=i)
             events.append({
-                'title': '✅ Safe Day',
+                'title': 'Lower fertility',
                 'start': safe_day.isoformat(),
                 'type': 'safe'
             })
@@ -736,7 +817,7 @@ def menstrual_calendar(request):
         for i in range(12, 17):
             danger_day = record.start_date + timedelta(days=i)
             events.append({
-                'title': '🚨 Danger Day',
+                'title': 'Fertile window',
                 'start': danger_day.isoformat(),
                 'type': 'danger'
             })
@@ -1059,7 +1140,36 @@ def dashboard(request):
             'data':   _json.dumps([(e - s).days + 1 for s, e in cl if s and e]),
         }
 
+    # Cash flow — last 6 months
+    flow_labels, flow_in, flow_out = [], [], []
+    first = today.replace(day=1)
+    for back in range(5, -1, -1):
+        y, m = first.year, first.month - back
+        while m <= 0:
+            m += 12
+            y -= 1
+        start = date(y, m, 1)
+        end = date(y + (m == 12), m % 12 + 1, 1)
+        flow_labels.append(start.strftime('%b'))
+        flow_in.append(float(incomes.filter(date__gte=start, date__lt=end).aggregate(t=Sum('amount'))['t'] or 0))
+        flow_out.append(float(expenses.filter(date__gte=start, date__lt=end).aggregate(t=Sum('amount'))['t'] or 0))
+
+    hour = _tz.localtime(now).hour
+    greeting = 'Habari za asubuhi' if hour < 12 else 'Habari za mchana' if hour < 17 else 'Habari za jioni'
+    focus_tasks = list(tasks.filter(status='pending', date__lte=today).order_by('date')[:5])
+    month_in = flow_in[-1]
+    month_out = flow_out[-1]
+
     context = {
+        'greeting': greeting,
+        'today': today,
+        'focus_tasks': focus_tasks,
+        'month_in': month_in,
+        'month_out': month_out,
+        'month_net': month_in - month_out,
+        'flow_labels': _json.dumps(flow_labels),
+        'flow_in': _json.dumps(flow_in),
+        'flow_out': _json.dumps(flow_out),
         # widget layout
         'widget_order':  widget_order,
         'hidden_widgets': hidden,

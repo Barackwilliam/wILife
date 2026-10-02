@@ -1,20 +1,5 @@
-{% extends 'base.html' %}
-{% block title %}Delete Schedule{% endblock %}
-
-{% block content %}
-<div class="container py-4" style="max-width: 600px;">
-  <h1 class="mb-4 text-danger">Delete Schedule</h1>
-  <p>
-    Are you sure you want to delete the schedule titled
-    <strong>{{ schedule.title }}</strong> scheduled from
-    <strong>{{ schedule.start_datetime }}</strong> to
-    <strong>{{ schedule.end_datetime }}</strong>?
-  </p>
-
-  <form method="post">
-    {% csrf_token %}
-    <button type="submit" class="btn btn-danger">Yes, Delete</button>
-    <a href="{% url 'schedule_list' %}" class="btn btn-secondary ms-2">Cancel</a>
-  </form>
-</div>
-{% endblock %}
+{% extends 'partials/confirm_delete.html' %}
+{% block section %}Life{% endblock %}{% block noun %}event{% endblock %}
+{% block question %}Delete this event?{% endblock %}
+{% block details %}<strong>{{ schedule.title }}</strong> · {{ schedule.start_datetime|date:"D j M, H:i" }}{% if schedule.location %} · {{ schedule.location }}{% endif %}{% endblock %}
+{% block cancel_url %}{% url 'schedule_list' %}{% endblock %}

@@ -1,0 +1,32 @@
+{% extends 'layouts/root.html' %}
+{% block body %}
+<button class="icon-btn theme-toggle auth-theme" data-theme-toggle aria-label="Toggle dark mode"><i class="bi bi-moon-stars-fill"></i><i class="bi bi-sun-fill"></i></button>
+<div class="auth">
+  <section class="auth-art">
+    <span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span>
+    <a href="{% url 'home' %}" class="brand">
+      {% include 'partials/brand_mark.html' %}
+      <span><span class="brand-name">w<em>I</em>Life</span><span class="brand-tag">Life, in order</span></span>
+    </a>
+    <div>
+      <div class="auth-quote">{% block art_quote %}Your money, time &amp; health — <em>finally</em> in one place.{% endblock %}</div>
+      <div class="auth-points">
+        <div><i class="bi bi-wallet2"></i> See where every shilling goes, at a glance</div>
+        <div><i class="bi bi-bullseye"></i> Turn goals into milestones you actually hit</div>
+        <div><i class="bi bi-whatsapp"></i> Reminders on WhatsApp, email &amp; Telegram</div>
+      </div>
+      <div class="auth-floats">
+        <div class="float-card"><span class="ico-chip t-leaf"><i class="bi bi-graph-up-arrow"></i></span><span><b>+24%</b><small>Savings this month</small></span></div>
+        <div class="float-card f2"><span class="ico-chip t-sun"><i class="bi bi-trophy"></i></span><span><b>3 of 4</b><small>Milestones done</small></span></div>
+        <div class="float-card f3"><span class="ico-chip t-plum"><i class="bi bi-moon-stars"></i></span><span><b>7.5 h</b><small>Avg. sleep</small></span></div>
+      </div>
+    </div>
+    <small style="color:#8f8a98">&copy; {{ year }} wILife · Built in Dar es Salaam</small>
+  </section>
+  <section class="auth-form">
+    <div class="auth-box reveal">
+      {% block content %}{% endblock %}
+    </div>
+  </section>
+</div>
+{% endblock %}

@@ -1,61 +1,17 @@
-{% extends 'base.html' %}
-{% block title %}{{ form.instance.pk|yesno:"Edit Income,Add Income" }}{% endblock %}
-
-{% block content %}
-<div class="container py-5">
-  <div class="row justify-content-center">
-    <div class="col-md-8 col-lg-6">
-      <div class="card shadow-sm border-0">
-        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">
-            {{ form.instance.pk|yesno:"Edit Income,Add New Income" }}
-          </h5>
-          <a href="{% url 'income_list' %}" class="btn btn-sm btn-danger" title="Back to List">
-            <i class="bi bi-arrow-left"></i>
-          </a>
-        </div>
-
-        <div class="card-body">
-          <form method="post" novalidate>
-            {% csrf_token %}
-            {{ form.non_field_errors }}
-
-            <div class="mb-3">
-              <label class="form-label">{{ form.amount.label }}</label>
-              {{ form.amount }}
-              <div class="text-danger">{{ form.amount.errors }}</div>
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label">{{ form.source.label }}</label>
-              {{ form.source }}
-              <div class="text-danger">{{ form.source.errors }}</div>
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label">{{ form.date.label }}</label>
-              {{ form.date }}
-              <div class="text-danger">{{ form.date.errors }}</div>
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label">{{ form.notes.label }}</label>
-              {{ form.notes }}
-              <div class="text-danger">{{ form.notes.errors }}</div>
-            </div>
-
-            <div class="d-flex justify-content-end">
-              <button type="submit" class="btn btn-success me-2">
-                <i class="bi bi-check-circle me-1"></i> Save
-              </button>
-              <a href="{% url 'income_list' %}" class="btn btn-outline-secondary">
-                <i class="bi bi-x-circle me-1"></i> Cancel
-              </a>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-  </div>
+{% extends 'layouts/form.html' %}
+{% block title %}{{ form.instance.pk|yesno:"Edit income,Add income" }}{% endblock %}
+{% block section %}Money{% endblock %}{% block crumb %}{{ form.instance.pk|yesno:"Edit income,New income" }}{% endblock %}
+{% block back_url %}{% url 'income_list' %}{% endblock %}{% block back_label %}All income{% endblock %}
+{% block tone %}t-leaf{% endblock %}{% block icon %}bi-arrow-down-left{% endblock %}
+{% block heading %}{{ form.instance.pk|yesno:"Edit income,Money in" }}{% endblock %}
+{% block subheading %}Record what came in — salary, sales, gifts, anything.{% endblock %}
+{% block fields %}
+<div class="row g-3">
+  <div class="col-md-6">{% include 'partials/field.html' with field=form.amount icon='bi-cash-coin' wrap='' %}</div>
+  <div class="col-md-6">{% include 'partials/field.html' with field=form.date icon='bi-calendar-event' wrap='' %}</div>
+  <div class="col-12">{% include 'partials/field.html' with field=form.source icon='bi-briefcase' wrap='' %}</div>
+  <div class="col-12">{% include 'partials/field.html' with field=form.notes wrap='' %}</div>
 </div>
 {% endblock %}
+{% block cancel_url %}{% url 'income_list' %}{% endblock %}
+{% block submit_label %}{{ form.instance.pk|yesno:"Save changes,Add income" }}{% endblock %}

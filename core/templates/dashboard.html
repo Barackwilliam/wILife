@@ -1,237 +1,184 @@
 {% extends 'base.html' %}
-{% load static %}
+{% load wilife %}
 {% block title %}Dashboard{% endblock %}
-
-{% block extra_head %}
-<style>
-:root{--accent:#0d6efd}
-.accent-blue  {--accent:#0d6efd}
-.accent-green {--accent:#198754}
-.accent-purple{--accent:#6f42c1}
-.accent-orange{--accent:#fd7e14}
-.accent-badge {background:var(--accent)!important}
-.btn-accent   {background:var(--accent);border-color:var(--accent);color:#fff}
-.btn-accent:hover{opacity:.88;color:#fff}
-.progress-bar.accent-bar{background:var(--accent)!important}
-.widget-card{border-top:3px solid var(--accent)}
-
-#widget-grid{display:grid;gap:1.1rem}
-#widget-grid.layout-default{grid-template-columns:repeat(auto-fill,minmax(340px,1fr))}
-#widget-grid.layout-compact{grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
-#widget-grid.layout-wide   {grid-template-columns:1fr}
-
-.widget-card{cursor:grab;transition:box-shadow .2s,transform .15s;border-radius:10px}
-.widget-card.dragging{opacity:.45;cursor:grabbing;transform:scale(.97);box-shadow:0 8px 24px rgba(0,0,0,.18)!important}
-.widget-card.drag-over{box-shadow:0 0 0 2.5px var(--accent)}
-
-#prefs-panel{position:fixed;top:0;right:-380px;width:360px;height:100vh;background:var(--bs-body-bg,#fff);box-shadow:-4px 0 20px rgba(0,0,0,.12);z-index:1055;padding:1.5rem;overflow-y:auto;transition:right .3s ease}
-#prefs-panel.open{right:0}
-.prefs-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:1054}
-.prefs-overlay.open{display:block}
-.widget-toggle-item{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bs-border-color,#dee2e6)}
-
-#save-toast{position:fixed;bottom:24px;right:24px;z-index:2000;background:#198754;color:#fff;padding:10px 20px;border-radius:8px;font-size:.9rem;opacity:0;transition:opacity .3s;pointer-events:none}
-#save-toast.show{opacity:1}
-
-.dark-mode .widget-card{background:#1f2937;color:#e5e7eb}
-.dark-mode #prefs-panel{background:#1a1a2e;color:#e5e7eb}
-.dark-mode canvas{background:#1a202c}
-</style>
-{% endblock %}
-
+{% block section %}Overview{% endblock %}{% block crumb %}Dashboard{% endblock %}
 {% block content %}
-<div class="container-fluid py-4 accent-{{ prefs.accent_color }}">
+<div class="accent-{{ prefs.accent_color }}" id="dash-root">
 
-  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-    <h4 class="fw-bold mb-0">
-      <i class="bi bi-grid-3x3-gap me-2" style="color:var(--accent)"></i>
-      Dashboard &mdash; <span class="text-muted fw-normal fs-5">{{ request.user.username }}</span>
-    </h4>
-    <button class="btn btn-accent btn-sm px-3" id="open-prefs">
-      <i class="bi bi-sliders me-2"></i>Customize
-    </button>
+  <!-- Hero -->
+  <section class="hero-card mb-4 reveal">
+    <div class="d-flex justify-content-between gap-4">
+      <div style="min-width:0">
+        <span class="eyebrow">{{ greeting }}</span>
+        <h1>{{ user.first_name|default:user.username|capfirst }}, <em>here's your day.</em></h1>
+        <p>{% if focus_tasks %}{{ focus_tasks|length }} thing{{ focus_tasks|length|pluralize }} need{{ focus_tasks|length|pluralize:"s," }} you today{% else %}Nothing urgent on your plate{% endif %}{% if upcoming_schedule %} · next up: <strong style="color:#fff">{{ upcoming_schedule.0.title }}</strong> {{ upcoming_schedule.0.start_datetime|date:"D H:i" }}{% endif %}.</p>
+      </div>
+      <div class="today-date flex-shrink-0">
+        <div class="m">{{ today|date:"l" }}</div>
+        <div class="d">{{ today|date:"j" }}</div>
+        <div class="m" style="color:#9a95a3">{{ today|date:"F Y" }}</div>
+      </div>
+    </div>
+    <div class="hero-metrics">
+      <div><small><i class="bi bi-arrow-down-left"></i> In · {{ today|date:"M" }}</small><b>Tsh <span data-count="{{ month_in|floatformat:0 }}">{{ month_in|money }}</span></b></div>
+      <div><small><i class="bi bi-arrow-up-right"></i> Out · {{ today|date:"M" }}</small><b>Tsh <span data-count="{{ month_out|floatformat:0 }}">{{ month_out|money }}</span></b></div>
+      <div><small><i class="bi bi-piggy-bank"></i> Net worth</small><b class="{% if net_worth >= 0 %}pos{% else %}neg{% endif %}">Tsh <span data-count="{{ net_worth|floatformat:0 }}">{{ net_worth|money }}</span></b></div>
+    </div>
+    <div class="hero-actions">
+      <a href="{% url 'income_create' %}" class="btn btn-brand btn-sm"><i class="bi bi-arrow-down-left"></i> Income</a>
+      <a href="{% url 'expense_create' %}" class="btn btn-glass btn-sm"><i class="bi bi-arrow-up-right"></i> Expense</a>
+      <a href="{% url 'task_create' %}" class="btn btn-glass btn-sm"><i class="bi bi-check2"></i> Task</a>
+      <a href="{% url 'health_create' %}" class="btn btn-glass btn-sm"><i class="bi bi-heart-pulse"></i> Health</a>
+    </div>
+  </section>
+
+  <!-- Cash flow + focus -->
+  <div class="row g-4 mb-4">
+    <div class="col-xl-8 reveal">
+      <div class="panel h-100">
+        <div class="panel-head">
+          <h2 class="panel-title"><span class="ico t-brand"><i class="bi bi-graph-up-arrow"></i></span>Cash flow · 6 months</h2>
+          <div class="legend"><span><i style="background:var(--leaf)"></i>In</span><span><i style="background:var(--rose)"></i>Out</span></div>
+        </div>
+        <div style="height:260px"><canvas id="flowChart"></canvas></div>
+      </div>
+    </div>
+    <div class="col-xl-4 reveal">
+      <div class="panel h-100">
+        <div class="panel-head">
+          <h2 class="panel-title"><span class="ico t-sky"><i class="bi bi-sun"></i></span>Today's focus</h2>
+          <a href="{% url 'task_list' %}" class="panel-link">All <i class="bi bi-arrow-right"></i></a>
+        </div>
+        {% if focus_tasks %}
+        <ul class="list-clean">
+          {% for t in focus_tasks %}
+          <li class="list-row">
+            <form method="post" action="{% url 'task_toggle' t.id %}" class="m-0">{% csrf_token %}<input type="hidden" name="next" value="{% url 'dashboard' %}">
+              <button class="task-check" title="Mark as done" style="border-radius:8px;width:24px;height:24px;border:2px solid var(--line-strong);display:grid;place-items:center;color:transparent"><i class="bi bi-check-lg"></i></button>
+            </form>
+            <div class="flex-grow-1" style="min-width:0">
+              <div class="cell-main text-truncate" style="font-size:.92rem">{{ t.title }}</div>
+              <div class="cell-sub">{% if t.date < today %}<span class="c-rose fw-bold">Overdue · {{ t.date|date:"j M" }}</span>{% else %}Due today{% endif %}</div>
+            </div>
+            <span class="prio prio-{{ t.priority }}" style="height:28px;align-self:center"></span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="empty py-3"><div class="art" style="width:76px;height:76px;font-size:2rem;background:var(--leaf-soft);color:var(--leaf)"><i class="bi bi-emoji-smile"></i></div><h3 style="font-size:1.2rem">All clear</h3><p class="small">Nothing due today. Plan ahead or take a breather.</p><a href="{% url 'task_create' %}" class="btn btn-ghost btn-sm"><i class="bi bi-plus-lg"></i> Add a task</a></div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Widgets -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="m-0" style="font-size:1.5rem">Your widgets</h2>
+    <button class="btn btn-ghost btn-sm" id="open-prefs"><i class="bi bi-sliders"></i> Customize</button>
   </div>
 
   <div id="widget-grid" class="layout-{{ prefs.layout }}">
-
     {% for wkey in widget_order %}
     {% if wkey not in hidden_widgets %}
 
     {% if wkey == 'finance' %}
-    <div class="card widget-card shadow-sm p-0" data-widget="finance">
-      <div class="card-header d-flex justify-content-between align-items-center border-0 pt-3 px-3 pb-0">
-        <span class="fw-semibold"><i class="bi bi-cash-stack me-2 text-success"></i>Finance Summary</span>
-        <div class="d-flex gap-2">
-          <a href="{% url 'income_create' %}" class="btn btn-sm btn-outline-success py-0 px-2"><i class="bi bi-plus"></i> Income</a>
-          <a href="{% url 'expense_create' %}" class="btn btn-sm btn-outline-danger py-0 px-2"><i class="bi bi-plus"></i> Expense</a>
-        </div>
+    <div class="panel widget-card" data-widget="finance">
+      <div class="panel-head"><h3 class="panel-title"><span class="ico t-leaf"><i class="bi bi-cash-stack"></i></span>Finance summary</h3><i class="bi bi-grip-vertical grip"></i></div>
+      <div class="row g-2 mb-3">
+        <div class="col-6"><div class="cell-sub">Total in</div><div class="amount c-leaf">{{ income_total|money }}</div></div>
+        <div class="col-6"><div class="cell-sub">Total out</div><div class="amount c-rose">{{ expense_total|money }}</div></div>
       </div>
-      <div class="card-body">
-        <div class="row text-center g-2 mb-3">
-          <div class="col-4">
-            <div class="small text-muted">Income</div>
-            <div class="fs-6 fw-bold text-success">Tsh.{{ income_total|floatformat:0 }}</div>
-          </div>
-          <div class="col-4">
-            <div class="small text-muted">Expenses</div>
-            <div class="fs-6 fw-bold text-danger">Tsh.{{ expense_total|floatformat:0 }}</div>
-          </div>
-          <div class="col-4">
-            <div class="small text-muted">Net Worth</div>
-            <div class="fs-6 fw-bold {% if net_worth >= 0 %}text-primary{% else %}text-danger{% endif %}">Tsh.{{ net_worth|floatformat:0 }}</div>
-          </div>
-        </div>
-        <div class="small text-muted mb-1">Spending ratio</div>
-        <div class="progress" style="height:10px;border-radius:6px">
-          <div class="progress-bar {% if expense_vs_income_percent > 90 %}bg-danger{% elif expense_vs_income_percent > 70 %}bg-warning{% else %}accent-bar{% endif %}" style="width:{{ expense_vs_income_percent|floatformat:0 }}%"></div>
-        </div>
-        <div class="d-flex justify-content-between small text-muted mt-1">
-          <span>0%</span><span>{{ expense_vs_income_percent|floatformat:0 }}%</span><span>100%</span>
-        </div>
-      </div>
+      <div class="d-flex justify-content-between small fw-semibold mb-1"><span>Spending ratio</span><span class="{% if expense_vs_income_percent > 90 %}c-rose{% elif expense_vs_income_percent > 70 %}c-sun{% else %}c-leaf{% endif %}">{{ expense_vs_income_percent|floatformat:0 }}%</span></div>
+      <div class="meter lg {% if expense_vs_income_percent > 90 %}rose{% elif expense_vs_income_percent > 70 %}sun{% else %}leaf{% endif %}"><span data-w="{{ expense_vs_income_percent|floatformat:0 }}"></span></div>
+      <div class="cell-sub mt-2">{% if expense_vs_income_percent > 90 %}Careful — spending is eating nearly everything.{% elif expense_vs_income_percent > 70 %}Room to save more.{% else %}Healthy. Keep it up.{% endif %}</div>
     </div>
     {% endif %}
 
     {% if wkey == 'tasks' %}
-    <div class="card widget-card shadow-sm" data-widget="tasks">
-      <div class="card-header d-flex justify-content-between align-items-center border-0 pt-3 px-3 pb-0">
-        <span class="fw-semibold"><i class="bi bi-check2-square me-2 text-primary"></i>Tasks Overview</span>
-        <a href="{% url 'task_create' %}" class="btn btn-sm btn-outline-primary py-0 px-2"><i class="bi bi-plus"></i> Task</a>
-      </div>
-      <div class="card-body">
-        <div class="row text-center mb-3">
-          <div class="col-6"><div class="display-6 fw-bold text-warning">{{ tasks_pending }}</div><div class="small text-muted">Pending</div></div>
-          <div class="col-6"><div class="display-6 fw-bold text-success">{{ tasks_done }}</div><div class="small text-muted">Done</div></div>
+    <div class="panel widget-card" data-widget="tasks">
+      <div class="panel-head"><h3 class="panel-title"><span class="ico t-sky"><i class="bi bi-check2-square"></i></span>Tasks</h3><a href="{% url 'task_list' %}" class="panel-link">Open <i class="bi bi-arrow-right"></i></a></div>
+      <div class="d-flex align-items-center gap-4">
+        <div class="ring" style="--p:{{ tasks_done_percent|floatformat:0 }};--c:var(--leaf);--size:104px"><div><b>{{ tasks_done_percent|floatformat:0 }}%</b><small>done</small></div></div>
+        <div class="flex-grow-1">
+          <div class="d-flex justify-content-between py-2" style="border-bottom:1px dashed var(--line)"><span class="text-muted">Open</span><b class="serif-num fs-5">{{ tasks_pending }}</b></div>
+          <div class="d-flex justify-content-between py-2"><span class="text-muted">Completed</span><b class="serif-num fs-5">{{ tasks_done }}</b></div>
         </div>
-        <div class="mb-2">
-          <div class="small text-muted mb-1">Pending</div>
-          <div class="progress" style="height:8px;border-radius:5px"><div class="progress-bar bg-warning" style="width:{{ tasks_pending_percent|floatformat:0 }}%"></div></div>
-        </div>
-        <div>
-          <div class="small text-muted mb-1">Completed</div>
-          <div class="progress" style="height:8px;border-radius:5px"><div class="progress-bar bg-success" style="width:{{ tasks_done_percent|floatformat:0 }}%"></div></div>
-        </div>
-        <a href="{% url 'task_list' %}" class="btn btn-sm btn-outline-secondary w-100 mt-3">View All Tasks</a>
       </div>
     </div>
     {% endif %}
 
     {% if wkey == 'health' %}
-    <div class="card widget-card shadow-sm" data-widget="health">
-      <div class="card-header d-flex justify-content-between align-items-center border-0 pt-3 px-3 pb-0">
-        <span class="fw-semibold"><i class="bi bi-heart-pulse me-2 text-danger"></i>Health Insights</span>
-        <a href="{% url 'health_create' %}" class="btn btn-sm btn-outline-danger py-0 px-2"><i class="bi bi-plus"></i> Log</a>
-      </div>
-      <div class="card-body">
-        <div class="row text-center g-2">
-          <div class="col-4"><div class="small text-muted">Weight</div><div class="fw-bold">{{ health_avg.avg_weight|floatformat:1|default:"—" }} <small class="text-muted">kg</small></div></div>
-          <div class="col-4"><div class="small text-muted">Exercise</div><div class="fw-bold">{{ health_avg.avg_exercise|default:"—" }} <small class="text-muted">min</small></div></div>
-          <div class="col-4"><div class="small text-muted">Sleep</div><div class="fw-bold">{{ health_avg.avg_sleep|floatformat:1|default:"—" }} <small class="text-muted">hrs</small></div></div>
-        </div>
-        <div class="text-muted small text-center mt-2">Averages — last 7 days</div>
-        <a href="{% url 'health_list' %}" class="btn btn-sm btn-outline-secondary w-100 mt-3">View Health Records</a>
+    <div class="panel widget-card" data-widget="health">
+      <div class="panel-head"><h3 class="panel-title"><span class="ico t-teal"><i class="bi bi-heart-pulse"></i></span>Health · 7 days</h3><a href="{% url 'health_create' %}" class="panel-link"><i class="bi bi-plus-lg"></i> Log</a></div>
+      <div class="row g-2 text-center">
+        <div class="col-4"><div class="p-3 rounded-4" style="background:var(--sky-soft)"><i class="bi bi-speedometer2 c-sky"></i><div class="serif-num fs-4 mt-1">{{ health_avg.avg_weight|floatformat:1|default:"—" }}</div><div class="cell-sub">kg</div></div></div>
+        <div class="col-4"><div class="p-3 rounded-4" style="background:var(--leaf-soft)"><i class="bi bi-activity c-leaf"></i><div class="serif-num fs-4 mt-1">{{ health_avg.avg_exercise|floatformat:0|default:"—" }}</div><div class="cell-sub">min</div></div></div>
+        <div class="col-4"><div class="p-3 rounded-4" style="background:var(--plum-soft)"><i class="bi bi-moon c-plum"></i><div class="serif-num fs-4 mt-1">{{ health_avg.avg_sleep|floatformat:1|default:"—" }}</div><div class="cell-sub">hrs</div></div></div>
       </div>
     </div>
     {% endif %}
 
     {% if wkey == 'net_worth' %}
-    <div class="card widget-card shadow-sm" data-widget="net_worth">
-      <div class="card-header border-0 pt-3 px-3 pb-0"><span class="fw-semibold"><i class="bi bi-bank me-2 text-success"></i>Net Worth</span></div>
-      <div class="card-body text-center py-4">
-        <div class="display-5 fw-bold {% if net_worth >= 0 %}text-success{% else %}text-danger{% endif %}">Tsh.{{ net_worth|floatformat:0 }}/=</div>
-        <div class="text-muted small mt-1">Total Income − Total Expenses</div>
-        <div class="row mt-3 text-center">
-          <div class="col-6"><div class="small text-muted">Income</div><div class="fw-semibold text-success">{{ income_total|floatformat:0 }}</div></div>
-          <div class="col-6"><div class="small text-muted">Expenses</div><div class="fw-semibold text-danger">{{ expense_total|floatformat:0 }}</div></div>
-        </div>
-      </div>
+    <div class="panel widget-card" data-widget="net_worth" style="background:linear-gradient(140deg,var(--surface),var(--leaf-soft))">
+      <div class="panel-head"><h3 class="panel-title"><span class="ico t-leaf"><i class="bi bi-bank"></i></span>Net worth</h3><i class="bi bi-grip-vertical grip"></i></div>
+      <div class="serif-num {% if net_worth >= 0 %}c-leaf{% else %}c-rose{% endif %}" style="font-size:2.6rem;line-height:1"><small style="font-size:1rem;font-family:var(--font-sans);font-weight:700;color:var(--muted)">Tsh</small> {{ net_worth|money }}</div>
+      <div class="cell-sub mt-2">All income minus all expenses, since day one.</div>
     </div>
     {% endif %}
 
     {% if wkey == 'goals' %}
-    <div class="card widget-card shadow-sm" data-widget="goals">
-      <div class="card-header d-flex justify-content-between align-items-center border-0 pt-3 px-3 pb-0">
-        <span class="fw-semibold"><i class="bi bi-trophy me-2 text-warning"></i>Goals Progress</span>
-        <a href="{% url 'goal_create' %}" class="btn btn-sm btn-outline-warning py-0 px-2"><i class="bi bi-plus"></i> Goal</a>
-      </div>
-      <div class="card-body">
-        {% if goals_list %}
-          {% for goal in goals_list %}
-          <div class="mb-3">
-            <div class="d-flex justify-content-between small mb-1">
-              <span class="fw-semibold">{{ goal.title|truncatechars:30 }}</span>
-              <span class="text-muted">{{ goal.progress_percent|floatformat:0 }}%</span>
-            </div>
-            <div class="progress" style="height:8px;border-radius:5px"><div class="progress-bar accent-bar" style="width:{{ goal.progress_percent|floatformat:0 }}%"></div></div>
-            {% if goal.days_remaining >= 0 %}<div class="small text-muted mt-1">{{ goal.days_remaining }} day{{ goal.days_remaining|pluralize }} left</div>
-            {% else %}<div class="small text-danger mt-1">Overdue</div>{% endif %}
-          </div>
-          {% endfor %}
-          <a href="{% url 'goal_list' %}" class="btn btn-sm btn-outline-secondary w-100 mt-1">View All Goals</a>
-        {% else %}
-          <div class="text-center text-muted py-3">
-            <i class="bi bi-trophy display-4 opacity-25"></i>
-            <p class="mt-2 small">No active goals. <a href="{% url 'goal_create' %}">Create one!</a></p>
-          </div>
-        {% endif %}
-      </div>
+    <div class="panel widget-card" data-widget="goals">
+      <div class="panel-head"><h3 class="panel-title"><span class="ico t-sun"><i class="bi bi-bullseye"></i></span>Goals</h3><a href="{% url 'goal_list' %}" class="panel-link">All <i class="bi bi-arrow-right"></i></a></div>
+      {% for goal in goals_list %}
+      <a href="{% url 'goal_detail' goal.pk %}" class="d-block text-reset mb-3">
+        <div class="d-flex justify-content-between small fw-semibold mb-1"><span class="text-truncate me-2">{{ goal.title }}</span><span class="text-muted num">{{ goal.progress_percent|floatformat:0 }}%</span></div>
+        <div class="meter" style="--x:0"><span data-w="{{ goal.progress_percent|floatformat:0 }}" style="background:var(--accent)"></span></div>
+        <div class="cell-sub mt-1">{% if goal.days_remaining >= 0 %}{{ goal.days_remaining }} day{{ goal.days_remaining|pluralize }} left{% else %}<span class="c-rose">Overdue</span>{% endif %}</div>
+      </a>
+      {% empty %}
+      <p class="text-muted small mb-2">No active goals yet.</p><a href="{% url 'goal_create' %}" class="btn btn-soft btn-sm"><i class="bi bi-plus-lg"></i> Set a goal</a>
+      {% endfor %}
     </div>
     {% endif %}
 
     {% if wkey == 'expense_chart' %}
-    <div class="card widget-card shadow-sm" data-widget="expense_chart">
-      <div class="card-header border-0 pt-3 px-3 pb-0"><span class="fw-semibold"><i class="bi bi-bar-chart me-2 text-info"></i>Expense Breakdown</span></div>
-      <div class="card-body"><canvas id="expenseBarChart" style="max-height:220px"></canvas></div>
+    <div class="panel widget-card" data-widget="expense_chart">
+      <div class="panel-head"><h3 class="panel-title"><span class="ico t-plum"><i class="bi bi-bar-chart"></i></span>Spending by category</h3><a href="{% url 'expense_list' %}" class="panel-link">Details <i class="bi bi-arrow-right"></i></a></div>
+      <div style="height:220px"><canvas id="expenseBarChart"></canvas></div>
     </div>
     {% endif %}
 
     {% if wkey == 'schedule' %}
-    <div class="card widget-card shadow-sm" data-widget="schedule">
-      <div class="card-header d-flex justify-content-between align-items-center border-0 pt-3 px-3 pb-0">
-        <span class="fw-semibold"><i class="bi bi-calendar-event me-2 text-secondary"></i>Upcoming Schedule</span>
-        <a href="{% url 'schedule_create' %}" class="btn btn-sm btn-outline-secondary py-0 px-2"><i class="bi bi-plus"></i></a>
-      </div>
-      <div class="card-body">
-        {% if upcoming_schedule %}
-          <ul class="list-unstyled mb-0">
-            {% for event in upcoming_schedule %}
-            <li class="d-flex align-items-start gap-2 py-2 border-bottom">
-              <span class="badge accent-badge rounded-pill mt-1" style="min-width:36px;font-size:.7rem">{{ event.start_datetime|date:"d M" }}</span>
-              <div>
-                <div class="fw-semibold small">{{ event.title }}</div>
-                <div class="text-muted" style="font-size:.75rem">{{ event.start_datetime|date:"H:i" }}{% if event.location %} · {{ event.location }}{% endif %}</div>
-              </div>
-            </li>
-            {% endfor %}
-          </ul>
-          <a href="{% url 'schedule_list' %}" class="btn btn-sm btn-outline-secondary w-100 mt-3">All Events</a>
-        {% else %}
-          <div class="text-center text-muted py-3"><i class="bi bi-calendar-x display-4 opacity-25"></i><p class="mt-2 small">No events in next 7 days.</p></div>
-        {% endif %}
-      </div>
+    <div class="panel widget-card" data-widget="schedule">
+      <div class="panel-head"><h3 class="panel-title"><span class="ico t-plum"><i class="bi bi-calendar-week"></i></span>Next 7 days</h3><a href="{% url 'schedule_create' %}" class="panel-link"><i class="bi bi-plus-lg"></i> Event</a></div>
+      {% if upcoming_schedule %}
+      <ul class="list-clean">
+        {% for event in upcoming_schedule %}
+        <li class="list-row">
+          <div class="date-chip"><b>{{ event.start_datetime|date:"j" }}</b><small>{{ event.start_datetime|date:"D" }}</small></div>
+          <div style="min-width:0"><div class="cell-main text-truncate" style="font-size:.92rem">{{ event.title }}</div><div class="cell-sub">{{ event.start_datetime|date:"H:i" }}{% if event.location %} · {{ event.location }}{% endif %}</div></div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="text-muted small mb-0">Nothing scheduled this week.</p>{% endif %}
     </div>
     {% endif %}
 
     {% if wkey == 'recommendations' %}
-    <div class="card widget-card shadow-sm" data-widget="recommendations">
-      <div class="card-header border-0 pt-3 px-3 pb-0"><span class="fw-semibold"><i class="bi bi-lightbulb me-2 text-warning"></i>Smart Recommendations</span></div>
-      <div class="card-body">
-        {% if recommendations %}
-          <ul class="list-unstyled mb-0">{% for r in recommendations %}<li class="py-2 border-bottom small">{{ r }}</li>{% endfor %}</ul>
-        {% else %}
-          <div class="text-center text-success py-3"><i class="bi bi-check-circle-fill display-4"></i><p class="mt-2 small">Everything looks great!</p></div>
-        {% endif %}
-      </div>
+    <div class="panel widget-card" data-widget="recommendations">
+      <div class="panel-head"><h3 class="panel-title"><span class="ico t-sun"><i class="bi bi-lightbulb"></i></span>Insights</h3><i class="bi bi-grip-vertical grip"></i></div>
+      {% for r in recommendations %}
+        <div class="tip"><span>{{ r }}</span></div>
+      {% empty %}
+        <div class="tip" style="background:var(--leaf-soft)"><span class="emo">🌿</span><span>Everything looks balanced. Keep doing what you're doing.</span></div>
+      {% endfor %}
     </div>
     {% endif %}
 
-    {% if wkey == 'menstrual' and menstrual_flow_levels and menstrual_cycle_lengths %}
-    <div class="card widget-card shadow-sm" data-widget="menstrual">
-      <div class="card-header border-0 pt-3 px-3 pb-0"><span class="fw-semibold"><i class="bi bi-calendar-heart me-2 text-danger"></i>Menstrual Tracker</span></div>
-      <div class="card-body">
-        <canvas id="menstrualFlowPieChart" style="max-height:200px"></canvas>
-        <a href="{% url 'menstrual_list' %}" class="btn btn-sm btn-outline-secondary w-100 mt-3">View Records</a>
-      </div>
+    {% if wkey == 'menstrual' and menstrual_flow_levels %}
+    <div class="panel widget-card" data-widget="menstrual">
+      <div class="panel-head"><h3 class="panel-title"><span class="ico t-rose"><i class="bi bi-moon-stars"></i></span>Cycle</h3><a href="{% url 'menstrual_list' %}" class="panel-link">Open <i class="bi bi-arrow-right"></i></a></div>
+      <div style="height:200px"><canvas id="menstrualFlowPieChart"></canvas></div>
     </div>
     {% endif %}
 
@@ -240,138 +187,133 @@
   </div>
 </div>
 
-<div class="prefs-overlay" id="prefs-overlay"></div>
-
-<div id="prefs-panel">
+<!-- Customize drawer -->
+<div class="scrim" id="prefs-overlay"></div>
+<aside class="drawer" id="prefs-panel" aria-label="Customize dashboard">
   <div class="d-flex justify-content-between align-items-center mb-4">
-    <h5 class="fw-bold mb-0"><i class="bi bi-sliders me-2"></i>Customize Dashboard</h5>
-    <button class="btn btn-sm btn-outline-secondary" id="close-prefs"><i class="bi bi-x-lg"></i></button>
+    <div><span class="eyebrow">Make it yours</span><h2 class="m-0 mt-1" style="font-size:1.6rem">Customize</h2></div>
+    <button class="icon-btn" id="close-prefs" aria-label="Close"><i class="bi bi-x-lg"></i></button>
   </div>
-
   <div class="mb-4">
-    <label class="form-label small fw-semibold text-muted text-uppercase">Layout</label>
-    <div class="d-flex gap-2">
-      <button class="btn btn-sm {% if prefs.layout == 'default' %}btn-accent{% else %}btn-outline-secondary{% endif %} layout-btn" data-layout="default"><i class="bi bi-grid-3x3-gap me-1"></i>3-Col</button>
-      <button class="btn btn-sm {% if prefs.layout == 'compact' %}btn-accent{% else %}btn-outline-secondary{% endif %} layout-btn" data-layout="compact"><i class="bi bi-grid me-1"></i>Compact</button>
-      <button class="btn btn-sm {% if prefs.layout == 'wide' %}btn-accent{% else %}btn-outline-secondary{% endif %} layout-btn" data-layout="wide"><i class="bi bi-layout-text-window me-1"></i>Wide</button>
+    <div class="form-label">Layout</div>
+    <div class="seg">
+      <button class="layout-btn {% if prefs.layout == 'default' %}on{% endif %}" data-layout="default"><i class="bi bi-grid-3x2-gap"></i> Grid</button>
+      <button class="layout-btn {% if prefs.layout == 'compact' %}on{% endif %}" data-layout="compact"><i class="bi bi-grid-3x3-gap"></i> Compact</button>
+      <button class="layout-btn {% if prefs.layout == 'wide' %}on{% endif %}" data-layout="wide"><i class="bi bi-view-stacked"></i> Wide</button>
     </div>
   </div>
-
   <div class="mb-4">
-    <label class="form-label small fw-semibold text-muted text-uppercase">Accent Colour</label>
+    <div class="form-label">Accent</div>
     <div class="d-flex gap-2">
-      <button class="btn btn-sm accent-btn" data-accent="blue"   style="background:#0d6efd;width:36px;height:36px;border-radius:50%;{% if prefs.accent_color == 'blue'   %}outline:3px solid #fff{% endif %}"></button>
-      <button class="btn btn-sm accent-btn" data-accent="green"  style="background:#198754;width:36px;height:36px;border-radius:50%;{% if prefs.accent_color == 'green'  %}outline:3px solid #fff{% endif %}"></button>
-      <button class="btn btn-sm accent-btn" data-accent="purple" style="background:#6f42c1;width:36px;height:36px;border-radius:50%;{% if prefs.accent_color == 'purple' %}outline:3px solid #fff{% endif %}"></button>
-      <button class="btn btn-sm accent-btn" data-accent="orange" style="background:#fd7e14;width:36px;height:36px;border-radius:50%;{% if prefs.accent_color == 'orange' %}outline:3px solid #fff{% endif %}"></button>
+      <button class="swatch accent-btn {% if prefs.accent_color == 'orange' %}on{% endif %}" data-accent="orange" style="background:#e2603f" aria-label="Terracotta"></button>
+      <button class="swatch accent-btn {% if prefs.accent_color == 'green' %}on{% endif %}" data-accent="green" style="background:#2f9e7a" aria-label="Green"></button>
+      <button class="swatch accent-btn {% if prefs.accent_color == 'blue' %}on{% endif %}" data-accent="blue" style="background:#3d7bd9" aria-label="Blue"></button>
+      <button class="swatch accent-btn {% if prefs.accent_color == 'purple' %}on{% endif %}" data-accent="purple" style="background:#7b5cd6" aria-label="Purple"></button>
     </div>
   </div>
-
   <div class="mb-3">
-    <label class="form-label small fw-semibold text-muted text-uppercase">Widgets</label>
-    <p class="small text-muted">Toggle widgets on/off. Drag them on the dashboard to reorder.</p>
-    <div id="widget-toggle-list">
-      {% for w in all_widgets %}
-      <div class="widget-toggle-item">
-        <span class="small"><i class="bi {{ w.icon }} me-2 text-{{ w.color }}"></i>{{ w.label }}</span>
-        <div class="form-check form-switch mb-0">
-          <input class="form-check-input widget-visibility-toggle" type="checkbox"
-                 data-widget="{{ w.key }}"
-                 {% if w.key not in hidden_widgets %}checked{% endif %}
-                 style="cursor:pointer">
-        </div>
-      </div>
-      {% endfor %}
+    <div class="form-label">Widgets</div>
+    <p class="small text-muted">Toggle widgets on or off. Drag cards on the dashboard to reorder.</p>
+    {% for w in all_widgets %}
+    <div class="toggle-row">
+      <span><i class="bi {{ w.icon }} me-2 text-muted"></i>{{ w.label }}</span>
+      <div class="form-check form-switch m-0"><input class="form-check-input widget-visibility-toggle" type="checkbox" data-widget="{{ w.key }}" {% if w.key not in hidden_widgets %}checked{% endif %}></div>
     </div>
+    {% endfor %}
   </div>
+  <button class="btn btn-brand w-100 mt-3" id="save-prefs-btn"><i class="bi bi-check2-circle"></i> Save preferences</button>
+</aside>
+<div class="toast-stack" id="save-toast-stack" style="display:none"><div class="toast-x"><span class="ico-chip t-leaf"><i class="bi bi-check2-circle"></i></span><div class="msg">Dashboard saved.</div></div></div>
+{% endblock %}
 
-  <button class="btn btn-accent w-100 mt-3" id="save-prefs-btn">
-    <i class="bi bi-check-circle me-2"></i>Save Preferences
-  </button>
-</div>
-
-<div id="save-toast"><i class="bi bi-check-circle me-2"></i>Preferences saved!</div>
-
+{% block extra_scripts %}
+{{ hidden_widgets|json_script:"hidden-widgets" }}{{ widget_order|json_script:"widget-order" }}
 <script>
-const expLabels = {{ categories|safe }};
-const expData   = {{ expense_data|safe }};
-const accentColors = {blue:'#0d6efd',green:'#198754',purple:'#6f42c1',orange:'#fd7e14'};
-let currentAccent = '{{ prefs.accent_color }}';
-
-if(document.getElementById('expenseBarChart')){
-  new Chart(document.getElementById('expenseBarChart').getContext('2d'),{
-    type:'bar',
-    data:{labels:expLabels,datasets:[{label:'Expenses (Tsh)',data:expData,backgroundColor:accentColors[currentAccent]}]},
-    options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+(function () {
+  const c = (v) => wilifeColor(v);
+  // Cash flow
+  const fctx = document.getElementById('flowChart').getContext('2d');
+  const mk = (col) => { const g = fctx.createLinearGradient(0, 0, 0, 260); g.addColorStop(0, col + '50'); g.addColorStop(1, col + '00'); return g; };
+  new Chart(fctx, {
+    type: 'line',
+    data: { labels: {{ flow_labels|safe }}, datasets: [
+      { label: 'In', data: {{ flow_in|safe }}, borderColor: c('--leaf'), backgroundColor: mk(c('--leaf')), fill: true, tension: .42, borderWidth: 3, pointRadius: 0, pointHoverRadius: 6 },
+      { label: 'Out', data: {{ flow_out|safe }}, borderColor: c('--rose'), backgroundColor: mk(c('--rose')), fill: true, tension: .42, borderWidth: 3, pointRadius: 0, pointHoverRadius: 6 },
+    ]},
+    options: { maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: false },
+      tooltip: { callbacks: { label: (x) => ' ' + x.dataset.label + ': Tsh ' + Math.round(x.parsed.y).toLocaleString() } } },
+      scales: { x: { grid: { display: false } }, y: { grid: { color: c('--line') }, border: { display: false }, ticks: { callback: (v) => v >= 1e6 ? (v / 1e6) + 'M' : v >= 1e3 ? (v / 1e3) + 'k' : v } } } }
   });
-}
-{% if menstrual_flow_levels %}
-if(document.getElementById('menstrualFlowPieChart')){
-  new Chart(document.getElementById('menstrualFlowPieChart').getContext('2d'),{
-    type:'pie',
-    data:{labels:{{ menstrual_flow_levels.labels|safe }},datasets:[{data:{{ menstrual_flow_levels.data|safe }},backgroundColor:['#f48fb1','#ec407a','#d81b60']}]},
-    options:{responsive:true,plugins:{legend:{position:'bottom'}}}
+
+  // Expense categories
+  const palette = ['#e2603f','#7b5cd6','#2f9e7a','#e9a020','#3d7bd9','#d9466b','#1f9bb0','#8f8a98','#b8472a','#4cc39b','#f0819e'];
+  const ex = document.getElementById('expenseBarChart');
+  if (ex) {
+    const labels = {{ categories|safe }}, data = {{ expense_data|safe }};
+    const rows = labels.map((l, i) => [l, data[i]]).filter(r => r[1] > 0).sort((a, b) => b[1] - a[1]);
+    new Chart(ex, { type: 'bar', data: { labels: rows.map(r => r[0]), datasets: [{ data: rows.map(r => r[1]), backgroundColor: palette, borderRadius: 8, borderSkipped: false, barThickness: 16 }] },
+      options: { indexAxis: 'y', maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (x) => ' Tsh ' + Math.round(x.parsed.x).toLocaleString() } } }, scales: { x: { grid: { color: c('--line') }, border: { display: false }, ticks: { maxRotation: 0, callback: (v) => v >= 1e6 ? (v / 1e6) + 'M' : v >= 1e3 ? (v / 1e3) + 'k' : v } }, y: { grid: { display: false } } } } });
+  }
+  {% if menstrual_flow_levels %}
+  const mp = document.getElementById('menstrualFlowPieChart');
+  if (mp) new Chart(mp, { type: 'doughnut', data: { labels: {{ menstrual_flow_levels.labels|safe }}, datasets: [{ data: {{ menstrual_flow_levels.data|safe }}, backgroundColor: [c('--sun'), c('--brand'), c('--rose')], borderWidth: 0 }] },
+    options: { cutout: '68%', maintainAspectRatio: false, plugins: { legend: { position: 'right' } } } });
+  {% endif %}
+
+  // Preferences
+  let hiddenWidgets = JSON.parse(document.getElementById('hidden-widgets').textContent) || {};
+  let widgetOrder = JSON.parse(document.getElementById('widget-order').textContent);
+  let currentLayout = '{{ prefs.layout }}';
+  let currentAccent = '{{ prefs.accent_color }}';
+  const panel = document.getElementById('prefs-panel'), overlay = document.getElementById('prefs-overlay');
+  const grid = document.getElementById('widget-grid'), root = document.getElementById('dash-root');
+  const open = () => { panel.classList.add('open'); overlay.classList.add('open'); };
+  const close = () => { panel.classList.remove('open'); overlay.classList.remove('open'); };
+  document.getElementById('open-prefs').addEventListener('click', open);
+  document.getElementById('close-prefs').addEventListener('click', close);
+  overlay.addEventListener('click', close);
+
+  document.querySelectorAll('.layout-btn').forEach(b => b.addEventListener('click', () => {
+    currentLayout = b.dataset.layout; grid.className = 'layout-' + currentLayout;
+    document.querySelectorAll('.layout-btn').forEach(x => x.classList.toggle('on', x === b));
+  }));
+  document.querySelectorAll('.accent-btn').forEach(b => b.addEventListener('click', () => {
+    currentAccent = b.dataset.accent;
+    root.className = 'accent-' + currentAccent;
+    document.querySelectorAll('.accent-btn').forEach(x => x.classList.toggle('on', x === b));
+  }));
+  document.querySelectorAll('.widget-visibility-toggle').forEach(chk => chk.addEventListener('change', () => {
+    const key = chk.dataset.widget;
+    if (chk.checked) delete hiddenWidgets[key]; else hiddenWidgets[key] = true;
+    const card = document.querySelector('[data-widget="' + key + '"].widget-card');
+    if (card) card.style.display = chk.checked ? '' : 'none';
+  }));
+
+  let dragSrc = null;
+  grid.querySelectorAll('.widget-card').forEach(card => {
+    card.setAttribute('draggable', 'true');
+    card.addEventListener('dragstart', e => { dragSrc = card; card.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
+    card.addEventListener('dragend', () => { card.classList.remove('dragging'); grid.querySelectorAll('.widget-card').forEach(x => x.classList.remove('drag-over')); });
+    card.addEventListener('dragover', e => { e.preventDefault(); grid.querySelectorAll('.widget-card').forEach(x => x.classList.remove('drag-over')); card.classList.add('drag-over'); });
+    card.addEventListener('drop', e => {
+      e.preventDefault();
+      if (dragSrc && dragSrc !== card) {
+        const all = [...grid.querySelectorAll('.widget-card')];
+        grid.insertBefore(dragSrc, all.indexOf(dragSrc) < all.indexOf(card) ? card.nextSibling : card);
+      }
+    });
   });
-}
-{% endif %}
 
-let hiddenWidgets = {{ hidden_widgets|safe }};
-let widgetOrder   = {{ widget_order|safe }};
-let currentLayout = '{{ prefs.layout }}';
-
-const panel   = document.getElementById('prefs-panel');
-const overlay = document.getElementById('prefs-overlay');
-
-document.getElementById('open-prefs').addEventListener('click',()=>{panel.classList.add('open');overlay.classList.add('open');});
-function closePrefs(){panel.classList.remove('open');overlay.classList.remove('open');}
-document.getElementById('close-prefs').addEventListener('click',closePrefs);
-overlay.addEventListener('click',closePrefs);
-
-document.querySelectorAll('.layout-btn').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    currentLayout=btn.dataset.layout;
-    document.getElementById('widget-grid').className='layout-'+currentLayout;
-    document.querySelectorAll('.layout-btn').forEach(b=>{b.classList.remove('btn-accent');b.classList.add('btn-outline-secondary');});
-    btn.classList.remove('btn-outline-secondary');btn.classList.add('btn-accent');
+  document.getElementById('save-prefs-btn').addEventListener('click', async () => {
+    widgetOrder = [...grid.querySelectorAll('.widget-card')].map(x => x.dataset.widget);
+    try {
+      const r = await fetch('{% url "dashboard_save_prefs" %}', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+        body: JSON.stringify({ order: widgetOrder, hidden: hiddenWidgets, layout: currentLayout, accent: currentAccent }) });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      close();
+      const t = document.getElementById('save-toast-stack'); t.style.display = ''; setTimeout(() => { t.style.display = 'none'; }, 2600);
+    } catch (err) { alert('Could not save: ' + err.message); }
   });
-});
-
-document.querySelectorAll('.accent-btn').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    currentAccent=btn.dataset.accent;
-    const c=document.querySelector('.container-fluid');
-    ['accent-blue','accent-green','accent-purple','accent-orange'].forEach(x=>c.classList.remove(x));
-    c.classList.add('accent-'+currentAccent);
-    document.querySelectorAll('.accent-btn').forEach(b=>b.style.outline='none');
-    btn.style.outline='3px solid #fff';
-  });
-});
-
-document.querySelectorAll('.widget-visibility-toggle').forEach(chk=>{
-  chk.addEventListener('change',()=>{
-    const key=chk.dataset.widget;
-    if(chk.checked){delete hiddenWidgets[key];}else{hiddenWidgets[key]=true;}
-    const card=document.querySelector('[data-widget="'+key+'"]');
-    if(card)card.style.display=chk.checked?'':'none';
-  });
-});
-
-const grid=document.getElementById('widget-grid');
-let dragSrc=null;
-grid.querySelectorAll('.widget-card').forEach(card=>{
-  card.setAttribute('draggable','true');
-  card.addEventListener('dragstart',e=>{dragSrc=card;card.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
-  card.addEventListener('dragend',()=>{card.classList.remove('dragging');grid.querySelectorAll('.widget-card').forEach(c=>c.classList.remove('drag-over'));widgetOrder=[...grid.querySelectorAll('.widget-card')].map(c=>c.dataset.widget);});
-  card.addEventListener('dragover',e=>{e.preventDefault();grid.querySelectorAll('.widget-card').forEach(c=>c.classList.remove('drag-over'));card.classList.add('drag-over');});
-  card.addEventListener('drop',e=>{e.preventDefault();if(dragSrc&&dragSrc!==card){const all=[...grid.querySelectorAll('.widget-card')];if(all.indexOf(dragSrc)<all.indexOf(card)){grid.insertBefore(dragSrc,card.nextSibling);}else{grid.insertBefore(dragSrc,card);}}});
-});
-
-document.getElementById('save-prefs-btn').addEventListener('click',async()=>{
-  widgetOrder=[...grid.querySelectorAll('.widget-card')].map(c=>c.dataset.widget);
-  try{
-    await fetch('{% url "dashboard_save_prefs" %}',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':'{{ csrf_token }}'},body:JSON.stringify({order:widgetOrder,hidden:hiddenWidgets,layout:currentLayout,accent:currentAccent})});
-    const t=document.getElementById('save-toast');t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);closePrefs();
-  }catch(err){alert('Could not save: '+err);}
-});
+})();
 </script>
 {% endblock %}

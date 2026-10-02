@@ -1,199 +1,70 @@
 {% extends 'base.html' %}
-
+{% block title %}Cycle tracker{% endblock %}
+{% block section %}Wellbeing{% endblock %}{% block crumb %}Cycle tracker{% endblock %}
 {% block content %}
-<div class="container py-4">
-  <!-- Header -->
-  <div class="row justify-content-between align-items-center mb-4 g-2">
-    <div class="col-12 col-md-6">
-      <h2 class="text-purple fw-bold d-flex align-items-center mb-2 mb-md-0">
-        🩸 My Menstrual Records
-      </h2>
-    </div>
-    <div class="col-12 col-md-6 d-flex justify-content-md-end gap-2">
-      <a href="{% url 'health_list' %}" class="btn btn-outline-danger btn-sm" title="Back to Health Records">
-        <i class="bi bi-arrow-left"></i> Back
-      </a>
-      <a href="{% url 'menstrual_add' %}" class="btn btn-purple text-white btn-sm">
-        ➕ Add New
-      </a>
-    </div>
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Private · just for you</span>
+    <h1 class="page-title">Cycle <em>tracker</em></h1>
+    <p class="page-sub">Know your rhythm. Plan around it.</p>
   </div>
-
-  <!-- Table -->
-  {% if records %}
-  <div class="table-responsive">
-    <table class="table table-bordered table-striped align-middle mb-0">
-      <thead class="text-white" style="background-color: #6a1b9a;">
-        <tr>
-          <th>Start</th>
-          <th>End</th>
-          <th>Flow</th>
-          <th>Pain</th>
-          <th>Mood</th>
-          <th>Cycle Length</th>
-          <th class="text-center">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in records %}
-        <tr style="background-color: #fdf4ff;">
-          <td>{{ r.start_date }}</td>
-          <td>{{ r.end_date }}</td>
-          <td><span class="badge bg-pink text-white">{{ r.flow_level|title }}</span></td>
-          <td>{{ r.pain_level }}/5</td>
-          <td>{{ r.mood|default:"-" }}</td>
-          <td>{{ r.cycle_length }} days</td>
-          <td class="text-center">
-            <div class="d-flex justify-content-center gap-2 flex-wrap">
-              <a href="{% url 'menstrual_update' r.id %}" class="btn btn-sm btn-outline-primary">
-                ✏️ Edit
-              </a>
-              <a href="{% url 'menstrual_delete' r.id %}" class="btn btn-sm btn-outline-danger"
-                 onclick="return confirm('Are you sure you want to delete this record?');">
-                🗑️ Delete
-              </a>
-            </div>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="page-actions">
+    <a href="{% url 'menstrual_calendar' %}" class="btn btn-ghost"><i class="bi bi-calendar-heart"></i> Cycle calendar</a>
+    <a href="{% url 'menstrual_add' %}" class="btn btn-brand"><i class="bi bi-plus-lg"></i> Log period</a>
   </div>
-
-  <!-- Calendar Button (with animation) -->
-  <div class="text-center mt-5">
-    <a href="{% url 'menstrual_calendar' %}" class="calendar-btn">
-      📅 View Menstrual Calendar
-    </a>
-  </div>
-
-  {% else %}
-  <div class="alert alert-info shadow-sm mt-4">
-    No menstrual records found. Start by <a href="{% url 'menstrual_add' %}">adding one</a>.
-  </div>
-  {% endif %}
 </div>
 
-<!-- CSS Styles -->
-<style>
-  .text-purple {
-    color: #6a1b9a;
-  }
-
-  .bg-pink {
-    background-color: #ec407a;
-  }
-
-  .btn-purple {
-    background-color: #6a1b9a;
-    border-radius: 8px;
-  }
-
-  .btn-purple:hover {
-    background-color: #4a148c;
-  }
-
-  .btn-sm {
-    font-size: 0.9rem;
-    font-weight: 600;
-    padding: 6px 12px;
-  }
-
-  .calendar-btn {
-    display: inline-block;
-    padding: 15px 30px;
-    font-size: 1.15rem;
-    font-weight: bold;
-    color: white;
-    background: linear-gradient(135deg, #8e24aa, #6a1b9a);
-    border: none;
-    border-radius: 12px;
-    text-decoration: none;
-    box-shadow: 0 4px 20px rgba(138, 43, 226, 0.4);
-    transition: all 0.3s ease-in-out;
-    animation: bounceGlow 2s ease-in-out infinite;
-    letter-spacing: 1px;
-  }
-
-  .calendar-btn:hover {
-    transform: scale(1.05) translateY(-3px);
-    background: linear-gradient(135deg, #7b1fa2, #4a148c);
-    box-shadow: 0 6px 30px rgba(106, 27, 154, 0.6);
-  }
-
-  @keyframes bounceGlow {
-    0%, 100% {
-      transform: scale(1) translateY(0);
-      box-shadow: 0 0 0 0 rgba(106, 27, 154, 0.4);
-    }
-    50% {
-      transform: scale(1.08) translateY(-5px);
-      box-shadow: 0 0 20px 6px rgba(106, 27, 154, 0.6);
-    }
-  }
-
-  @media (max-width: 768px) {
-    .table thead {
-      display: none;
-    }
-
-    .table tbody tr {
-      display: block;
-      margin-bottom: 1rem;
-      border: 1px solid #ddd;
-      border-radius: 10px;
-      padding: 10px;
-      background: #fff;
-    }
-
-    .table tbody td {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 6px 10px;
-      font-size: 0.9rem;
-      border: none;
-    }
-
-    .table tbody td::before {
-      content: attr(data-label);
-      font-weight: bold;
-      flex: 1;
-      text-align: left;
-    }
-
-    .table tbody td:last-child {
-      justify-content: center;
-    }
-
-    .table tbody td span,
-    .table tbody td div,
-    .table tbody td a {
-      flex: 1;
-      text-align: right;
-    }
-
-    .d-flex.flex-wrap {
-      flex-direction: column;
-      align-items: stretch;
-    }
-
-    .btn-sm {
-      width: 100%;
-      margin-bottom: 6px;
-    }
-  }
-</style>
-
-<!-- JS: data-labels kwa responsiveness -->
-<script>
-  document.addEventListener("DOMContentLoaded", function () {
-    const headers = Array.from(document.querySelectorAll("table thead th")).map(th => th.innerText.trim());
-    document.querySelectorAll("table tbody tr").forEach(tr => {
-      tr.querySelectorAll("td").forEach((td, i) => {
-        td.setAttribute("data-label", headers[i]);
-      });
-    });
-  });
-</script>
+{% if records %}
+<div class="row g-4 mb-4">
+  <div class="col-lg-5 reveal">
+    <div class="hero-card h-100" style="border-radius:var(--radius-lg)">
+      <span class="eyebrow">Next period</span>
+      {% if days_to_next is not None %}
+        <div class="d-flex align-items-end gap-3 mt-3">
+          <div class="serif-num" style="font-size:4.4rem;line-height:.85;color:#fff">{% if days_to_next >= 0 %}{{ days_to_next }}{% else %}{{ days_to_next|stringformat:"d"|cut:"-" }}{% endif %}</div>
+          <div class="pb-1" style="color:#b9b4c0">{% if days_to_next >= 0 %}day{{ days_to_next|pluralize }} to go{% else %}day{{ days_to_next|pluralize }} late{% endif %}</div>
+        </div>
+        <p class="mt-3">Expected around <strong style="color:#fff">{{ next_start|date:"l, j F" }}</strong>{% if cycle_estimated %} — based on a typical 28-day cycle until you log more.{% else %}, from your average cycle.{% endif %}</p>
+      {% endif %}
+      <div class="hero-metrics">
+        <div><small>Avg cycle</small><b>{{ avg_cycle }} d</b></div>
+        <div><small>Avg period</small><b>{{ avg_period|default:"—" }} d</b></div>
+        <div><small>Last start</small><b>{{ last_start|date:"j M" }}</b></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7 reveal">
+    <div class="table-wrap h-100">
+      <div class="table-toolbar"><strong>History</strong><span class="text-muted small fw-semibold">{{ records|length }} record{{ records|length|pluralize }}</span></div>
+      <div class="table-responsive">
+        <table class="table table-hover table-stack">
+          <thead><tr><th>Dates</th><th>Flow</th><th>Pain</th><th>Mood</th><th></th></tr></thead>
+          <tbody>
+          {% for r in records %}
+            <tr>
+              <td class="span-2"><div class="cell-main">{{ r.start_date|date:"j M" }} – {{ r.end_date|date:"j M Y" }}</div><div class="cell-sub">{{ r.cycle_length }} day{{ r.cycle_length|pluralize }}{% if r.symptoms %} · {{ r.symptoms|truncatechars:40 }}{% endif %}</div></td>
+              <td data-label="Flow"><span class="tag {% if r.flow_level == 'heavy' %}t-rose{% elif r.flow_level == 'medium' %}t-brand{% else %}t-sun{% endif %}"><span class="dot"></span>{{ r.get_flow_level_display }}</span></td>
+              <td data-label="Pain"><span class="num fw-bold">{{ r.pain_level }}</span><span class="text-muted small">/5</span></td>
+              <td data-label="Mood">{{ r.mood|default:"—" }}</td>
+              <td class="span-2"><div class="row-actions">
+                <a href="{% url 'menstrual_update' r.id %}" class="btn btn-ghost btn-icon btn-sm" title="Edit"><i class="bi bi-pencil"></i></a>
+                <a href="{% url 'menstrual_delete' r.id %}" class="btn btn-soft-danger btn-icon btn-sm" title="Delete"><i class="bi bi-trash3"></i></a>
+              </div></td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+<p class="text-muted small"><i class="bi bi-info-circle"></i> Predictions are estimates from your own history, not medical advice. If something feels off, talk to a health professional.</p>
+{% else %}
+<div class="panel reveal"><div class="empty">
+  <div class="art" style="background:var(--rose-soft);color:var(--rose)"><i class="bi bi-moon-stars"></i></div>
+  <h3>Start tracking your cycle</h3>
+  <p>Log your period's start and end. After a couple of cycles wILife predicts the next one for you.</p>
+  <a href="{% url 'menstrual_add' %}" class="btn btn-brand"><i class="bi bi-plus-lg"></i> Log your period</a>
+</div></div>
+{% endif %}
 {% endblock %}

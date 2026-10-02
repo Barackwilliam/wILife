@@ -223,3 +223,60 @@ class ScheduleReminderJobTests(TestCase):
         self.assertEqual((result["sent"], result["failed"]), (1, 0))
         schedule.refresh_from_db()
         self.assertTrue(schedule.reminder_sent)
+
+
+class UiFlowTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user("owner", password="x")
+        self.client.force_login(self.user)
+
+    def test_home_redirects_signed_in_users_to_dashboard(self):
+        self.assertRedirects(self.client.get("/"), "/dashboard/")
+
+    def test_task_toggle_flips_status(self):
+        from core.models import Task
+        task = Task.objects.create(user=self.user, title="T", date=timezone.localdate())
+        self.client.post(f"/task/{task.pk}/toggle/")
+        task.refresh_from_db()
+        self.assertEqual(task.status, "done")
+        self.client.post(f"/task/{task.pk}/toggle/")
+        task.refresh_from_db()
+        self.assertEqual(task.status, "pending")
+
+    def test_task_toggle_rejects_get_and_other_users(self):
+        from core.models import Task
+        other = User.objects.create_user("other", password="x")
+        task = Task.objects.create(user=other, title="T", date=timezone.localdate())
+        self.assertEqual(self.client.get(f"/task/{task.pk}/toggle/").status_code, 405)
+        self.assertEqual(self.client.post(f"/task/{task.pk}/toggle/").status_code, 404)
+
+    def test_dashboard_prefs_reach_js_as_valid_json(self):
+        from core.models import DashboardPreference
+        DashboardPreference.objects.create(user=self.user, hidden_widgets='{"goals": true}')
+        r = self.client.get("/dashboard/")
+        self.assertContains(r, '<script id="hidden-widgets" type="application/json">{"goals": true}</script>', html=False)
+
+    def test_cycle_calendar_requires_login_and_escapes_text(self):
+        from core.models import MenstrualCycleRecord
+        MenstrualCycleRecord.objects.create(user=self.user, start_date=timezone.localdate(),
+                                            end_date=timezone.localdate(), symptoms="it's </script>")
+        r = self.client.get("/period")
+        self.assertEqual(r.status_code, 200)
+        self.assertNotContains(r, "it's </script>")
+        self.client.logout()
+        self.assertEqual(self.client.get("/period").status_code, 302)
+
+    def test_calendar_includes_tasks_and_events(self):
+        from core.models import Schedule, Task
+        Task.objects.create(user=self.user, title="Pay rent", date=timezone.localdate(), priority="high")
+        now = timezone.now()
+        Schedule.objects.create(user=self.user, title="Dentist", start_datetime=now, end_datetime=now)
+        r = self.client.get("/calendar/")
+        self.assertContains(r, "Pay rent")
+        self.assertContains(r, "task-high")
+        self.assertContains(r, "Dentist")
+
+    def test_profile_saves_whatsapp_number(self):
+        self.client.post("/profile/", {"username": "owner", "email": "o@x.com", "whatsapp_number": "0712345678"})
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.whatsapp_number, "0712345678")

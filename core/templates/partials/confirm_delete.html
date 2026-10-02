@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block crumb %}Delete {% block noun %}item{% endblock %}{% endblock %}
+{% block title %}Delete{% endblock %}
+{% block content %}
+<div class="form-shell" style="max-width:560px">
+  <div class="panel form-card text-center reveal">
+    <div class="empty pt-2 pb-0">
+      <div class="art" style="background:var(--rose-soft);color:var(--rose)"><i class="bi bi-trash3"></i></div>
+      <h3>{% block question %}Delete this item?{% endblock %}</h3>
+      <p>{% block details %}{% endblock %}</p>
+    </div>
+    <div class="tip text-start" style="background:var(--rose-soft)"><span class="emo">⚠️</span><span>This is permanent and can't be undone.</span></div>
+    <form method="post" class="form-actions justify-content-center border-0">
+      {% csrf_token %}
+      <a href="{% block cancel_url %}{% url 'dashboard' %}{% endblock %}" class="btn btn-ghost">Keep it</a>
+      <button type="submit" class="btn btn-danger"><i class="bi bi-trash3"></i> Yes, delete</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
