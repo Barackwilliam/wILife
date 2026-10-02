@@ -152,3 +152,31 @@ class BaileysIncomingTests(TestCase):
     def test_ordinary_chat_is_ignored(self):
         r = self.post({"phone": "255712345678", "message": "habari yako"})
         self.assertEqual(r.json()["reply"], "")
+
+
+class ExportTests(TestCase):
+    def setUp(self):
+        from core.models import Income, Schedule
+        self.user = User.objects.create_user("owner", password="x")
+        self.client.force_login(self.user)
+        today = timezone.localdate()
+        Income.objects.create(user=self.user, amount=1000, source="Salary", date=today)
+        start = timezone.make_aware(timezone.datetime(2026, 10, 2, 9, 30))
+        Schedule.objects.create(user=self.user, title="Kikao", start_datetime=start,
+                                end_datetime=start + timezone.timedelta(hours=1))
+
+    def test_excel_export_with_schedules(self):
+        import io
+        import pandas as pd
+
+        r = self.client.get("/export/excel/")
+        self.assertEqual(r.status_code, 200)
+        sheets = pd.read_excel(io.BytesIO(r.content), sheet_name=None)
+        self.assertEqual(sheets["Incomes"]["source"].tolist(), ["Salary"])
+        # Stored in UTC, written in local (Dar es Salaam) time.
+        self.assertEqual(str(sheets["Schedule"]["start_datetime"][0]), "2026-10-02 09:30:00")
+
+    def test_pdf_export(self):
+        r = self.client.get("/export/pdf/")
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.content.startswith(b"%PDF"))
