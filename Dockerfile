@@ -19,6 +19,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 # Same Debian release as stage 1, so native modules (e.g. sharp) still load.
 COPY --from=bridge /usr/local/bin/node /usr/local/bin/node
+# DejaVu fonts for the generated article cover images.
+RUN apt-get update && apt-get install -y --no-install-recommends fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY requirements.txt .

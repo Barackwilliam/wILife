@@ -94,6 +94,9 @@ def execute_approved(approval):
     if approval.status != "approved":
         raise ValueError(f"approval #{approval.pk} is {approval.status}, not approved")
 
+    if approval.tool == "publish_news":
+        return _publish_news(approval)
+
     try:
         message_id = send_to_other(approval.recipient_number, approval.body)
     except DeliveryError as exc:
@@ -137,6 +140,8 @@ def approve(code, user=None):
     approval.save(update_fields=["status", "decided_at"])
 
     ok = execute_approved(approval)
+    if ok and approval.tool == "publish_news":
+        return True, f"✅ {approval.result}"
     if ok:
         return True, f"✅ Imetumwa kwa {approval.recipient_name or approval.recipient_number}."
     return False, f"⚠️ Kutuma kumeshindikana: {approval.result}"
@@ -153,7 +158,33 @@ def reject(code, user=None):
     approval.status = "rejected"
     approval.decided_at = timezone.now()
     approval.save(update_fields=["status", "decided_at"])
+    if approval.tool == "publish_news":
+        from news.models import NewsBatch
+        from news.pipeline import reject_batch
+        batch = NewsBatch.objects.filter(approval=approval).first()
+        if batch:
+            reject_batch(batch)
+        return True, f"🗑️ Habari za rasimu {code} zimekataliwa."
     return True, f"🗑️ Rasimu {code} imefutwa."
+
+
+def _publish_news(approval):
+    """Approved news batch: publish its drafts instead of messaging anyone."""
+    from news.models import NewsBatch
+    from news.pipeline import publish_batch
+
+    batch = NewsBatch.objects.filter(approval=approval).first()
+    if batch is None:
+        approval.status = "failed"
+        approval.result = "news batch not found"
+        approval.save(update_fields=["status", "result"])
+        return False
+    count = publish_batch(batch)
+    approval.status = "sent"
+    approval.result = f"Habari {count} zimechapishwa."
+    approval.sent_at = timezone.now()
+    approval.save(update_fields=["status", "result", "sent_at"])
+    return True
 
 
 def expire_stale(now=None):

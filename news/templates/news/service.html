@@ -1,0 +1,41 @@
+{% extends 'news/base.html' %}
+{% load news_tags %}
+{% block title %}{{ service.name }} Tanzania — JamiiTek Digital Agency{% endblock %}
+{% block description %}{{ service.tagline }} Faida, fursa na jinsi ya kuanza na JamiiTek, Dar es Salaam.{% endblock %}
+{% block og_title %}{{ service.name }} — JamiiTek{% endblock %}
+{% block og_description %}{{ service.tagline }}{% endblock %}
+{% block jsonld %}{% service_jsonld service %}{% endblock %}
+{% block content %}
+<div class="n-wrap">
+  <nav class="crumbs"><a href="{% url 'news:home' %}">Habari</a><span>/</span><a href="{% url 'news:services' %}">Huduma za JamiiTek</a></nav>
+  <section class="svc-hero pt-3 reveal">
+    <span class="ico-chip t-brand" style="width:64px;height:64px;font-size:1.8rem;border-radius:20px"><i class="bi {{ service.icon }}"></i></span>
+    <h1>{{ service.name }}</h1>
+    <p>{{ service.tagline }}</p>
+    <div class="d-flex gap-2 flex-wrap mt-4">
+      {% if service.cta_url %}<a href="{{ service.cta_url }}" class="btn btn-brand btn-lg">{{ service.cta_label }} <i class="bi bi-arrow-right"></i></a>
+      {% else %}{% whatsapp_link "Habari JamiiTek! Ningependa kujua zaidi kuhusu "|add:service.name as wa %}{% if wa %}<a href="{{ wa }}" class="btn btn-brand btn-lg" target="_blank" rel="noopener"><i class="bi bi-whatsapp"></i> {{ service.cta_label }}</a>{% endif %}{% endif %}
+      <a href="{% url 'news:services' %}" class="btn btn-ghost btn-lg">Huduma nyingine</a>
+    </div>
+  </section>
+
+  <div class="n-grid">
+    <div>
+      <div class="a-body mb-4"><p>{{ service.description }}</p></div>
+      <h2 class="mb-3" style="font-size:1.8rem">Faida kuu</h2>
+      <div class="row g-3 mb-5">{% for b in service.benefit_list %}<div class="col-md-6 reveal"><div class="benefit"><i class="bi bi-check2-circle"></i><span class="fw-semibold">{{ b }}</span></div></div>{% endfor %}</div>
+      {% if service.opportunity_list %}
+      <h2 class="mb-3" style="font-size:1.8rem">Fursa zilizopo — inafaa kwa</h2>
+      <div class="row g-3 mb-5">{% for o in service.opportunity_list %}<div class="col-md-6 reveal"><div class="benefit"><i class="bi bi-lightbulb" style="color:var(--sun)"></i><span class="fw-semibold">{{ o }}</span></div></div>{% endfor %}</div>
+      {% endif %}
+      {% if articles %}
+      <section class="n-section"><div class="n-section-head"><h2>Makala kuhusu {{ service.name }}</h2></div>
+        <div class="n-cards">{% for a in articles %}{% include 'news/_card.html' with compact=True %}{% endfor %}</div></section>
+      {% endif %}
+    </div>
+    <aside class="n-sticky">
+      <div class="n-box"><h4>Huduma nyingine</h4>{% for o in others %}<a href="{{ o.get_absolute_url }}" class="d-flex gap-3 align-items-center py-2 text-reset"><span class="ico-chip t-brand"><i class="bi {{ o.icon }}"></i></span><span class="fw-semibold">{{ o.name }}</span></a>{% endfor %}</div>
+    </aside>
+  </div>
+</div>
+{% endblock %}

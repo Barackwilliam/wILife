@@ -1,0 +1,96 @@
+{% load static news_tags %}<!DOCTYPE html>
+<html lang="sw" data-bs-theme="{% if request.COOKIES.theme == 'dark' %}dark{% else %}light{% endif %}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{% block title %}wILife Habari — Habari za Tanzania, Afrika na Dunia kwa Kiswahili{% endblock %}</title>
+  <meta name="description" content="{% block description %}Habari kuu za leo za Tanzania, Afrika na Dunia kwa Kiswahili — kwa ufupi, kwa uhakika, kila siku. Inaletwa kwako na JamiiTek.{% endblock %}">
+  {% block robots %}<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">{% endblock %}
+  <link rel="canonical" href="{% block canonical %}{% absolute request.path %}{% endblock %}">
+  <link rel="alternate" hreflang="sw" href="{% absolute request.path %}">
+  <link rel="alternate" type="application/rss+xml" title="wILife Habari" href="{% url 'news:rss' %}">
+  <meta name="theme-color" content="#17151d">
+  <link rel="icon" href="{% static 'news/logo.png' %}">
+  <link rel="apple-touch-icon" href="{% static 'news/logo.png' %}">
+
+  <meta property="og:site_name" content="wILife Habari">
+  <meta property="og:locale" content="sw_TZ">
+  <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+  <meta property="og:title" content="{% block og_title %}wILife Habari{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}Habari kuu za Tanzania, Afrika na Dunia kwa Kiswahili.{% endblock %}">
+  <meta property="og:url" content="{% absolute request.path %}">
+  <meta property="og:image" content="{% block og_image %}{% absolute '/static/news/logo.png' %}{% endblock %}">
+  <meta name="twitter:card" content="summary_large_image">
+  {% block extra_meta %}{% endblock %}
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500..700;1,9..144,500&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="{% static 'core/css/wilife.css' %}" rel="stylesheet">
+  <link href="{% static 'news/news.css' %}" rel="stylesheet">
+  {% site_jsonld %}
+  {% block jsonld %}{% endblock %}
+</head>
+<body>
+  <div class="n-topbar">
+    <div class="n-wrap">
+      <div class="date"><i class="bi bi-calendar3"></i><span>{{ sw_today }}</span><span class="full">· Dar es Salaam</span></div>
+      <div class="right">
+        <button class="theme-mini" data-theme-toggle aria-label="Badilisha mwanga"><i class="bi bi-moon-stars-fill"></i><i class="bi bi-sun-fill"></i></button>
+        <a href="{% if user.is_authenticated %}{% url 'dashboard' %}{% else %}{% url 'login' %}{% endif %}" class="btn-app"><i class="bi bi-grid-1x2-fill"></i> {% if user.is_authenticated %}Fungua wILife{% else %}Ingia wILife{% endif %}</a>
+      </div>
+    </div>
+  </div>
+
+  <header class="n-mast">
+    <div class="n-wrap">
+      <a href="{% url 'news:home' %}" class="n-logo" aria-label="wILife Habari — mwanzo">
+        {% include 'partials/brand_mark.html' %}
+        <span><b>w<em>I</em>Life Habari</b><small>Habari za uhakika · kwa Kiswahili</small></span>
+      </a>
+      <form class="n-search" action="{% url 'news:search' %}" role="search">
+        <i class="bi bi-search"></i><input type="search" name="q" placeholder="Tafuta habari…" value="{{ q|default:'' }}" aria-label="Tafuta">
+      </form>
+    </div>
+  </header>
+
+  <nav class="n-nav" aria-label="Makundi ya habari">
+    <div class="n-wrap">
+      <a href="{% url 'news:home' %}" class="{% if request.resolver_match.url_name == 'home' %}on{% endif %}">Habari Kuu</a>
+      <a href="{% url 'news:category' 'tanzania' %}" class="{% if category == 'tanzania' or article.category == 'tanzania' %}on{% endif %}">Tanzania</a>
+      <a href="{% url 'news:category' 'afrika' %}" class="{% if category == 'afrika' or article.category == 'afrika' %}on{% endif %}">Afrika</a>
+      <a href="{% url 'news:category' 'dunia' %}" class="{% if category == 'dunia' or article.category == 'dunia' %}on{% endif %}">Dunia</a>
+      <a href="{% url 'news:category' 'jamiitek' %}" class="{% if category == 'jamiitek' or article.category == 'jamiitek' %}on{% endif %}">Teknolojia &amp; Biashara</a>
+      <span class="spacer"></span>
+      <a href="{% url 'news:services' %}" class="jt {% if 'service' in request.resolver_match.url_name %}on{% endif %}"><i class="bi bi-stars"></i> Huduma za JamiiTek</a>
+    </div>
+  </nav>
+
+  {% block ticker %}{% endblock %}
+
+  <main class="n-main">
+    {% if messages %}<div class="n-wrap">{% for m in messages %}<div class="tip mb-3">{{ m }}</div>{% endfor %}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="n-foot">
+    <div class="n-wrap">
+      <div class="cols">
+        <div>
+          <a href="{% url 'news:home' %}" class="n-logo" style="color:#fff">{% include 'partials/brand_mark.html' %}<span><b style="color:#fff">w<em>I</em>Life Habari</b></span></a>
+          <p class="mt-3 mb-0" style="max-width:36ch">Habari kuu sita kila siku — Dunia, Afrika na Tanzania — kwa Kiswahili. Inaletwa kwako na <a href="{% url 'news:services' %}" style="display:inline;color:#f4b25a">JamiiTek Digital Agency</a>.</p>
+        </div>
+        <div><h5>Habari</h5><a href="{% url 'news:category' 'tanzania' %}">Tanzania</a><a href="{% url 'news:category' 'afrika' %}">Afrika</a><a href="{% url 'news:category' 'dunia' %}">Dunia</a><a href="{% url 'news:category' 'jamiitek' %}">Teknolojia &amp; Biashara</a></div>
+        <div><h5>JamiiTek</h5><a href="{% url 'news:services' %}">Huduma zote</a>{% for s in footer_services %}<a href="{{ s.get_absolute_url }}">{{ s.name }}</a>{% endfor %}</div>
+        <div><h5>wILife</h5><a href="{% url 'news:about' %}">Kuhusu &amp; Sera ya Uhariri</a><a href="{% url 'home' %}">wILife App</a><a href="{% url 'news:rss' %}">RSS</a><a href="{% url 'news:sitemap' %}">Sitemap</a></div>
+      </div>
+      <div class="bottom"><span>&copy; {% now "Y" %} wILife Habari · JamiiTek Digital Agency, Dar es Salaam</span><span>Habari zimeandaliwa kwa msaada wa AI na kuhakikiwa na mhariri.</span></div>
+    </div>
+  </footer>
+
+  <script src="{% static 'core/js/wilife.js' %}" defer></script>
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

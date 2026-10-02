@@ -231,7 +231,7 @@ class UiFlowTests(TestCase):
         self.client.force_login(self.user)
 
     def test_home_redirects_signed_in_users_to_dashboard(self):
-        self.assertRedirects(self.client.get("/"), "/dashboard/")
+        self.assertRedirects(self.client.get("/app/"), "/dashboard/")
 
     def test_task_toggle_flips_status(self):
         from core.models import Task

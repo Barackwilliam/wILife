@@ -29,6 +29,10 @@
       <a href="{% url 'health_list' %}" class="side-link {% if 'health' in u %}active{% endif %}"><i class="bi bi-heart-pulse"></i> Health</a>
       <a href="{% url 'menstrual_list' %}" class="side-link {% if 'menstrual' in u %}active{% endif %}"><i class="bi bi-moon-stars"></i> Cycle</a>
 
+      <div class="nav-section">Habari</div>
+      <a href="{% url 'news:home' %}" class="side-link"><i class="bi bi-newspaper"></i> wILife Habari</a>
+      {% if user.is_staff %}<a href="{% url 'news:review' %}" class="side-link"><i class="bi bi-pencil-square"></i> Rasimu za habari</a>{% endif %}
+
       {% if user.is_staff %}
       <div class="nav-section">System</div>
       <a href="{% url 'admin:index' %}" class="side-link"><i class="bi bi-shield-lock"></i> Admin</a>

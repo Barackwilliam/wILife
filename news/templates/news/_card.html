@@ -1,0 +1,7 @@
+{% load news_tags %}<article class="n-card cat-{{ a.category }}">
+  <a href="{{ a.get_absolute_url }}" tabindex="-1" aria-hidden="true"><img class="n-cover" src="{% url 'news:cover' a.pk %}" alt="" width="1200" height="630" loading="lazy" decoding="async"></a>
+  <span class="kicker">{{ a.get_category_display }}</span>
+  <h3><a href="{{ a.get_absolute_url }}">{{ a.title }}</a></h3>
+  {% if not compact %}<p>{{ a.excerpt }}</p>{% endif %}
+  <div class="meta"><span><i class="bi bi-clock"></i>{{ a.published_at|sw_ago }}</span><span>{{ a.reading_minutes }} dk kusoma</span></div>
+</article>

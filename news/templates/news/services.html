@@ -1,0 +1,31 @@
+{% extends 'news/base.html' %}
+{% load news_tags %}
+{% block title %}Huduma za JamiiTek — Tovuti, Hosting, WhatsApp Bots, Mifumo na SEO Tanzania{% endblock %}
+{% block description %}JamiiTek Digital Agency, Dar es Salaam: utengenezaji wa tovuti, hosting na domain, WhatsApp bots za AI, mifumo ya usimamizi na SEO kwa biashara za Tanzania.{% endblock %}
+{% block og_title %}Huduma za JamiiTek Digital Agency{% endblock %}
+{% block content %}
+<div class="n-wrap">
+  <section class="svc-hero reveal">
+    <span class="eyebrow">JamiiTek Digital Agency · Dar es Salaam</span>
+    <h1>Teknolojia inayofanya kazi <em>kwa biashara yako.</em></h1>
+    <p>Tunajenga zana za kidijitali zinazokuletea wateja, kuokoa muda na kukupa taarifa sahihi — kwa lugha na mazingira ya Tanzania.</p>
+    <div class="d-flex gap-2 flex-wrap mt-4">
+      {% whatsapp_link "Habari JamiiTek! Ningependa kujua zaidi kuhusu huduma zenu." as wa %}{% if wa %}<a href="{{ wa }}" class="btn btn-brand btn-lg" target="_blank" rel="noopener"><i class="bi bi-whatsapp"></i> Ongea nasi WhatsApp</a>{% endif %}
+      <a href="#huduma" class="btn btn-ghost btn-lg">Angalia huduma</a>
+    </div>
+  </section>
+  <div class="row g-4" id="huduma">
+    {% for s in services %}
+    <div class="col-md-6 col-lg-4 reveal">
+      <a href="{{ s.get_absolute_url }}" class="panel d-flex flex-column gap-3 h-100 text-reset hover-lift">
+        <span class="ico-chip t-brand" style="width:52px;height:52px;font-size:1.4rem;border-radius:16px"><i class="bi {{ s.icon }}"></i></span>
+        <h2 style="font-size:1.5rem;margin:0">{{ s.name }}</h2>
+        <p class="text-muted mb-0">{{ s.tagline }}</p>
+        <ul class="list-clean small">{% for b in s.benefit_list|slice:":3" %}<li class="d-flex gap-2 py-1"><i class="bi bi-check2-circle c-leaf"></i>{{ b }}</li>{% endfor %}</ul>
+        <span class="mt-auto fw-bold c-brand">Soma zaidi <i class="bi bi-arrow-right"></i></span>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

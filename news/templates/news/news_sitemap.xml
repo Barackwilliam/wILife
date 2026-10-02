@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">{% for a in items %}
+  <url>
+    <loc>{{ request.scheme }}://{{ request.get_host }}{{ a.get_absolute_url }}</loc>
+    <news:news>
+      <news:publication><news:name>wILife Habari</news:name><news:language>sw</news:language></news:publication>
+      <news:publication_date>{{ a.published_at|date:"c" }}</news:publication_date>
+      <news:title>{{ a.title }}</news:title>
+    </news:news>
+  </url>{% endfor %}
+</urlset>
