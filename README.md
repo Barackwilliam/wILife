@@ -2,7 +2,8 @@
 
 Personal life assistant built with Django. Tracks income, expenses, tasks,
 health, schedules, goals and menstrual cycles, and runs a background agent
-that sends briefs and reminders over Telegram, WhatsApp or email.
+that sends briefs and reminders over WhatsApp (Baileys bridge), Telegram and
+email — one channel or all of them at once.
 
 ## Features
 
@@ -22,6 +23,7 @@ that sends briefs and reminders over Telegram, WhatsApp or email.
 - PostgreSQL (Supabase)
 - pandas / openpyxl (Excel), xhtml2pdf (PDF)
 - Gunicorn + WhiteNoise on Render
+- Node 20+ / Baileys for the WhatsApp bridge
 
 ## Local setup
 
@@ -48,18 +50,25 @@ The agent does its work in short "ticks". Trigger them either way:
 `/healthz/` is an unauthenticated liveness check. The `AgentRun` table
 (Django admin) records every tick — check it to confirm the agent is alive.
 
-Channel webhooks: `/agent/telegram/` and `/agent/whatsapp/`.
+Channels: set `AGENT_SELF_CHANNEL=all` to deliver on every configured channel.
+WhatsApp goes through the Baileys bridge in `whatsapp_bridge/` (a separate Node
+service). Setup for all three: `CHANNELS_SETUP.md`.
+
+Inbound endpoints: `/agent/telegram/`, `/agent/whatsapp/baileys/` (bridge) and
+`/agent/whatsapp/` (Meta Cloud API).
 
 Useful management commands:
 
 | Command | Purpose |
 |---|---|
-| `telegram_setup` | Register the Telegram webhook |
+| `channels_check [--send]` | Show email / Telegram / WhatsApp status; send a test on each |
+| `telegram_setup` | Find your chat id, register the Telegram webhook |
 | `email_setup` | Verify the email channel |
 | `check_expiry`, `check_goals`, `check_jamiitek`, `check_leadscout` | Dry-run individual agent jobs |
 
 ## Further docs
 
+- `CHANNELS_SETUP.md` — WhatsApp (Baileys), email and Telegram setup
 - `STEP1_INSTALL.md` — agent heartbeat install
 - `ENABLE_GUIDE.md` — enabling goals, weekly review, invoices, LeadScout, Groq
 - `EMAIL_SETUP.md` — email channel (Resend)

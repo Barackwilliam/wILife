@@ -73,7 +73,7 @@ def _brief_recipients():
     # On Telegram there is one configured chat — the owner's. Deliver to the
     # first active user and stop; there is no per-user routing to do.
     channel = self_channel()
-    if channel in ("telegram", "email"):
+    if channel in ("telegram", "email", "all"):
         # One configured destination — the owner's. No per-user routing to do.
         return [(users[0], channel)] if users else []
 

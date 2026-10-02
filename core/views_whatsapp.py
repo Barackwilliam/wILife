@@ -6,8 +6,15 @@ message goes out. Nothing else in this file does anything — an unrecognised
 message is acknowledged and ignored, on purpose. This endpoint is public, and a
 public endpoint that acts on arbitrary text is a liability.
 
-Register the URL in the Meta app dashboard as the webhook callback, with
-WHATSAPP_VERIFY_TOKEN as the verify token.
+Two entry points:
+
+    whatsapp_webhook   Meta Cloud API. Register the URL in the Meta app
+                       dashboard, with WHATSAPP_VERIFY_TOKEN as the verify token.
+    baileys_incoming   The Baileys bridge (whatsapp_bridge/) forwards each text
+                       message here, authenticated by WHATSAPP_BRIDGE_KEY. The
+                       reply goes back in the response body and the bridge sends
+                       it, so it reaches the chat even when WhatsApp hides the
+                       sender's number behind a LID.
 """
 
 import hashlib
@@ -110,19 +117,51 @@ def _handle_payload(payload):
                     continue
                 from_number = message.get("from", "")
                 text = message.get("text", {}).get("body", "")
-                _handle_message(from_number, text)
+                reply = _handle_message(from_number, text)
+                if reply:
+                    try:
+                        send_whatsapp(from_number, reply)
+                    except Exception as exc:
+                        log.error("could not confirm decision to %s: %s", from_number, exc)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def baileys_incoming(request):
+    key = getattr(settings, "WHATSAPP_BRIDGE_KEY", "")
+    if not key:
+        log.error("WHATSAPP_BRIDGE_KEY not configured — rejecting bridge message")
+        return JsonResponse({"detail": "not configured"}, status=503)
+
+    provided = request.headers.get("X-Bridge-Key", "")
+    if not hmac.compare_digest(str(provided), str(key)):
+        return JsonResponse({"detail": "forbidden"}, status=403)
+
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        return JsonResponse({"detail": "bad payload"}, status=400)
+
+    reply = ""
+    try:
+        reply = _handle_message(str(payload.get("phone", "")), str(payload.get("message", "")))
+    except Exception:
+        log.exception("bridge message handling failed")
+
+    return JsonResponse({"reply": reply or ""})
 
 
 def _handle_message(from_number, text):
+    """Act on an approval reply. Returns the confirmation text, or '' to stay silent."""
     decision, code = approvals.parse_reply(text)
     if not decision:
         log.info("ignoring unrecognised inbound message from %s", from_number)
-        return
+        return ""
 
     user = _authorised_user(from_number)
     if user is None:
         log.warning("approval attempt from unauthorised number %s", from_number)
-        return
+        return ""
 
     if decision == "approve":
         ok, reply = approvals.approve(code, user=user)
@@ -130,7 +169,4 @@ def _handle_message(from_number, text):
         ok, reply = approvals.reject(code, user=user)
 
     log.info("approval decision=%s code=%s ok=%s", decision, code, ok)
-    try:
-        send_whatsapp(from_number, reply)
-    except Exception as exc:
-        log.error("could not confirm decision to %s: %s", from_number, exc)
+    return reply

@@ -22,7 +22,6 @@ from django.db.models import Sum
 from django.utils import timezone
 
 from core.models import Expense, Income, Schedule, Task
-from core.agent.whatsapp import resolve_recipient, send_whatsapp
 
 log = logging.getLogger("core.agent")
 
@@ -161,12 +160,13 @@ def reschedule_task(task_id, user, new_date):
     return task
 
 
-@tool("send_message_to_self", TIER_A, "Send William a WhatsApp message")
+@tool("send_message_to_self", TIER_A, "Send William a message on his configured channels")
 def send_message_to_self(user, text):
-    number = resolve_recipient(user)
-    if not number:
-        raise ToolError("no WhatsApp number configured for this user")
-    return send_whatsapp(number, text)
+    from core.agent.channels import DeliveryError, send_to_self
+    try:
+        return send_to_self(user, text)
+    except DeliveryError as exc:
+        raise ToolError(str(exc)) from exc
 
 
 # ---------------------------------------------------------------------------
