@@ -186,6 +186,35 @@ STORAGES = {
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 }
 
+# ---------------------------------------------------------------------------
+# Media (news cover images) — Supabase Storage bucket via its S3 API.
+# Same variables as the Tryvis project. Supabase dashboard → Storage → create a
+# PUBLIC bucket, then Storage → S3 Connection for the endpoint and keys.
+# When not configured, covers are kept in the database instead (still works,
+# just heavier) — Render's own disk is wiped on every deploy, so never there.
+# ---------------------------------------------------------------------------
+SUPABASE_S3_ACCESS_KEY = env("SUPABASE_S3_ACCESS_KEY", "")
+SUPABASE_S3_ENDPOINT = env("SUPABASE_S3_ENDPOINT", "")  # https://<project-ref>.supabase.co/storage/v1/s3
+USE_SUPABASE_STORAGE = env_bool("USE_SUPABASE_STORAGE", bool(SUPABASE_S3_ACCESS_KEY and SUPABASE_S3_ENDPOINT))
+
+if USE_SUPABASE_STORAGE:
+    AWS_ACCESS_KEY_ID = SUPABASE_S3_ACCESS_KEY
+    AWS_SECRET_ACCESS_KEY = env("SUPABASE_S3_SECRET_KEY", "")
+    AWS_STORAGE_BUCKET_NAME = env("SUPABASE_BUCKET_NAME", "wilife-media")
+    AWS_S3_ENDPOINT_URL = SUPABASE_S3_ENDPOINT
+    AWS_S3_REGION_NAME = env("SUPABASE_S3_REGION", "eu-north-1")
+    AWS_S3_ADDRESSING_STYLE = "path"
+    AWS_DEFAULT_ACL = None
+    AWS_QUERYSTRING_AUTH = False
+    AWS_S3_FILE_OVERWRITE = False
+    # Files never change once written (new names on regeneration) — let browsers and CDNs keep them.
+    AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "public, max-age=31536000, immutable"}
+    # Links must use the PUBLIC object path, not the S3 API path (which returns 403 in a browser).
+    _supabase_project = SUPABASE_S3_ENDPOINT.rstrip("/").removesuffix("/storage/v1/s3")
+    AWS_S3_CUSTOM_DOMAIN = f'{_supabase_project.split("://", 1)[-1]}/storage/v1/object/public/{AWS_STORAGE_BUCKET_NAME}'
+    MEDIA_URL = f"{_supabase_project}/storage/v1/object/public/{AWS_STORAGE_BUCKET_NAME}/"
+    STORAGES["default"] = {"BACKEND": "storages.backends.s3.S3Storage"}
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/dashboard/'

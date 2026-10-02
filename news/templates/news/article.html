@@ -7,7 +7,7 @@
 {% block og_type %}article{% endblock %}
 {% block og_title %}{{ article.title }}{% endblock %}
 {% block og_description %}{{ article.excerpt }}{% endblock %}
-{% block og_image %}{% absolute '/habari/picha/' %}{{ article.pk }}.png{% endblock %}
+{% block og_image %}{% abs_url article.og_url %}{% endblock %}
 {% block extra_meta %}
   <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="{{ article.title }}">
   {% if article.published_at %}<meta property="article:published_time" content="{{ article.published_at|date:'c' }}">{% endif %}
@@ -16,7 +16,7 @@
   {% for name, slug in article.tag_list %}<meta property="article:tag" content="{{ name }}">{% endfor %}
   <meta name="twitter:title" content="{{ article.title }}"><meta name="twitter:description" content="{{ article.excerpt }}">
 {% endblock %}
-{% block preload %}<link rel="preload" as="image" href="{% url 'news:cover_thumb' article.pk %}" fetchpriority="high">{% endblock %}
+{% block preload %}<link rel="preload" as="image" href="{{ article.art_url }}" fetchpriority="high">{% endblock %}
 {% block jsonld %}{% article_jsonld article %}{% endblock %}
 
 {% block content %}

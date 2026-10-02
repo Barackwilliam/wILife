@@ -74,7 +74,7 @@ def _save_article(batch, slot, category, data, sources, source_url=None, service
     article.save()
     try:
         article.render_cover()
-        article.save(update_fields=["cover_png", "cover_thumb"])
+        article.save()
     except Exception as exc:  # a missing cover never blocks the article
         log.warning("cover failed for %s: %s", article.pk, exc)
     return article

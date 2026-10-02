@@ -1,7 +1,7 @@
 {% extends 'news/base.html' %}
 {% load news_tags %}
-{% block og_image %}{% if lead %}{% absolute '/habari/picha/' %}{{ lead.pk }}.png{% else %}{% absolute '/static/news/logo.png' %}{% endif %}{% endblock %}
-{% block preload %}{% if lead %}<link rel="preload" as="image" href="{% url 'news:cover_thumb' lead.pk %}" fetchpriority="high">{% endif %}{% endblock %}
+{% block og_image %}{% if lead %}{% abs_url lead.og_url %}{% else %}{% absolute '/static/news/logo.png' %}{% endif %}{% endblock %}
+{% block preload %}{% if lead %}<link rel="preload" as="image" href="{{ lead.art_url }}" fetchpriority="high">{% endif %}{% endblock %}
 {% block ticker %}{% if ticker %}
 <div class="tick"><div class="wrap"><span class="lbl">Sasa hivi</span><div class="track"><div class="run">
   {% for a in ticker %}<a href="{{ a.get_absolute_url }}"><b>{{ a.get_category_display|upper }}</b>{{ a.title }}</a>{% endfor %}

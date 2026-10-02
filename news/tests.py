@@ -242,3 +242,66 @@ class SeoAndSpeedTests(TestCase):
         r = self.client.get("/", HTTP_ACCEPT_ENCODING="gzip")
         self.assertEqual(r["Content-Encoding"], "gzip")
         self.assertIn("max-age", r.get("Cache-Control", ""))
+
+
+@override_settings(
+    USE_SUPABASE_STORAGE=True,
+    MEDIA_URL="https://proj.supabase.co/storage/v1/object/public/wilife-media/",
+    STORAGES={"default": {"BACKEND": "django.core.files.storage.InMemoryStorage"},
+              "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}},
+)
+class BucketStorageTests(TestCase):
+    def _article(self, **kw):
+        a = Article.objects.create(title="Picha kwenye bucket", category="dunia", excerpt="x", body="y",
+                                   status="published", published_at=timezone.now(), **kw)
+        return a
+
+    def test_covers_go_to_bucket_not_database(self):
+        a = self._article()
+        a.render_cover()
+        a.save()
+        a.refresh_from_db()
+        self.assertIsNone(a.cover_png)
+        self.assertTrue(a.cover_image.name.endswith(".png"))
+        self.assertTrue(a.cover_art.name.endswith(".webp"))
+        self.assertTrue(a.art_url.startswith("https://proj.supabase.co/storage/v1/object/public/wilife-media/habari/"))
+
+    def test_pages_link_to_bucket_and_old_urls_redirect(self):
+        a = self._article()
+        a.render_cover()
+        a.save()
+        page = self.client.get(a.get_absolute_url()).content.decode()
+        self.assertIn(a.art_url, page)
+        self.assertIn(f'content="{a.og_url}"', page)
+        self.assertIn(a.og_url, self.client.get("/news-sitemap.xml").content.decode())
+        r = self.client.get(f"/habari/picha/{a.pk}.png")
+        self.assertEqual(r.status_code, 301)
+        self.assertEqual(r["Location"], a.og_url)
+
+    def test_move_command_uploads_database_covers(self):
+        from django.core.management import call_command
+        from io import StringIO
+        a = self._article()
+        with self.settings(USE_SUPABASE_STORAGE=False):
+            a.render_cover()
+            a.save()
+        self.assertIsNotNone(Article.objects.get(pk=a.pk).cover_png)
+        out = StringIO()
+        call_command("news_move_covers", stdout=out)
+        a.refresh_from_db()
+        self.assertIn("Moved 1", out.getvalue())
+        self.assertIsNone(a.cover_png)
+        self.assertTrue(a.cover_art.name.endswith(".webp"))
+
+
+class DatabaseFallbackTests(TestCase):
+    def test_without_bucket_covers_stay_in_database(self):
+        a = Article.objects.create(title="Bila bucket", category="tanzania", excerpt="x", body="y",
+                                   status="published", published_at=timezone.now())
+        a.render_cover()
+        a.save()
+        a.refresh_from_db()
+        self.assertFalse(a.cover_image)
+        self.assertIsNotNone(a.cover_png)
+        self.assertEqual(a.art_url, f"/habari/picha/{a.pk}-sanaa.webp")
+        self.assertEqual(self.client.get(a.art_url)["Content-Type"], "image/webp")
