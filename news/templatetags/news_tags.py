@@ -72,20 +72,22 @@ def article_jsonld(context, article):
         "inLanguage": "sw",
         "mainEntityOfPage": url,
         "url": url,
-        "image": [request.build_absolute_uri(f"/habari/picha/{article.pk}.png")],
+        "image": [{"@type": "ImageObject", "url": request.build_absolute_uri(f"/habari/picha/{article.pk}.png"),
+                   "width": 1200, "height": 630}],
+        "wordCount": len(article.body.split()),
         "datePublished": article.published_at.isoformat() if article.published_at else None,
         "dateModified": article.updated_at.isoformat(),
         "articleSection": article.get_category_display(),
         "keywords": article.keywords,
-        "author": {"@type": "Organization", "name": "wILife Habari", "url": request.build_absolute_uri("/kuhusu/")},
-        "publisher": {"@type": "Organization", "name": "wILife Habari",
+        "author": {"@type": "Organization", "name": "Dawati la Habari, wILife", "url": request.build_absolute_uri("/kuhusu/")},
+        "publisher": {"@type": "Organization", "name": "wILife",
                       "logo": {"@type": "ImageObject", "url": request.build_absolute_uri("/static/news/logo.png")}},
         "isBasedOn": [s.get("url") for s in article.sources if s.get("url", "").startswith("http")] or None,
     }, {
         "@context": "https://schema.org",
         "@type": "BreadcrumbList",
         "itemListElement": [
-            {"@type": "ListItem", "position": 1, "name": "Habari", "item": request.build_absolute_uri("/")},
+            {"@type": "ListItem", "position": 1, "name": "Mwanzo", "item": request.build_absolute_uri("/")},
             {"@type": "ListItem", "position": 2, "name": article.get_category_display(),
              "item": request.build_absolute_uri(f"/habari/{article.category}/")},
             {"@type": "ListItem", "position": 3, "name": article.title, "item": url},
@@ -99,12 +101,14 @@ def site_jsonld(context):
     request = context["request"]
     root = request.build_absolute_uri("/")
     data = [{
-        "@context": "https://schema.org", "@type": "NewsMediaOrganization", "name": "wILife Habari",
+        "@context": "https://schema.org", "@type": "NewsMediaOrganization", "name": "wILife",
         "url": root, "logo": request.build_absolute_uri("/static/news/logo.png"),
         "parentOrganization": {"@type": "Organization", "name": "JamiiTek Digital Agency"},
+        "sameAs": getattr(settings, "SOCIAL_LINKS", []) or None,
+        "publishingPrinciples": request.build_absolute_uri("/kuhusu/"),
         "areaServed": "TZ", "knowsLanguage": "sw",
     }, {
-        "@context": "https://schema.org", "@type": "WebSite", "name": "wILife Habari", "url": root,
+        "@context": "https://schema.org", "@type": "WebSite", "name": "wILife", "url": root,
         "inLanguage": "sw",
         "potentialAction": {"@type": "SearchAction", "target": root + "tafuta/?q={search_term_string}",
                             "query-input": "required name=search_term_string"},
@@ -155,3 +159,12 @@ def sw_ago(value):
         days = seconds // 86400
         return "jana" if days == 1 else f"siku {days} zilizopita"
     return sw_date(value)
+
+
+@register.simple_tag
+def icon(name, cls=""):
+    """{% icon "search" %} → inline SVG. Accepts 'bi-globe2' too (service icons stored in the DB)."""
+    from news.icons import ICONS
+    key = name[3:] if name.startswith("bi-") else name
+    inner = ICONS.get(key) or ICONS["stars"]
+    return mark_safe(f'<svg class="i {cls}" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">{inner}</svg>')

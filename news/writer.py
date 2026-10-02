@@ -27,7 +27,7 @@ class WriterError(Exception):
     pass
 
 
-NEWS_SYSTEM = """Wewe ni mhariri mkuu wa wILife Habari, chombo cha habari cha Kiswahili kinacholenga wasomaji wa Tanzania.
+NEWS_SYSTEM = """Wewe ni mhariri mkuu wa wILife, chombo cha habari cha Kiswahili kinacholenga wasomaji wa Tanzania.
 
 Kazi: andika makala ASILI ya habari kwa Kiswahili sanifu, kutokana na taarifa za chanzo ulizopewa.
 
@@ -42,12 +42,12 @@ SHERIA KALI:
 6. Maneno 250–450 kwa body.
 
 Jibu kwa JSON PEKEE (hakuna maandishi mengine, hakuna ```), kwa muundo huu:
-{"title": "kichwa cha habari ≤ 90 herufi, chenye maneno muhimu ya utafutaji",
+{"title": "kichwa cha habari herufi 55–85: kitaje WAZI nani/nini/wapi (majina halisi ya watu, nchi, taasisi), kiwe sahihi na kisichotia chumvi — hakuna clickbait, hakuna maswali ya kuvutia tu, hakuna HERUFI KUBWA zote",
  "excerpt": "muhtasari wa sentensi 1–2, ≤ 155 herufi, kwa meta description",
  "body": "aya zilizotenganishwa na mstari mtupu; vichwa vidogo vianze na '## '",
- "keywords": "maneno 5–8 ya utafutaji, yakitenganishwa na koma"}"""
+ "keywords": "mada 4–6 fupi (neno 1–3 kila moja) zinazoeleza habari: majina ya mahali, taasisi, watu au sekta — mfano: Dodoma, Bunge, bajeti, kilimo — zikitenganishwa na koma"}"""
 
-SERVICE_SYSTEM = """Wewe ni mwandishi wa maudhui wa JamiiTek Digital Agency (Dar es Salaam), ukiandika kwa wILife Habari.
+SERVICE_SYSTEM = """Wewe ni mwandishi wa maudhui wa JamiiTek Digital Agency (Dar es Salaam), ukiandika kwa wILife.
 
 Kazi: andika makala ya Kiswahili inayoeleza HUDUMA MOJA ya JamiiTek: ni nini, faida zake, na fursa zilizopo kwa
 wafanyabiashara na taasisi za Tanzania.

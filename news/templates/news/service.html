@@ -6,36 +6,26 @@
 {% block og_description %}{{ service.tagline }}{% endblock %}
 {% block jsonld %}{% service_jsonld service %}{% endblock %}
 {% block content %}
-<div class="n-wrap">
-  <nav class="crumbs"><a href="{% url 'news:home' %}">Habari</a><span>/</span><a href="{% url 'news:services' %}">Huduma za JamiiTek</a></nav>
-  <section class="svc-hero pt-3 reveal">
-    <span class="ico-chip t-brand" style="width:64px;height:64px;font-size:1.8rem;border-radius:20px"><i class="bi {{ service.icon }}"></i></span>
-    <h1>{{ service.name }}</h1>
-    <p>{{ service.tagline }}</p>
-    <div class="d-flex gap-2 flex-wrap mt-4">
-      {% if service.cta_url %}<a href="{{ service.cta_url }}" class="btn btn-brand btn-lg">{{ service.cta_label }} <i class="bi bi-arrow-right"></i></a>
-      {% else %}{% whatsapp_link "Habari JamiiTek! Ningependa kujua zaidi kuhusu "|add:service.name as wa %}{% if wa %}<a href="{{ wa }}" class="btn btn-brand btn-lg" target="_blank" rel="noopener"><i class="bi bi-whatsapp"></i> {{ service.cta_label }}</a>{% endif %}{% endif %}
-      <a href="{% url 'news:services' %}" class="btn btn-ghost btn-lg">Huduma nyingine</a>
-    </div>
-  </section>
-
-  <div class="n-grid">
-    <div>
-      <div class="a-body mb-4"><p>{{ service.description }}</p></div>
-      <h2 class="mb-3" style="font-size:1.8rem">Faida kuu</h2>
-      <div class="row g-3 mb-5">{% for b in service.benefit_list %}<div class="col-md-6 reveal"><div class="benefit"><i class="bi bi-check2-circle"></i><span class="fw-semibold">{{ b }}</span></div></div>{% endfor %}</div>
-      {% if service.opportunity_list %}
-      <h2 class="mb-3" style="font-size:1.8rem">Fursa zilizopo — inafaa kwa</h2>
-      <div class="row g-3 mb-5">{% for o in service.opportunity_list %}<div class="col-md-6 reveal"><div class="benefit"><i class="bi bi-lightbulb" style="color:var(--sun)"></i><span class="fw-semibold">{{ o }}</span></div></div>{% endfor %}</div>
-      {% endif %}
-      {% if articles %}
-      <section class="n-section"><div class="n-section-head"><h2>Makala kuhusu {{ service.name }}</h2></div>
-        <div class="n-cards">{% for a in articles %}{% include 'news/_card.html' with compact=True %}{% endfor %}</div></section>
-      {% endif %}
-    </div>
-    <aside class="n-sticky">
-      <div class="n-box"><h4>Huduma nyingine</h4>{% for o in others %}<a href="{{ o.get_absolute_url }}" class="d-flex gap-3 align-items-center py-2 text-reset"><span class="ico-chip t-brand"><i class="bi {{ o.icon }}"></i></span><span class="fw-semibold">{{ o.name }}</span></a>{% endfor %}</div>
-    </aside>
+<nav class="crumbs"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><a href="{% url 'news:services' %}">Huduma</a></nav>
+<section class="svc-hero">
+  <span class="svc-ic">{% icon service.icon %}</span>
+  <h1>{{ service.name }}</h1>
+  <p>{{ service.tagline }}</p>
+  <div class="btns">
+    {% if service.cta_url %}<a href="{{ service.cta_url }}" class="btn btn-brand btn-lg">{{ service.cta_label }} {% icon "arrow-right" %}</a>
+    {% else %}{% whatsapp_link "Habari JamiiTek! Ningependa kujua zaidi kuhusu "|add:service.name as wa %}{% if wa %}<a href="{{ wa }}" class="btn btn-brand btn-lg" target="_blank" rel="noopener">{% icon "whatsapp" %} {{ service.cta_label }}</a>{% endif %}{% endif %}
+    <a href="{% url 'news:services' %}" class="btn btn-ghost btn-lg">Huduma nyingine</a>
   </div>
+</section>
+<div class="cols">
+  <div>
+    <div class="prose mb-3"><p>{{ service.description }}</p></div>
+    <h2 class="ttl" style="font-size:1.9rem">Faida kuu</h2>
+    <div class="ben">{% for b in service.benefit_list %}<div>{% icon "check2-circle" %}<span>{{ b }}</span></div>{% endfor %}</div>
+    {% if service.opportunity_list %}<h2 class="ttl" style="font-size:1.9rem">Fursa zilizopo</h2>
+    <div class="ben op">{% for o in service.opportunity_list %}<div>{% icon "lightbulb" %}<span>{{ o }}</span></div>{% endfor %}</div>{% endif %}
+    {% if articles %}<div class="sh"><h2>Makala kuhusu {{ service.name }}</h2></div><div class="grid3">{% for a in articles|slice:":3" %}{% include 'news/_card.html' with compact=True %}{% endfor %}</div>{% endif %}
+  </div>
+  <aside class="side"><div class="sticky"><div class="box"><h3>Huduma nyingine</h3>{% for o in others %}<a href="{{ o.get_absolute_url }}" class="flex center gap-1" style="padding:10px 0;border-bottom:1px solid var(--line);font-weight:700"><span class="svc-ic" style="width:36px;height:36px;font-size:1rem;border-radius:10px">{% icon o.icon %}</span>{{ o.name }}</a>{% endfor %}</div></div></aside>
 </div>
 {% endblock %}

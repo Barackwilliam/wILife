@@ -136,7 +136,7 @@ class PublicSiteTests(TestCase):
                                           excerpt="Muhtasari", body="Aya moja.\n\nAya mbili.",
                                           status="published", published_at=timezone.now(),
                                           sources=[{"title": "Chanzo", "url": "https://example.tz/x", "publisher": "Ex"}],
-                                          cover_png=b"\x89PNG fake")
+                                          cover_png=b"\x89PNG fake", keywords="Dodoma, habari")
         self.draft = Article.objects.create(title="Rasimu ya siri", category="dunia", excerpt="x", body="y")
 
     def test_home_and_category(self):
@@ -185,3 +185,60 @@ class PublicSiteTests(TestCase):
 
     def test_review_page_is_staff_only(self):
         self.assertEqual(self.client.get("/habari-admin/rasimu/").status_code, 302)
+
+
+class SeoAndSpeedTests(TestCase):
+    def setUp(self):
+        self.a = Article.objects.create(title="Bunge la Tanzania lapitisha bajeti", category="tanzania",
+                                        excerpt="Muhtasari", body="Aya.", keywords="Bunge, Dodoma, bajeti",
+                                        status="published", published_at=timezone.now())
+        self.a.render_cover()
+        self.a.save()
+
+    def test_no_old_brand_or_schedule_on_public_pages(self):
+        for url in ("/", "/habari/", "/kuhusu/", self.a.get_absolute_url()):
+            body = self.client.get(url).content.decode()
+            self.assertNotIn("wILife Habari", body, url)
+            self.assertNotIn("kuu sita", body.lower(), url)
+
+    def test_public_pages_do_not_load_bootstrap(self):
+        body = self.client.get("/").content.decode()
+        self.assertNotIn("bootstrap.min.css", body)
+        self.assertNotIn("bootstrap-icons", body)
+
+    def test_webp_thumbnail(self):
+        r = self.client.get(f"/habari/picha/{self.a.pk}-sanaa.webp")
+        self.assertEqual(r["Content-Type"], "image/webp")
+        self.assertIn("immutable", r["Cache-Control"])
+        self.assertTrue(r.content.startswith(b"RIFF"))
+
+    def test_topic_and_latest_pages(self):
+        self.assertContains(self.client.get(self.a.get_absolute_url()), "/mada/dodoma/")
+        self.assertContains(self.client.get("/mada/dodoma/"), self.a.title)
+        self.assertEqual(self.client.get("/mada/haipo/").status_code, 404)
+        self.assertContains(self.client.get("/habari/"), self.a.title)
+        self.assertContains(self.client.get("/sitemap.xml"), "/mada/bunge/")
+
+    def test_news_sitemap_has_image(self):
+        self.assertContains(self.client.get("/news-sitemap.xml"), f"/habari/picha/{self.a.pk}.png")
+
+    @override_settings(INDEXNOW_KEY="abc123def456")
+    def test_indexnow_key_file_and_robots_still_work(self):
+        self.assertEqual(self.client.get("/abc123def456.txt").content, b"abc123def456")
+        self.assertEqual(self.client.get("/wrong.txt").status_code, 404)
+        self.assertContains(self.client.get("/robots.txt"), "Sitemap:")
+
+    @override_settings(INDEXNOW_KEY="abc123def456", SITE_URL="https://example.tz")
+    def test_publishing_batch_pings_indexnow(self):
+        batch = NewsBatch.objects.create(date=date(2026, 10, 9))
+        Article.objects.create(title="Rasimu", category="dunia", excerpt="x", body="y", batch=batch, slot=1)
+        with mock.patch("news.indexnow.requests.post") as post, self.captureOnCommitCallbacks(execute=True):
+            pipeline.publish_batch(batch)
+        payload = post.call_args.kwargs["json"]
+        self.assertEqual(payload["host"], "example.tz")
+        self.assertTrue(any("/habari/dunia/rasimu/" in u for u in payload["urlList"]))
+
+    def test_anonymous_pages_are_cached_and_gzipped(self):
+        r = self.client.get("/", HTTP_ACCEPT_ENCODING="gzip")
+        self.assertEqual(r["Content-Encoding"], "gzip")
+        self.assertIn("max-age", r.get("Cache-Control", ""))

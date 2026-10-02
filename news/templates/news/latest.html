@@ -1,0 +1,11 @@
+{% extends 'news/base.html' %}
+{% load news_tags %}
+{% block title %}Habari Mpya Zote za Leo{% if page.number > 1 %} — Ukurasa {{ page.number }}{% endif %} | wILife{% endblock %}
+{% block description %}Habari zote mpya za leo kutoka Tanzania, Afrika na Dunia kwa Kiswahili, kwa mpangilio wa muda.{% endblock %}
+{% block content %}
+<header class="ph"><nav class="crumbs"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><span>Habari mpya</span></nav><h1>Habari mpya</h1><p>Kila habari tuliyochapisha, kuanzia ya karibuni zaidi.</p></header>
+<div class="cols">
+  <div>{% include 'news/_list_page.html' %}</div>
+  <aside class="side"><div class="sticky">{% if topics %}<div class="box"><h3>Mada</h3><div class="tags mt-1">{% for name, slug in topics %}<a href="{% url 'news:topic' slug %}">{% icon "hash" %}{{ name }}</a>{% endfor %}</div></div>{% endif %}</div></aside>
+</div>
+{% endblock %}

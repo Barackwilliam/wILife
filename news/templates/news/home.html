@@ -1,50 +1,105 @@
 {% extends 'news/base.html' %}
 {% load news_tags %}
-{% block title %}wILife Habari — Habari za Leo Tanzania, Afrika na Dunia kwa Kiswahili{% endblock %}
-{% block og_title %}wILife Habari — Habari za Leo kwa Kiswahili{% endblock %}
 {% block og_image %}{% if lead %}{% absolute '/habari/picha/' %}{{ lead.pk }}.png{% else %}{% absolute '/static/news/logo.png' %}{% endif %}{% endblock %}
-{% block ticker %}{% if top %}
-<div class="n-ticker"><div class="n-wrap"><span class="lbl">Habari mpya</span><div class="track"><div class="run">
-  {% for a in top %}<a href="{{ a.get_absolute_url }}">{{ a.title }}</a>{% endfor %}{% for a in top %}<a href="{{ a.get_absolute_url }}" aria-hidden="true" tabindex="-1">{{ a.title }}</a>{% endfor %}
+{% block preload %}{% if lead %}<link rel="preload" as="image" href="{% url 'news:cover_thumb' lead.pk %}" fetchpriority="high">{% endif %}{% endblock %}
+{% block ticker %}{% if ticker %}
+<div class="tick"><div class="wrap"><span class="lbl">Sasa hivi</span><div class="track"><div class="run">
+  {% for a in ticker %}<a href="{{ a.get_absolute_url }}"><b>{{ a.get_category_display|upper }}</b>{{ a.title }}</a>{% endfor %}
+  {% for a in ticker %}<a href="{{ a.get_absolute_url }}" aria-hidden="true" tabindex="-1"><b>{{ a.get_category_display|upper }}</b>{{ a.title }}</a>{% endfor %}
 </div></div></div></div>{% endif %}{% endblock %}
 
 {% block content %}
-<div class="n-wrap">
-  <h1 class="visually-hidden">wILife Habari — habari za leo Tanzania, Afrika na Dunia</h1>
-  {% if lead %}
-  <section class="n-lead cat-{{ lead.category }} reveal" aria-label="Habari kuu">
-    <a href="{{ lead.get_absolute_url }}"><img class="n-cover" src="{% url 'news:cover' lead.pk %}" alt="{{ lead.title }}" width="1200" height="630" fetchpriority="high"></a>
-    <div>
-      <span class="kicker">{{ lead.get_category_display }} · Habari kuu</span>
-      <h2 class="display-font" style="font-size:clamp(1.8rem,3.6vw,2.9rem);line-height:1.05;margin:10px 0 12px;letter-spacing:-.03em"><a href="{{ lead.get_absolute_url }}" style="color:var(--ink)">{{ lead.title }}</a></h2>
-      <p style="color:var(--ink-2);font-size:1.05rem;line-height:1.6">{{ lead.excerpt }}</p>
-      <div class="meta"><span><i class="bi bi-calendar3"></i>{{ lead.published_at|sw_date }}</span><span><i class="bi bi-book"></i>{{ lead.reading_minutes }} dk kusoma</span></div>
-      <a href="{{ lead.get_absolute_url }}" class="btn btn-ink mt-3">Soma habari kamili <i class="bi bi-arrow-right"></i></a>
-    </div>
-  </section>
+<h1 class="sr-only">wILife — habari za leo Tanzania, Afrika na Dunia kwa Kiswahili</h1>
+{% if lead %}
+<section class="top" aria-label="Habari kuu">
+  <article class="lead c-{{ lead.category }}">
+    <a href="{{ lead.get_absolute_url }}" tabindex="-1">{% include 'news/_img.html' with a=lead big=True %}</a>
+    <span class="kick box">{{ lead.get_category_display }}</span>
+    <h2 class="ttl"><a href="{{ lead.get_absolute_url }}">{{ lead.title }}</a></h2>
+    <p>{{ lead.excerpt }}</p>
+    <span class="when">{{ lead.published_at|sw_ago }}<span class="dot"></span>{{ lead.reading_minutes }} dk kusoma</span>
+  </article>
 
-  <div class="n-grid n-section">
-    <div>
-      <div class="n-section-head"><h2>Habari za leo</h2><a href="{% url 'news:rss' %}"><i class="bi bi-rss"></i> RSS</a></div>
-      <div class="n-cards">{% for a in top %}{% include 'news/_card.html' %}{% endfor %}</div>
-
-      {% for s in sections %}
-      <section class="n-section cat-{{ s.key }}">
-        <div class="n-section-head"><h2><span class="dot" style="background:var(--cat)"></span>{{ s.label }}</h2><a href="{% url 'news:category' s.key %}">Zaidi <i class="bi bi-arrow-right"></i></a></div>
-        <div class="n-cards">{% for a in s.items %}{% include 'news/_card.html' with compact=True %}{% endfor %}</div>
-      </section>
-      {% if forloop.first %}{% include 'news/_jt_band.html' %}{% endif %}
-      {% endfor %}
-    </div>
-    {% with ad_service=services.0 %}{% include 'news/_sidebar.html' %}{% endwith %}
+  <div class="stack">
+    {% for a in stack %}
+    <article class="row-s c-{{ a.category }}{% if forloop.first %} first{% endif %}">
+      {% if forloop.first %}<a href="{{ a.get_absolute_url }}" tabindex="-1">{% include 'news/_img.html' %}</a>{% endif %}
+      <div>
+        <span class="kick box">{{ a.get_category_display }}</span>
+        <h3 class="ttl"><a href="{{ a.get_absolute_url }}">{{ a.title }}</a></h3>
+        <span class="when">{{ a.published_at|sw_ago }}<span class="dot"></span>{{ a.reading_minutes }} dk</span>
+      </div>
+      {% if not forloop.first %}<a href="{{ a.get_absolute_url }}" tabindex="-1" aria-hidden="true">{% include 'news/_img.html' with sq=True %}</a>{% endif %}
+    </article>
+    {% endfor %}
   </div>
-  {% else %}
-  <section class="n-empty reveal">
-    <span class="eyebrow">Karibu</span>
-    <h1 class="mt-2">Habari kuu sita, kila asubuhi.</h1>
-    <p class="text-muted mx-auto" style="max-width:52ch">Moja ya Dunia, mbili za Afrika na tatu za Tanzania — kwa Kiswahili, kwa ufupi na kwa uhakika. Toleo la kwanza linakuja hivi karibuni.</p>
+
+  <aside class="rail">
+    <h3>{% icon "lightning-charge-fill" %} Za hivi punde</h3>
+    <ol class="tl">{% for a in rail %}<li class="c-{{ a.category }}"><span class="when">{{ a.published_at|sw_ago }}</span><a href="{{ a.get_absolute_url }}">{{ a.title }}</a></li>{% endfor %}</ol>
+    {% include 'news/_ad.html' with service=services.0 %}
+  </aside>
+</section>
+
+{% if tanzania %}
+<section class="c-tanzania">
+  <div class="sh"><h2>Tanzania</h2><a href="{% url 'news:category' 'tanzania' %}">Zaidi {% icon "arrow-right" %}</a></div>
+  <div class="feat">
+    {% include 'news/_ovl.html' with a=tanzania.0 with_dek=True %}
+    <div class="lst">{% for a in tanzania|slice:"1:" %}<a class="it c-{{ a.category }}" href="{{ a.get_absolute_url }}">{% include 'news/_img.html' with sq=True %}<span><span class="kick">{{ a.get_category_display }}</span><h3 class="ttl">{{ a.title }}</h3><span class="when">{{ a.published_at|sw_ago }}</span></span></a>{% endfor %}</div>
+  </div>
+</section>
+{% endif %}
+
+{% include 'news/_jt.html' %}
+
+{% if afrika %}
+<section class="c-afrika">
+  <div class="sh"><h2>Afrika</h2><a href="{% url 'news:category' 'afrika' %}">Zaidi {% icon "arrow-right" %}</a></div>
+  <div class="grid4">{% for a in afrika %}{% include 'news/_card.html' %}{% endfor %}</div>
+</section>
+{% endif %}
+{% else %}
+<section class="empty-x">
+  <span class="eyebrow">Karibu wILife</span>
+  <h1 class="mt-2">Habari za Tanzania, Afrika na Dunia — kwa Kiswahili.</h1>
+  <p>Habari zinakuja hivi punde. Wakati huo, angalia jinsi JamiiTek inavyoweza kukuza biashara yako.</p>
+</section>
+{% include 'news/_jt.html' %}
+{% endif %}
+{% endblock %}
+
+{% block fullbleed %}
+{% if dunia %}
+<section class="mag c-dunia" aria-label="Dunia">
+  <div class="wrap">
+    <div class="sh"><h2>Dunia</h2><a href="{% url 'news:category' 'dunia' %}">Zaidi {% icon "arrow-right" %}</a></div>
+    <div class="mag-grid">
+      {% include 'news/_ovl.html' with a=dunia.0 with_dek=True %}
+      <div class="mag-side">{% for a in dunia|slice:"1:3" %}{% include 'news/_ovl.html' %}{% endfor %}</div>
+    </div>
+  </div>
+</section>
+{% endif %}
+{% if lead %}
+<div class="wrap">
+  <section class="duo">
+    <div>
+      <div class="sh"><h2>Zinazosomwa zaidi</h2></div>
+      <ol class="pop">{% for a in popular %}<li><a href="{{ a.get_absolute_url }}">{{ a.title }}</a></li>{% empty %}{% for a in rail|slice:":6" %}<li><a href="{{ a.get_absolute_url }}">{{ a.title }}</a></li>{% endfor %}{% endfor %}</ol>
+    </div>
+    <div>
+      {% if topics %}<div class="sh"><h2>Mada</h2></div>
+      <div class="tags">{% for name, slug in topics %}<a href="{% url 'news:topic' slug %}">{% icon "hash" %}{{ name }}</a>{% endfor %}</div>{% endif %}
+      <div class="mt-3">{% include 'news/_ad.html' with service=services.1 %}</div>
+    </div>
   </section>
-  {% include 'news/_jt_band.html' %}
+  {% if jamiitek %}
+  <section class="c-jamiitek">
+    <div class="sh"><h2>Teknolojia &amp; Biashara</h2><a href="{% url 'news:category' 'jamiitek' %}">Zaidi {% icon "arrow-right" %}</a></div>
+    <div class="grid3">{% for a in jamiitek %}{% include 'news/_card.html' %}{% endfor %}</div>
+  </section>
   {% endif %}
 </div>
+{% endif %}
 {% endblock %}

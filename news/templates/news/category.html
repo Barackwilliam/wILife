@@ -1,29 +1,17 @@
 {% extends 'news/base.html' %}
 {% load news_tags %}
-{% block title %}Habari za {{ label }} Leo{% if page.number > 1 %} — Ukurasa {{ page.number }}{% endif %} | wILife Habari{% endblock %}
-{% block description %}{{ blurb }} Habari mpya za {{ label }} kwa Kiswahili kila siku.{% endblock %}
-{% block og_title %}Habari za {{ label }} — wILife Habari{% endblock %}
+{% block title %}Habari za {{ label }} Leo{% if page.number > 1 %} — Ukurasa {{ page.number }}{% endif %} | wILife{% endblock %}
+{% block description %}{{ blurb }} Habari mpya za {{ label }} kwa Kiswahili, kila siku.{% endblock %}
+{% block og_title %}Habari za {{ label }} — wILife{% endblock %}
 {% block content %}
-<div class="n-wrap cat-{{ category }}">
-  <header class="mb-4 pb-3" style="border-bottom:3px solid var(--ink)">
-    <span class="kicker">wILife Habari</span>
-    <h1 class="mt-2 mb-2" style="font-size:clamp(2.2rem,5vw,3.6rem);letter-spacing:-.04em">Habari za {{ label }}</h1>
-    <p class="text-muted mb-0" style="max-width:60ch">{{ blurb }}</p>
-  </header>
-  <div class="n-grid">
-    <div>
-      {% if page.object_list %}
-      <div class="n-cards">{% for a in page.object_list %}{% include 'news/_card.html' %}{% endfor %}</div>
-      {% if page.has_other_pages %}<nav class="n-pager" aria-label="Kurasa">
-        {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}" rel="prev">← Nyuma</a>{% endif %}
-        <span>{{ page.number }} / {{ page.paginator.num_pages }}</span>
-        {% if page.has_next %}<a href="?page={{ page.next_page_number }}" rel="next">Mbele →</a>{% endif %}
-      </nav>{% endif %}
-      {% else %}
-      <div class="n-empty"><h2>Bado hakuna habari hapa.</h2><p class="text-muted">Habari za {{ label }} zitaonekana hapa hivi karibuni.</p></div>
-      {% endif %}
-    </div>
-    <aside class="n-sticky">{% for s in services|slice:":2" %}<div class="mb-3">{% include 'news/_jt_ad.html' with service=s %}</div>{% endfor %}</aside>
+<div class="c-{{ category }}">
+  <header class="ph"><nav class="crumbs"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><span>{{ label }}</span></nav><h1>{{ label }}</h1><p>{{ blurb }}</p></header>
+  <div class="cols">
+    <div>{% include 'news/_list_page.html' with feature=True %}</div>
+    <aside class="side"><div class="sticky">
+      {% if popular %}<div class="box"><h3>Zinazosomwa zaidi</h3><ol class="tl">{% for p in popular %}<li class="c-{{ p.category }}"><a href="{{ p.get_absolute_url }}">{{ p.title }}</a></li>{% endfor %}</ol></div>{% endif %}
+      {% for s in services %}{% include 'news/_ad.html' with service=s %}{% endfor %}
+    </div></aside>
   </div>
 </div>
 {% endblock %}

@@ -6,7 +6,7 @@ from news.models import Article, Category
 
 
 class LatestFeed(Feed):
-    description = "Habari kuu za Dunia, Afrika na Tanzania kwa Kiswahili — kila siku."
+    description = "Habari za Tanzania, Afrika na Dunia kwa Kiswahili."
     language = "sw"
 
     def get_object(self, request, category=None):
@@ -15,7 +15,7 @@ class LatestFeed(Feed):
         return category
 
     def title(self, category):
-        return f"wILife Habari — {Category(category).label}" if category else "wILife Habari"
+        return f"wILife — Habari za {Category(category).label}" if category else "wILife — Habari za Tanzania, Afrika na Dunia"
 
     def link(self, category):
         return reverse("news:category", args=[category]) if category else reverse("news:home")

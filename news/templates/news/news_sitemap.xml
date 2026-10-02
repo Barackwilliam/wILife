@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">{% for a in items %}
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">{% for a in items %}
   <url>
     <loc>{{ request.scheme }}://{{ request.get_host }}{{ a.get_absolute_url }}</loc>
+    <lastmod>{{ a.updated_at|date:"c" }}</lastmod>
     <news:news>
-      <news:publication><news:name>wILife Habari</news:name><news:language>sw</news:language></news:publication>
+      <news:publication><news:name>wILife</news:name><news:language>sw</news:language></news:publication>
       <news:publication_date>{{ a.published_at|date:"c" }}</news:publication_date>
       <news:title>{{ a.title }}</news:title>
     </news:news>
+    <image:image><image:loc>{{ request.scheme }}://{{ request.get_host }}/habari/picha/{{ a.pk }}.png</image:loc></image:image>
   </url>{% endfor %}
 </urlset>

@@ -1,5 +1,5 @@
 """
-wILife Habari — the public news side of wILife.
+The public news side of wILife.
 
 Every day the agent drafts six articles (1 Dunia, 2 Afrika, 3 Tanzania) and,
 on Mondays, Wednesdays and Saturdays, one more about a JamiiTek service. The
@@ -104,6 +104,7 @@ class Article(models.Model):
     slot = models.PositiveSmallIntegerField(default=0, help_text="Position within the day's batch")
     status = models.CharField(max_length=10, choices=STATUS, default="draft", db_index=True)
     cover_png = models.BinaryField(null=True, blank=True, editable=False)
+    cover_thumb = models.BinaryField(null=True, blank=True, editable=False, help_text="Text-free 1200px WebP for on-site images")
     views = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -135,6 +136,26 @@ class Article(models.Model):
     @property
     def reading_minutes(self):
         return max(1, round(len(self.body.split()) / 200))
+
+    def tag_list(self):
+        """Keywords as topic tags (deduplicated, max 6)."""
+        seen, tags = set(), []
+        for raw in self.keywords.split(","):
+            tag = raw.strip()
+            key = slugify(tag)
+            if tag and key and key not in seen:
+                seen.add(key)
+                tags.append((tag, key))
+        return tags[:6]
+
+    def render_cover(self):
+        from news import covers
+        from news.pipeline import swahili_date
+        when = self.published_at or self.created_at or timezone.now()
+        day = swahili_date(timezone.localtime(when).date())
+        seed = self.pk or 0
+        self.cover_png = covers.render(self.title, self.category, day, seed=seed)
+        self.cover_thumb = covers.thumbnail(covers.render(self.title, self.category, day, seed=seed, with_title=False))
 
     def publish(self, when=None):
         self.status = "published"

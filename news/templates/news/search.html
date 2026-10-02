@@ -1,14 +1,9 @@
 {% extends 'news/base.html' %}
-{% block title %}{% if q %}"{{ q }}" — Tafuta{% else %}Tafuta habari{% endif %} | wILife Habari{% endblock %}
+{% load news_tags %}
+{% block title %}{% if q %}“{{ q }}” — Tafuta{% else %}Tafuta habari{% endif %} | wILife{% endblock %}
 {% block robots %}<meta name="robots" content="noindex, follow">{% endblock %}
 {% block content %}
-<div class="n-wrap" style="max-width:960px">
-  <h1 style="font-size:clamp(2rem,4vw,3rem)">{% if q %}Matokeo ya “{{ q }}”{% else %}Tafuta habari{% endif %}</h1>
-  <form action="{% url 'news:search' %}" class="n-search my-4" style="width:100%"><i class="bi bi-search"></i><input type="search" name="q" value="{{ q }}" placeholder="Andika neno, mfano: uchumi, Dodoma, teknolojia" autofocus></form>
-  {% if q %}
-    {% if page.object_list %}<div class="n-cards">{% for a in page.object_list %}{% include 'news/_card.html' %}{% endfor %}</div>
-    {% if page.has_other_pages %}<nav class="n-pager">{% if page.has_previous %}<a href="?q={{ q|urlencode }}&page={{ page.previous_page_number }}">← Nyuma</a>{% endif %}<span>{{ page.number }} / {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a href="?q={{ q|urlencode }}&page={{ page.next_page_number }}">Mbele →</a>{% endif %}</nav>{% endif %}
-    {% else %}<p class="text-muted">Hakuna habari iliyopatikana kwa “{{ q }}”. Jaribu neno lingine.</p>{% endif %}
-  {% endif %}
-</div>
+<header class="ph"><h1>{% if q %}“{{ q }}”{% else %}Tafuta{% endif %}</h1>
+  <form action="{% url 'news:search' %}" class="hdr-search mt-2" style="display:block"><span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--muted)">{% icon "search" %}</span><input type="search" name="q" value="{{ q }}" placeholder="Mfano: uchumi, Dodoma, teknolojia" style="width:100%;max-width:560px;padding:13px 16px 13px 40px;font-size:1rem" autofocus></form></header>
+{% if q %}{% include 'news/_list_page.html' with empty_title="Hakuna kilichopatikana" empty_text="Jaribu neno lingine." %}{% endif %}
 {% endblock %}

@@ -1,0 +1,4 @@
+{% load news_tags %}<a href="{{ a.get_absolute_url }}" class="ovl c-{{ a.category }}">
+  {% include 'news/_img.html' %}
+  <div class="cap"><span class="kick">{{ a.get_category_display }}</span><h3 class="ttl">{{ a.title }}</h3>{% if with_dek %}<p>{{ a.excerpt }}</p>{% endif %}<div class="when">{{ a.published_at|sw_ago }}<span class="dot"></span>{{ a.reading_minutes }} dk kusoma</div></div>
+</a>

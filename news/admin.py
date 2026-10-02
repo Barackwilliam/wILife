@@ -19,8 +19,12 @@ class ArticleAdmin(admin.ModelAdmin):
 
     @admin.action(description="Publish selected")
     def publish_selected(self, request, queryset):
+        from news import indexnow
+        published = []
         for a in queryset.exclude(status="published"):
             a.publish()
+            published.append(a.get_absolute_url())
+        indexnow.submit(published)
 
 
 class ArticleInline(admin.TabularInline):
