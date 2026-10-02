@@ -1,24 +1,23 @@
 {% extends 'news/base.html' %}
-{% block title %}Kuhusu wILife Habari na Sera ya Uhariri{% endblock %}
-{% block description %}wILife Habari ni nini, jinsi tunavyoandaa habari kwa msaada wa AI, jinsi tunavyohakiki ukweli, na jinsi ya kuwasiliana nasi.{% endblock %}
+{% block title %}Kuhusu wILife na Sera ya Uhariri{% endblock %}
+{% block description %}wILife ni nini, jinsi tunavyoandaa na kuhakiki habari, sera yetu ya uhariri, na jinsi ya kuwasiliana nasi.{% endblock %}
 {% block content %}
-<div class="n-wrap" style="max-width:820px">
-  <span class="eyebrow">Kuhusu sisi</span>
-  <h1 class="mt-2" style="font-size:clamp(2.2rem,5vw,3.4rem)">Habari kwa Kiswahili, kwa uwazi.</h1>
-  <div class="a-body mt-4">
-    <p>wILife Habari huleta habari kuu sita kila siku: moja ya Dunia, mbili za Afrika na tatu za Tanzania. Lengo letu ni kumpa msomaji wa Kiswahili picha kamili ya siku kwa dakika chache.</p>
-    <h2>Jinsi tunavyoandaa habari</h2>
-    <p>Kila asubuhi mfumo wetu unakusanya vichwa vya habari kutoka vyanzo vinavyoaminika. Akili bandia (AI) inaandaa rasimu ya makala kwa Kiswahili kwa kutumia taarifa za vyanzo hivyo pekee, na kuongeza maelezo ya kwa nini habari ni muhimu kwa Mtanzania.</p>
-    <p>Hakuna makala inayochapishwa bila kuhakikiwa na mhariri. Kila makala inaonyesha vyanzo vyake chini, ili msomaji aweze kusoma habari asili.</p>
-    <h2>Tunachoahidi</h2>
+<div style="max-width:780px">
+  <header class="ph"><span class="eyebrow">Kuhusu sisi</span><h1>Habari kwa Kiswahili, kwa uwazi.</h1></header>
+  <div class="prose">
+    <p>wILife ni chombo cha habari cha mtandaoni kinacholeta habari za Tanzania, Afrika na Dunia kwa Kiswahili. Lengo letu ni kumpa msomaji picha kamili ya yanayoendelea kwa dakika chache, kwa lugha anayoielewa vizuri.</p>
+    <h2 id="sera">Sera ya uhariri</h2>
+    <p>Tunakusanya taarifa kutoka vyanzo vinavyoaminika. Rasimu za makala huandaliwa kwa msaada wa teknolojia ya akili bandia (AI) kwa kutumia taarifa za vyanzo hivyo pekee, kisha <strong>huhakikiwa na mhariri kabla ya kuchapishwa</strong>. Kila makala inaonyesha vyanzo vyake ili msomaji aweze kusoma habari asili.</p>
     <ul>
       <li>Hatubuni nukuu, takwimu wala matukio.</li>
       <li>Tunataja na kuunganisha vyanzo vyetu kila wakati.</li>
-      <li>Tunasahihisha makosa haraka tunapoyagundua.</li>
-      <li>Makala za JamiiTek zinaonyeshwa wazi kuwa ni za JamiiTek.</li>
+      <li>Tunatenganisha habari na maoni.</li>
+      <li>Tunasahihisha makosa haraka na kwa uwazi.</li>
     </ul>
-    <h2>Makala za JamiiTek</h2>
-    <p>Jumatatu, Jumatano na Jumamosi tunachapisha makala moja kuhusu huduma za JamiiTek Digital Agency — kampuni inayoendesha wILife. Makala hizi zinaonyeshwa chini ya kundi la “Teknolojia &amp; Biashara”.</p>
+    <h2>Teknolojia &amp; Biashara</h2>
+    <p>wILife inaendeshwa na JamiiTek Digital Agency. Makala zinazoeleza huduma za JamiiTek zinachapishwa chini ya kundi la “Teknolojia &amp; Biashara” na zinaonyeshwa wazi kuwa ni za JamiiTek.</p>
+    <h2>Faragha</h2>
+    <p>Hatuuzi taarifa za wasomaji. Tunatumia kidakuzi (cookie) kimoja tu kukumbuka kama umechagua mwanga au giza.</p>
     <h2>Wasiliana nasi</h2>
     <p>Umeona kosa, au una habari? {% if contact_email %}Tuandikie <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.{% else %}Wasiliana nasi kupitia ukurasa wa <a href="{% url 'news:services' %}">huduma</a>.{% endif %}</p>
   </div>

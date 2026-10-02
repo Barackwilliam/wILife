@@ -256,6 +256,10 @@ NEWS_GIVE_UP_HOUR = int(env("NEWS_GIVE_UP_HOUR", "10"))
 NEWS_MODEL = env("NEWS_MODEL", "")                  # defaults to GROQ_MODEL
 JAMIITEK_WHATSAPP = env("JAMIITEK_WHATSAPP", "")    # e.g. 255712345678 for "Wasiliana nasi" buttons
 JAMIITEK_EMAIL = env("JAMIITEK_EMAIL", "")
+INDEXNOW_KEY = env("INDEXNOW_KEY", "")              # any 8–128 hex chars; served at /<key>.txt
+NEWS_CACHE_SECONDS = int(env("NEWS_CACHE_SECONDS", "300"))
+# Comma-separated official profiles (Facebook, X, Instagram, YouTube, LinkedIn) — used as schema.org sameAs
+SOCIAL_LINKS = [u.strip() for u in env("SOCIAL_LINKS", "").split(",") if u.strip()]
 try:
     import json as _json_cfg
     NEWS_FEEDS = _json_cfg.loads(env("NEWS_FEEDS", "") or "{}")  # {"tanzania": ["https://.../feed/"], ...}

@@ -1,7 +1,7 @@
-{% load news_tags %}<article class="n-card cat-{{ a.category }}">
-  <a href="{{ a.get_absolute_url }}" tabindex="-1" aria-hidden="true"><img class="n-cover" src="{% url 'news:cover' a.pk %}" alt="" width="1200" height="630" loading="lazy" decoding="async"></a>
-  <span class="kicker">{{ a.get_category_display }}</span>
-  <h3><a href="{{ a.get_absolute_url }}">{{ a.title }}</a></h3>
+{% load news_tags %}<article class="card c-{{ a.category }}{% if compact %} compact{% endif %}">
+  <a href="{{ a.get_absolute_url }}" tabindex="-1" aria-hidden="true">{% include 'news/_img.html' %}</a>
+  <span class="kick">{{ a.get_category_display }}</span>
+  <h3 class="ttl"><a href="{{ a.get_absolute_url }}">{{ a.title }}</a></h3>
   {% if not compact %}<p>{{ a.excerpt }}</p>{% endif %}
-  <div class="meta"><span><i class="bi bi-clock"></i>{{ a.published_at|sw_ago }}</span><span>{{ a.reading_minutes }} dk kusoma</span></div>
+  <span class="when">{{ a.published_at|sw_ago }}<span class="dot"></span>{{ a.reading_minutes }} dk</span>
 </article>

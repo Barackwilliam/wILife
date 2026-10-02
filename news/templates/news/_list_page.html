@@ -1,0 +1,9 @@
+{% load news_tags %}{% if page.object_list %}
+  {% with first=page.object_list.0 %}{% if page.number == 1 and feature %}<div class="mb-3">{% include 'news/_ovl.html' with a=first with_dek=True %}</div>{% endif %}{% endwith %}
+  <div class="grid3">{% for a in page.object_list %}{% if not forloop.first or page.number > 1 or not feature %}{% include 'news/_card.html' %}{% endif %}{% endfor %}</div>
+  {% if page.has_other_pages %}<nav class="pager" aria-label="Kurasa">
+    {% if page.has_previous %}<a href="?{% if q %}q={{ q|urlencode }}&amp;{% endif %}page={{ page.previous_page_number }}" rel="prev">← Nyuma</a>{% endif %}
+    <span>{{ page.number }} / {{ page.paginator.num_pages }}</span>
+    {% if page.has_next %}<a href="?{% if q %}q={{ q|urlencode }}&amp;{% endif %}page={{ page.next_page_number }}" rel="next">Mbele →</a>{% endif %}
+  </nav>{% endif %}
+{% else %}<div class="empty-x"><h2>{{ empty_title|default:"Bado hakuna habari hapa." }}</h2><p>{{ empty_text|default:"Habari mpya zitaonekana hapa hivi punde." }}</p></div>{% endif %}

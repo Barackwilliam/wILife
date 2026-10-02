@@ -1,0 +1,7 @@
+{% load news_tags %}{% if service %}<div class="ad">
+  <span class="tagx">Tangazo · JamiiTek</span>
+  <div class="ic">{% icon service.icon %}</div>
+  <h4>{{ service.name }}</h4>
+  <p>{{ service.tagline }}</p>
+  <a href="{{ service.get_absolute_url }}" class="btn btn-sm">Jifunze zaidi {% icon "arrow-right" %}</a>
+</div>{% endif %}

@@ -1,0 +1,1 @@
+<div class="img{% if sq %} sq{% endif %}"><img src="{% url 'news:cover_thumb' a.pk %}"{% if big %} fetchpriority="high"{% else %} loading="lazy"{% endif %} decoding="async" width="1200" height="630" alt="{% if big %}{{ a.title }}{% endif %}"></div>

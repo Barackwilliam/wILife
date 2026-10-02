@@ -20,10 +20,12 @@ class SectionSitemap(Sitemap):
     priority = 1.0
 
     def items(self):
-        return ["home"] + list(Category.values)
+        return ["home", "latest"] + list(Category.values)
 
     def location(self, item):
-        return reverse("news:home") if item == "home" else reverse("news:category", args=[item])
+        if item in ("home", "latest"):
+            return reverse(f"news:{item}")
+        return reverse("news:category", args=[item])
 
 
 class ServiceSitemap(Sitemap):
@@ -45,5 +47,17 @@ class StaticSitemap(Sitemap):
         return reverse(item)
 
 
-SITEMAPS = {"sections": SectionSitemap, "articles": ArticleSitemap,
+class TopicSitemap(Sitemap):
+    changefreq = "daily"
+    priority = 0.5
+
+    def items(self):
+        from news.views import _topics
+        return [k for _, k in _topics(limit=200)]
+
+    def location(self, item):
+        return reverse("news:topic", args=[item])
+
+
+SITEMAPS = {"topics": TopicSitemap, "sections": SectionSitemap, "articles": ArticleSitemap,
             "services": ServiceSitemap, "pages": StaticSitemap}

@@ -73,8 +73,8 @@ def _save_article(batch, slot, category, data, sources, source_url=None, service
     )
     article.save()
     try:
-        article.cover_png = covers.render(article.title, category, swahili_date(batch.date))
-        article.save(update_fields=["cover_png"])
+        article.render_cover()
+        article.save(update_fields=["cover_png", "cover_thumb"])
     except Exception as exc:  # a missing cover never blocks the article
         log.warning("cover failed for %s: %s", article.pk, exc)
     return article
@@ -119,12 +119,12 @@ def request_batch_approval(batch):
     articles = list(batch.articles.filter(status="draft").order_by("slot"))
     site = getattr(settings, "SITE_URL", "").rstrip("/")
     review = f"{site}{reverse('news:review')}" if site else reverse("news:review")
-    lines = [f"📰 *Habari za {swahili_date(batch.date)}* — rasimu {len(articles)}", ""]
+    lines = [f"📰 *wILife — rasimu za {swahili_date(batch.date)}* ({len(articles)})", ""]
     for a in articles:
         lines.append(f"{a.slot}. [{a.get_category_display()}] {a.title}")
     approval = ApprovalRequest.objects.create(
         user=owner, tool="publish_news", code=_new_code(),
-        recipient_name="wILife Habari", body="\n".join(lines),
+        recipient_name="wILife", body="\n".join(lines),
         context=f"news_batch:{batch.pk}", status="pending",
         expires_at=timezone.now() + timedelta(hours=getattr(settings, "AGENT_APPROVAL_TTL_HOURS", 24)),
     )
@@ -152,7 +152,14 @@ def publish_batch(batch):
         count += 1
     batch.status = "published"
     batch.save(update_fields=["status"])
+    paths = [a.get_absolute_url() for a in batch.articles.filter(status="published")]
+    transaction.on_commit(lambda: _announce(paths))
     return count
+
+
+def _announce(paths):
+    from news import indexnow
+    indexnow.submit(paths + ["/", "/habari/"])
 
 
 def reject_batch(batch):
