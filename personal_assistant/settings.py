@@ -58,7 +58,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sitemaps',
     'core',
+    'news',
 ]
 
 MIDDLEWARE = [
@@ -86,6 +88,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'core.context_processors.current_year',
                 'core.context_processors.unread_notifications',
+                'news.context_processors.news',
             ],
         },
     },
@@ -185,7 +188,7 @@ STORAGES = {
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = '/login/'
-LOGIN_REDIRECT_URL = '/'
+LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = 'login'
 
 
@@ -242,3 +245,19 @@ EMAIL_CHANNEL_ENABLED = env_bool("EMAIL_CHANNEL_ENABLED", False)
 RESEND_API_KEY = env("RESEND_API_KEY", "")
 AGENT_EMAIL_FROM = env("AGENT_EMAIL_FROM", "")
 AGENT_EMAIL_TO = env("AGENT_EMAIL_TO", "")
+
+# ---------------------------------------------------------------------------
+# wILife Habari (public news site)
+# ---------------------------------------------------------------------------
+SITE_URL = env("SITE_URL", "")                      # e.g. https://wilife.co.tz — used in links sent by WhatsApp
+NEWS_ENABLED = env_bool("NEWS_ENABLED", False)      # turn the daily drafting on
+NEWS_DRAFT_HOUR = int(env("NEWS_DRAFT_HOUR", "5"))  # local hour drafting starts
+NEWS_GIVE_UP_HOUR = int(env("NEWS_GIVE_UP_HOUR", "10"))
+NEWS_MODEL = env("NEWS_MODEL", "")                  # defaults to GROQ_MODEL
+JAMIITEK_WHATSAPP = env("JAMIITEK_WHATSAPP", "")    # e.g. 255712345678 for "Wasiliana nasi" buttons
+JAMIITEK_EMAIL = env("JAMIITEK_EMAIL", "")
+try:
+    import json as _json_cfg
+    NEWS_FEEDS = _json_cfg.loads(env("NEWS_FEEDS", "") or "{}")  # {"tanzania": ["https://.../feed/"], ...}
+except ValueError:
+    NEWS_FEEDS = {}

@@ -1,0 +1,86 @@
+{% extends 'news/base.html' %}
+{% load news_tags %}
+{% block title %}{{ article.title }} | wILife Habari{% endblock %}
+{% block description %}{{ article.excerpt }}{% endblock %}
+{% block robots %}{% if is_draft %}<meta name="robots" content="noindex, nofollow">{% else %}<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">{% endif %}{% endblock %}
+{% block canonical %}{% absolute article.get_absolute_url %}{% endblock %}
+{% block og_type %}article{% endblock %}
+{% block og_title %}{{ article.title }}{% endblock %}
+{% block og_description %}{{ article.excerpt }}{% endblock %}
+{% block og_image %}{% absolute '/habari/picha/' %}{{ article.pk }}.png{% endblock %}
+{% block extra_meta %}
+  <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+  {% if article.published_at %}<meta property="article:published_time" content="{{ article.published_at|date:'c' }}">{% endif %}
+  <meta property="article:modified_time" content="{{ article.updated_at|date:'c' }}">
+  <meta property="article:section" content="{{ article.get_category_display }}">
+  {% if article.keywords %}<meta name="keywords" content="{{ article.keywords }}">{% endif %}
+  <meta name="twitter:title" content="{{ article.title }}"><meta name="twitter:description" content="{{ article.excerpt }}">
+{% endblock %}
+{% block jsonld %}{% article_jsonld article %}{% endblock %}
+
+{% block content %}
+<div class="n-wrap cat-{{ article.category }}">
+  {% if is_draft %}<div class="draft-banner mb-4"><i class="bi bi-eye-slash"></i> Rasimu — haionekani kwa umma bado. <a href="{% url 'news:review' %}" class="ms-auto">Rudi kwenye rasimu</a></div>{% endif %}
+  <div class="n-grid">
+    <article>
+      <nav class="crumbs" aria-label="breadcrumb"><a href="{% url 'news:home' %}">Habari</a><span>/</span><a href="{% url 'news:category' article.category %}">{{ article.get_category_display }}</a></nav>
+      <header class="a-head">
+        <h1>{{ article.title }}</h1>
+        <p class="a-dek">{{ article.excerpt }}</p>
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 py-3 my-3" style="border-block:1px solid var(--line)">
+          <div class="d-flex align-items-center gap-3">
+            <span class="brand-mark" style="width:42px;height:42px;border-radius:12px" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M3.5 7.5l3.2 9 4.3-6.6 4.3 6.6 3.2-9"/></svg></span>
+            <div class="meta flex-column gap-0"><strong style="color:var(--ink)">Dawati la Habari, wILife</strong><span>{% if article.published_at %}<time datetime="{{ article.published_at|date:'c' }}">{{ article.published_at|sw_date }}</time> · {% endif %}{{ article.reading_minutes }} dk kusoma</span></div>
+          </div>
+          {% absolute article.get_absolute_url as share_url %}
+          <div class="share">
+            <a class="wa" href="https://wa.me/?text={{ article.title|urlencode }}%20{{ share_url|urlencode }}" target="_blank" rel="noopener" aria-label="Shiriki WhatsApp"><i class="bi bi-whatsapp"></i></a>
+            <a class="x" href="https://twitter.com/intent/tweet?text={{ article.title|urlencode }}&url={{ share_url|urlencode }}" target="_blank" rel="noopener" aria-label="Shiriki X"><i class="bi bi-twitter-x"></i></a>
+            <a class="fb" href="https://www.facebook.com/sharer/sharer.php?u={{ share_url|urlencode }}" target="_blank" rel="noopener" aria-label="Shiriki Facebook"><i class="bi bi-facebook"></i></a>
+            <button class="ln" type="button" data-copy="{{ share_url }}" aria-label="Nakili link"><i class="bi bi-link-45deg"></i></button>
+          </div>
+        </div>
+      </header>
+      <img class="n-cover mb-4" src="{% url 'news:cover' article.pk %}" alt="{{ article.title }}" width="1200" height="630" fetchpriority="high">
+
+      <div class="a-body">{{ article.body|render_body }}</div>
+
+      {% if service %}
+      <aside class="jt-inline">
+        <span class="ico"><i class="bi {{ service.icon }}"></i></span>
+        <div><small>Kutoka JamiiTek</small><b>{{ service.name }}</b><span class="text-muted small">{{ service.tagline }}</span></div>
+        <a href="{{ service.get_absolute_url }}" class="btn btn-brand">Jifunze zaidi</a>
+      </aside>
+      {% endif %}
+
+      {% if article.sources %}
+      <div class="sources mb-4">
+        <strong class="d-block mb-1"><i class="bi bi-link-45deg"></i> Vyanzo</strong>
+        {% for s in article.sources %}<div>{% if s.url|slice:":4" == "http" %}<a href="{{ s.url }}" target="_blank" rel="noopener nofollow">{{ s.title }}</a>{% else %}<a href="{{ s.url }}">{{ s.title }}</a>{% endif %} — {{ s.publisher }}</div>{% endfor %}
+        <div class="small text-muted mt-2">Makala hii imeandaliwa kwa msaada wa AI kutoka taarifa za vyanzo hapo juu na kuhakikiwa na mhariri. <a href="{% url 'news:about' %}">Sera yetu ya uhariri</a>.</div>
+      </div>
+      {% endif %}
+
+
+      {% if related %}
+      <section class="n-section">
+        <div class="n-section-head"><h2>Habari zinazohusiana</h2><a href="{% url 'news:category' article.category %}">{{ article.get_category_display }} <i class="bi bi-arrow-right"></i></a></div>
+        <div class="n-cards">{% for a in related %}{% include 'news/_card.html' with compact=True %}{% endfor %}</div>
+      </section>
+      {% endif %}
+    </article>
+
+    <aside class="n-sticky">
+      <div class="n-box"><h4>Habari mpya</h4><ol class="n-list">{% for p in latest %}<li><span class="num">{{ forloop.counter }}</span><a class="t" href="{{ p.get_absolute_url }}">{{ p.title }}</a></li>{% endfor %}</ol></div>
+      <div class="n-box p-0" style="border:0;background:none;box-shadow:none">{% include 'news/_jt_ad.html' %}</div>
+    </aside>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+  document.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => {
+    navigator.clipboard && navigator.clipboard.writeText(b.dataset.copy).then(() => { b.innerHTML = '<i class="bi bi-check2"></i>'; setTimeout(() => b.innerHTML = '<i class="bi bi-link-45deg"></i>', 1600); });
+  }));
+</script>
+{% endblock %}

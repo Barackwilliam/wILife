@@ -141,6 +141,11 @@ def run_expire_approvals(now=None, deadline=None, dry_run=False):
             "detail": f"expired {count}" if count else "none"}
 
 
+def run_news_drafts(now=None, deadline=None, dry_run=False):
+    from news.pipeline import run
+    return run(now=now, deadline=deadline, dry_run=dry_run)
+
+
 # Registry of jobs the tick runs, in order. Reminders come first: they are
 # time-critical, the rest are not.
 JOBS = {
@@ -150,6 +155,7 @@ JOBS = {
     "invoice_watch": run_invoice_watch,
     "lead_watch": run_lead_watch,
     "weekly_review": run_weekly_review,
+    "news_drafts": run_news_drafts,
     "expire_approvals": run_expire_approvals,
 }
 

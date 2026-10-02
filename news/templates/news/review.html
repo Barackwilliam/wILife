@@ -1,0 +1,52 @@
+{% extends 'news/base.html' %}
+{% load news_tags %}
+{% block title %}Rasimu za habari{% endblock %}
+{% block robots %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+{% block content %}
+<div class="n-wrap">
+  <div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-4">
+    <div><span class="eyebrow">Dawati la mhariri</span><h1 class="mt-2 mb-1" style="font-size:2.4rem">Rasimu za habari</h1>
+      <p class="text-muted mb-0">Kagua, hariri na uchapishe. Unaweza pia kujibu <b>OK &lt;code&gt;</b> kwenye WhatsApp/Telegram.</p></div>
+    <form method="post" action="{% url 'news:review_action' %}">{% csrf_token %}<input type="hidden" name="action" value="generate">
+      <button class="btn btn-ink" {% if not has_key %}disabled title="Weka GROQ_API_KEY"{% endif %}><i class="bi bi-magic"></i> Andaa rasimu za leo sasa</button></form>
+  </div>
+  {% if not enabled or not has_key or not services %}<div class="draft-banner mb-4"><i class="bi bi-info-circle"></i>
+    {% if not has_key %}GROQ_API_KEY haijawekwa.{% endif %} {% if not enabled %}NEWS_ENABLED=false — rasimu haziandaliwi zenyewe kila asubuhi.{% endif %} {% if not services %}Hakuna huduma za JamiiTek.{% endif %}</div>{% endif %}
+
+  {% for b in batches %}
+  <section class="n-box mb-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+      <div><h2 class="m-0" style="font-size:1.4rem">{{ b.date|sw_date }}</h2>
+        <span class="tag {% if b.status == 'published' %}t-leaf{% elif b.status == 'pending' %}t-brand{% elif b.status == 'rejected' %}t-rose{% else %}t-ink{% endif %}">{{ b.get_status_display }}</span>
+        {% if b.approval and b.status == 'pending' %}<span class="small text-muted ms-2">Code ya idhini: <b>{{ b.approval.code }}</b></span>{% endif %}</div>
+      {% if b.status != 'published' and b.status != 'rejected' %}
+      <div class="d-flex gap-2">
+        <form method="post" action="{% url 'news:review_action' %}">{% csrf_token %}<input type="hidden" name="batch" value="{{ b.pk }}"><button name="action" value="reject_batch" class="btn btn-soft-danger btn-sm">Kataa zote</button></form>
+        <form method="post" action="{% url 'news:review_action' %}">{% csrf_token %}<input type="hidden" name="batch" value="{{ b.pk }}"><button name="action" value="publish_batch" class="btn btn-brand btn-sm"><i class="bi bi-send"></i> Chapisha zote</button></form>
+      </div>{% endif %}
+    </div>
+    {% if b.notes %}<details class="small text-muted mb-2"><summary>Kumbukumbu</summary><pre class="mb-0" style="white-space:pre-wrap">{{ b.notes }}</pre></details>{% endif %}
+    {% for a in b.articles.all %}
+    <div class="d-flex gap-3 align-items-center py-3" style="border-top:1px solid var(--line)">
+      <span class="serif-num fs-4 text-muted" style="width:28px">{{ a.slot }}</span>
+      <div class="flex-grow-1" style="min-width:0">
+        <span class="kicker cat-{{ a.category }}">{{ a.get_category_display }}</span>
+        <div class="fw-bold">{{ a.title }}</div>
+        <div class="small text-muted">{{ a.excerpt|truncatechars:140 }}</div>
+      </div>
+      <span class="tag {% if a.status == 'published' %}t-leaf{% elif a.status == 'rejected' %}t-rose{% else %}t-ink{% endif %}">{{ a.get_status_display }}</span>
+      <a href="{{ a.get_absolute_url }}" class="btn btn-ghost btn-sm" target="_blank">Soma</a>
+      <a href="{% url 'admin:news_article_change' a.pk %}" class="btn btn-ghost btn-sm">Hariri</a>
+      {% if a.status == 'draft' %}
+      <form method="post" action="{% url 'news:review_action' %}" class="d-flex gap-1">{% csrf_token %}<input type="hidden" name="article" value="{{ a.pk }}">
+        <button name="action" value="reject_one" class="btn btn-soft-danger btn-icon btn-sm" title="Kataa"><i class="bi bi-x-lg"></i></button>
+        <button name="action" value="publish_one" class="btn btn-soft btn-icon btn-sm" title="Chapisha"><i class="bi bi-check2"></i></button></form>
+      {% endif %}
+    </div>
+    {% empty %}<p class="text-muted small mb-0">Bado hakuna makala kwenye kifurushi hiki.</p>{% endfor %}
+  </section>
+  {% empty %}
+  <div class="n-empty"><h2>Bado hakuna rasimu.</h2><p class="text-muted">Bonyeza “Andaa rasimu za leo sasa”, au washa NEWS_ENABLED ili ziandaliwe kila asubuhi.</p></div>
+  {% endfor %}
+</div>
+{% endblock %}

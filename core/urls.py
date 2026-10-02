@@ -10,7 +10,7 @@ from . import views_agent
 from . import views
 
 urlpatterns = [
-    path('', views.home, name='home'),
+    path('app/', views.home, name='home'),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('income/', views.income_list, name='income_list'),
     path('income/add/', views.income_create, name='income_create'),

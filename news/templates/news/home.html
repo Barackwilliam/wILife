@@ -1,0 +1,50 @@
+{% extends 'news/base.html' %}
+{% load news_tags %}
+{% block title %}wILife Habari — Habari za Leo Tanzania, Afrika na Dunia kwa Kiswahili{% endblock %}
+{% block og_title %}wILife Habari — Habari za Leo kwa Kiswahili{% endblock %}
+{% block og_image %}{% if lead %}{% absolute '/habari/picha/' %}{{ lead.pk }}.png{% else %}{% absolute '/static/news/logo.png' %}{% endif %}{% endblock %}
+{% block ticker %}{% if top %}
+<div class="n-ticker"><div class="n-wrap"><span class="lbl">Habari mpya</span><div class="track"><div class="run">
+  {% for a in top %}<a href="{{ a.get_absolute_url }}">{{ a.title }}</a>{% endfor %}{% for a in top %}<a href="{{ a.get_absolute_url }}" aria-hidden="true" tabindex="-1">{{ a.title }}</a>{% endfor %}
+</div></div></div></div>{% endif %}{% endblock %}
+
+{% block content %}
+<div class="n-wrap">
+  <h1 class="visually-hidden">wILife Habari — habari za leo Tanzania, Afrika na Dunia</h1>
+  {% if lead %}
+  <section class="n-lead cat-{{ lead.category }} reveal" aria-label="Habari kuu">
+    <a href="{{ lead.get_absolute_url }}"><img class="n-cover" src="{% url 'news:cover' lead.pk %}" alt="{{ lead.title }}" width="1200" height="630" fetchpriority="high"></a>
+    <div>
+      <span class="kicker">{{ lead.get_category_display }} · Habari kuu</span>
+      <h2 class="display-font" style="font-size:clamp(1.8rem,3.6vw,2.9rem);line-height:1.05;margin:10px 0 12px;letter-spacing:-.03em"><a href="{{ lead.get_absolute_url }}" style="color:var(--ink)">{{ lead.title }}</a></h2>
+      <p style="color:var(--ink-2);font-size:1.05rem;line-height:1.6">{{ lead.excerpt }}</p>
+      <div class="meta"><span><i class="bi bi-calendar3"></i>{{ lead.published_at|sw_date }}</span><span><i class="bi bi-book"></i>{{ lead.reading_minutes }} dk kusoma</span></div>
+      <a href="{{ lead.get_absolute_url }}" class="btn btn-ink mt-3">Soma habari kamili <i class="bi bi-arrow-right"></i></a>
+    </div>
+  </section>
+
+  <div class="n-grid n-section">
+    <div>
+      <div class="n-section-head"><h2>Habari za leo</h2><a href="{% url 'news:rss' %}"><i class="bi bi-rss"></i> RSS</a></div>
+      <div class="n-cards">{% for a in top %}{% include 'news/_card.html' %}{% endfor %}</div>
+
+      {% for s in sections %}
+      <section class="n-section cat-{{ s.key }}">
+        <div class="n-section-head"><h2><span class="dot" style="background:var(--cat)"></span>{{ s.label }}</h2><a href="{% url 'news:category' s.key %}">Zaidi <i class="bi bi-arrow-right"></i></a></div>
+        <div class="n-cards">{% for a in s.items %}{% include 'news/_card.html' with compact=True %}{% endfor %}</div>
+      </section>
+      {% if forloop.first %}{% include 'news/_jt_band.html' %}{% endif %}
+      {% endfor %}
+    </div>
+    {% with ad_service=services.0 %}{% include 'news/_sidebar.html' %}{% endwith %}
+  </div>
+  {% else %}
+  <section class="n-empty reveal">
+    <span class="eyebrow">Karibu</span>
+    <h1 class="mt-2">Habari kuu sita, kila asubuhi.</h1>
+    <p class="text-muted mx-auto" style="max-width:52ch">Moja ya Dunia, mbili za Afrika na tatu za Tanzania — kwa Kiswahili, kwa ufupi na kwa uhakika. Toleo la kwanza linakuja hivi karibuni.</p>
+  </section>
+  {% include 'news/_jt_band.html' %}
+  {% endif %}
+</div>
+{% endblock %}
