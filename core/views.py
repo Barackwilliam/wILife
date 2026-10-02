@@ -15,6 +15,7 @@ from django.db.models import Sum, Count, Avg
 
 from datetime import date, timedelta
 from django.http import HttpResponse
+import io
 import pandas as pd
 from xhtml2pdf import pisa
 from django.template.loader import render_to_string
@@ -467,17 +468,18 @@ def export_excel(request):
     health = HealthRecord.objects.filter(user=user).values('date', 'weight', 'exercise_minutes', 'sleep_hours')
     schedules = Schedule.objects.filter(user=user).values('title', 'description', 'start_datetime', 'end_datetime', 'location')
 
-    with pd.ExcelWriter('report.xlsx', engine='openpyxl') as writer:
+    # Build in memory: a shared file on disk could hand one user's report to another.
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
         pd.DataFrame(list(incomes)).to_excel(writer, sheet_name='Incomes', index=False)
         pd.DataFrame(list(expenses)).to_excel(writer, sheet_name='Expenses', index=False)
         pd.DataFrame(list(tasks)).to_excel(writer, sheet_name='Tasks', index=False)
         pd.DataFrame(list(health)).to_excel(writer, sheet_name='Health', index=False)
         pd.DataFrame(list(schedules)).to_excel(writer, sheet_name='Schedule', index=False)
 
-    with open('report.xlsx', 'rb') as f:
-        response = HttpResponse(f.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = 'attachment; filename=report.xlsx'
-        return response
+    response = HttpResponse(buffer.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename=report.xlsx'
+    return response
 
 # Export reports as PDF
 
