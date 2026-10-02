@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>{% load news_tags %}
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">{% for a in items %}
   <url>
     <loc>{{ request.scheme }}://{{ request.get_host }}{{ a.get_absolute_url }}</loc>
@@ -8,6 +8,6 @@
       <news:publication_date>{{ a.published_at|date:"c" }}</news:publication_date>
       <news:title>{{ a.title }}</news:title>
     </news:news>
-    <image:image><image:loc>{{ request.scheme }}://{{ request.get_host }}/habari/picha/{{ a.pk }}.png</image:loc></image:image>
+    <image:image><image:loc>{% abs_url a.og_url %}</image:loc></image:image>
   </url>{% endfor %}
 </urlset>

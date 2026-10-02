@@ -7,6 +7,8 @@ drafts form one NewsBatch; nothing is public until the owner approves the batch
 (WhatsApp/Telegram "OK 1234", or the staff review page).
 """
 
+from django.conf import settings
+from django.core.files.base import ContentFile
 from django.db import models
 from django.urls import reverse
 from django.utils import timezone
@@ -82,6 +84,11 @@ class NewsBatch(models.Model):
         return f"Habari {self.date:%Y-%m-%d} ({self.get_status_display()})"
 
 
+def cover_path(instance, filename):
+    when = timezone.now()
+    return f"habari/{when:%Y/%m}/{filename}"
+
+
 class PublishedManager(models.Manager):
     def get_queryset(self):
         return super().get_queryset().filter(status="published", published_at__lte=timezone.now())
@@ -103,6 +110,11 @@ class Article(models.Model):
     batch = models.ForeignKey(NewsBatch, null=True, blank=True, on_delete=models.SET_NULL, related_name="articles")
     slot = models.PositiveSmallIntegerField(default=0, help_text="Position within the day's batch")
     status = models.CharField(max_length=10, choices=STATUS, default="draft", db_index=True)
+    cover_image = models.FileField(upload_to=cover_path, blank=True, max_length=300,
+                                   help_text="1200x630 PNG with headline (Open Graph / Discover) — in the bucket")
+    cover_art = models.FileField(upload_to=cover_path, blank=True, max_length=300,
+                                 help_text="Text-free 1200px WebP for on-site images — in the bucket")
+    # Database fallback, used only when no storage bucket is configured.
     cover_png = models.BinaryField(null=True, blank=True, editable=False)
     cover_thumb = models.BinaryField(null=True, blank=True, editable=False, help_text="Text-free 1200px WebP for on-site images")
     views = models.PositiveIntegerField(default=0)
@@ -149,13 +161,38 @@ class Article(models.Model):
         return tags[:6]
 
     def render_cover(self):
+        """Generate both images; store them in the bucket if configured, else in the database."""
         from news import covers
         from news.pipeline import swahili_date
         when = self.published_at or self.created_at or timezone.now()
         day = swahili_date(timezone.localtime(when).date())
         seed = self.pk or 0
-        self.cover_png = covers.render(self.title, self.category, day, seed=seed)
-        self.cover_thumb = covers.thumbnail(covers.render(self.title, self.category, day, seed=seed, with_title=False))
+        png = covers.render(self.title, self.category, day, seed=seed)
+        art = covers.thumbnail(covers.render(self.title, self.category, day, seed=seed, with_title=False))
+        self.store_cover(png, art)
+
+    def store_cover(self, png, art):
+        if getattr(settings, "USE_SUPABASE_STORAGE", False):
+            base = f"{(self.slug or 'habari')[:80]}-{self.pk or 0}"
+            self.cover_image.save(f"{base}.png", ContentFile(png), save=False)
+            self.cover_art.save(f"{base}.webp", ContentFile(art), save=False)
+            self.cover_png = self.cover_thumb = None
+        else:
+            self.cover_png, self.cover_thumb = png, art
+
+    @property
+    def art_url(self):
+        """On-site image (text-free WebP)."""
+        if self.cover_art:
+            return self.cover_art.url
+        return reverse("news:cover_thumb", args=[self.pk])
+
+    @property
+    def og_url(self):
+        """Share/Discover image (PNG with headline). May be relative — use |abs_url in templates."""
+        if self.cover_image:
+            return self.cover_image.url
+        return reverse("news:cover", args=[self.pk])
 
     def publish(self, when=None):
         self.status = "published"

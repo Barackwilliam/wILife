@@ -133,17 +133,23 @@ def article(request, category, slug):
 
 @cache_control(public=True, max_age=604800, immutable=True)
 def cover(request, pk):
-    item = get_object_or_404(Article.objects.only("cover_png", "status", "published_at"), pk=pk)
-    if (item.status != "published" and not request.user.is_staff) or not item.cover_png:
+    item = get_object_or_404(Article.objects.only("cover_png", "cover_image", "status"), pk=pk)
+    if item.status != "published" and not request.user.is_staff:
+        raise Http404
+    if item.cover_image:
+        return redirect(item.cover_image.url, permanent=True)
+    if not item.cover_png:
         raise Http404
     return HttpResponse(bytes(item.cover_png), content_type="image/png")
 
 
 @cache_control(public=True, max_age=604800, immutable=True)
 def cover_thumb(request, pk):
-    item = get_object_or_404(Article.objects.only("cover_thumb", "cover_png", "status"), pk=pk)
+    item = get_object_or_404(Article.objects.only("cover_thumb", "cover_art", "cover_png", "status"), pk=pk)
     if item.status != "published" and not request.user.is_staff:
         raise Http404
+    if item.cover_art:
+        return redirect(item.cover_art.url, permanent=True)
     if item.cover_thumb:
         return HttpResponse(bytes(item.cover_thumb), content_type="image/webp")
     if item.cover_png:

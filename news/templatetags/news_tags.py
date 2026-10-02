@@ -61,6 +61,16 @@ def absolute(context, path):
 
 
 @register.simple_tag(takes_context=True)
+def abs_url(context, url):
+    """Absolute URL for a path or an already-absolute (bucket) URL."""
+    if not url or url.startswith(("http://", "https://")):
+        return url
+    request = context.get("request")
+    base = getattr(settings, "SITE_URL", "").rstrip("/")
+    return base + url if base else (request.build_absolute_uri(url) if request else url)
+
+
+@register.simple_tag(takes_context=True)
 def article_jsonld(context, article):
     request = context["request"]
     url = request.build_absolute_uri(article.get_absolute_url())
@@ -72,7 +82,7 @@ def article_jsonld(context, article):
         "inLanguage": "sw",
         "mainEntityOfPage": url,
         "url": url,
-        "image": [{"@type": "ImageObject", "url": request.build_absolute_uri(f"/habari/picha/{article.pk}.png"),
+        "image": [{"@type": "ImageObject", "url": abs_url(context, article.og_url),
                    "width": 1200, "height": 630}],
         "wordCount": len(article.body.split()),
         "datePublished": article.published_at.isoformat() if article.published_at else None,
