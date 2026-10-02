@@ -1,311 +1,118 @@
 {% extends 'base.html' %}
+{% load wilife %}
 {% block title %}{{ goal.title }}{% endblock %}
-
+{% block section %}Goals{% endblock %}{% block crumb %}{{ goal.title }}{% endblock %}
 {% block content %}
-<div class="container py-4">
+<a href="{% url 'goal_list' %}" class="panel-link mb-3 d-inline-flex"><i class="bi bi-arrow-left"></i> All goals</a>
 
-  <!-- Header -->
-  <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-2">
-    <div class="d-flex align-items-center gap-3">
-      <a href="{% url 'goal_list' %}" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-arrow-left"></i>
-      </a>
-      <div>
-        <h2 class="fw-bold mb-0">{{ goal.title }}</h2>
-        <span class="badge
-          {% if goal.category == 'finance' %}bg-success
-          {% elif goal.category == 'health' %}bg-danger
-          {% elif goal.category == 'education' %}bg-info
-          {% elif goal.category == 'career' %}bg-warning text-dark
-          {% else %}bg-secondary{% endif %}
-          rounded-pill me-2">{{ goal.get_category_display }}</span>
-        <span class="badge
-          {% if goal.status == 'active' %}bg-primary
-          {% elif goal.status == 'completed' %}bg-success
-          {% elif goal.status == 'paused' %}bg-warning text-dark
-          {% else %}bg-secondary{% endif %}">{{ goal.get_status_display }}</span>
+<div class="hero-card mb-4 reveal">
+  <div class="row g-4 align-items-center">
+    <div class="col-lg-8">
+      <div class="d-flex gap-2 flex-wrap">
+        <span class="tag" style="background:rgba(255,255,255,.08);color:#f4b25a"><i class="bi {% include 'partials/goal_cat_icon.html' with cat=goal.category %}"></i> {{ goal.get_category_display }}</span>
+        {% include 'partials/goal_status_tag.html' %}
+      </div>
+      <h1>{{ goal.title }}</h1>
+      {% if goal.description %}<p>{{ goal.description }}</p>{% endif %}
+      <div class="hero-metrics">
+        <div><small>Current</small><b class="num">{{ goal.current_value|money }} <span style="font-size:.9rem;color:#9a95a3">{{ goal.unit|default:"" }}</span></b></div>
+        <div><small>Target</small><b class="num">{% if goal.target_value %}{{ goal.target_value|money }} <span style="font-size:.9rem;color:#9a95a3">{{ goal.unit|default:"" }}</span>{% else %}—{% endif %}</b></div>
+        <div><small>{% if goal.status == 'completed' %}Finished{% elif goal.is_overdue %}Overdue by{% else %}Time left{% endif %}</small><b class="{% if goal.is_overdue %}neg{% endif %}">{% if goal.status == 'completed' %}✓{% elif goal.is_overdue %}{{ goal.days_remaining|stringformat:"d"|cut:"-" }} d{% else %}{{ goal.days_remaining }} d{% endif %}</b></div>
+      </div>
+      <div class="hero-actions">
+        <a href="{% url 'goal_update' goal.pk %}" class="btn btn-glass btn-sm"><i class="bi bi-pencil"></i> Edit</a>
+        <a href="{% url 'goal_delete' goal.pk %}" class="btn btn-glass btn-sm"><i class="bi bi-trash3"></i> Delete</a>
       </div>
     </div>
-    <div class="d-flex gap-2">
-      <a href="{% url 'goal_update' goal.pk %}" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-pencil me-1"></i>Edit
-      </a>
-      <a href="{% url 'goal_delete' goal.pk %}" class="btn btn-sm btn-outline-danger">
-        <i class="bi bi-trash me-1"></i>Delete
-      </a>
-    </div>
-  </div>
-
-  {% if goal.description %}
-  <p class="text-muted mb-4">{{ goal.description }}</p>
-  {% endif %}
-
-  <!-- Main Progress Card -->
-  <div class="row g-4 mb-4">
-    <div class="col-12 col-lg-5">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body p-4">
-          <h5 class="fw-semibold mb-4">Progress Overview</h5>
-
-          {% if goal.target_value %}
-          <!-- Big circular-style progress using a bar -->
-          <div class="text-center mb-4">
-            <div class="display-4 fw-bold
-              {% if goal.progress_percent >= 100 %}text-success
-              {% elif goal.progress_percent >= 60 %}text-primary
-              {% else %}text-warning{% endif %}">
-              {{ goal.progress_percent|floatformat:0 }}%
-            </div>
-            <div class="text-muted small">of target reached</div>
-          </div>
-
-          <div class="progress mb-3" style="height: 20px; border-radius: 10px;">
-            <div class="progress-bar progress-bar-striped progress-bar-animated
-              {% if goal.progress_percent >= 100 %}bg-success
-              {% elif goal.progress_percent >= 60 %}bg-primary
-              {% elif goal.progress_percent >= 30 %}bg-warning
-              {% else %}bg-danger{% endif %}"
-              style="width: {{ goal.progress_percent|floatformat:0 }}%; border-radius: 10px;">
-            </div>
-          </div>
-
-          <div class="d-flex justify-content-between small text-muted">
-            <span><strong>{{ goal.current_value|floatformat:0 }}</strong> {% if goal.unit %}{{ goal.unit }}{% endif %} current</span>
-            <span><strong>{{ goal.target_value|floatformat:0 }}</strong> {% if goal.unit %}{{ goal.unit }}{% endif %} target</span>
-          </div>
-
-          {% else %}
-          <div class="text-center text-muted py-3">
-            <i class="bi bi-bar-chart-line display-4 opacity-25"></i>
-            <p class="mt-2">No target value set</p>
-          </div>
-          {% endif %}
-
-          <!-- Date info -->
-          <hr>
-          <div class="row text-center small">
-            <div class="col-6">
-              <div class="text-muted">Start</div>
-              <div class="fw-semibold">{{ goal.start_date|date:"M d, Y" }}</div>
-            </div>
-            <div class="col-6">
-              <div class="text-muted">Target</div>
-              <div class="fw-semibold {% if goal.is_overdue %}text-danger{% endif %}">
-                {{ goal.target_date|date:"M d, Y" }}
-              </div>
-            </div>
-          </div>
-
-          {% if goal.status == 'active' %}
-          <div class="text-center mt-3">
-            <span class="badge {% if goal.is_overdue %}bg-danger{% else %}bg-light text-dark{% endif %} p-2">
-              <i class="bi bi-clock me-1"></i>
-              {% if goal.is_overdue %}
-                Overdue!
-              {% else %}
-                {{ goal.days_remaining }} day{{ goal.days_remaining|pluralize }} left
-              {% endif %}
-            </span>
-          </div>
-          {% elif goal.status == 'completed' %}
-          <div class="text-center mt-3">
-            <span class="badge bg-success p-2 fs-6">
-              <i class="bi bi-trophy-fill me-1"></i> Goal Achieved!
-            </span>
-          </div>
-          {% endif %}
-
-        </div>
-      </div>
-    </div>
-
-    <!-- Progress Chart -->
-    <div class="col-12 col-lg-7">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body p-4">
-          <h5 class="fw-semibold mb-3">Progress History</h5>
-          {% if updates %}
-          <canvas id="progressChart" style="max-height: 220px;"></canvas>
-          {% else %}
-          <div class="text-center text-muted py-4">
-            <i class="bi bi-graph-up display-4 opacity-25"></i>
-            <p class="mt-2">No updates yet. Log your first progress below!</p>
-          </div>
-          {% endif %}
-        </div>
+    <div class="col-lg-4 d-flex justify-content-center">
+      <div class="ring" style="--size:190px;--thick:16px;--p:{{ goal.progress_percent|floatformat:0 }};--c:#f4b25a">
+        <div style="color:var(--ink)"><b>{{ goal.progress_percent|floatformat:0 }}%</b><small>complete</small></div>
       </div>
     </div>
   </div>
-
-  <div class="row g-4">
-
-    <!-- Log Progress -->
-    <div class="col-12 col-md-6">
-      <div class="card border-0 shadow-sm">
-        <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
-          <h5 class="fw-semibold"><i class="bi bi-plus-circle text-primary me-2"></i>Log Progress</h5>
-        </div>
-        <div class="card-body p-4">
-          <form method="post" action="{% url 'goal_add_update' goal.pk %}">
-            {% csrf_token %}
-            <div class="mb-3">
-              <label class="form-label small fw-semibold">Current Value</label>
-              {{ update_form.value }}
-            </div>
-            <div class="mb-3">
-              <label class="form-label small fw-semibold">Date</label>
-              {{ update_form.date }}
-            </div>
-            <div class="mb-3">
-              <label class="form-label small fw-semibold">Note (optional)</label>
-              {{ update_form.note }}
-            </div>
-            <button type="submit" class="btn btn-primary w-100">
-              <i class="bi bi-check2 me-2"></i>Update Progress
-            </button>
-          </form>
-        </div>
-      </div>
-    </div>
-
-    <!-- Milestones -->
-    <div class="col-12 col-md-6">
-      <div class="card border-0 shadow-sm">
-        <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
-          <h5 class="fw-semibold"><i class="bi bi-flag text-warning me-2"></i>Milestones</h5>
-        </div>
-        <div class="card-body p-4">
-
-          {% if milestones %}
-          <ul class="list-unstyled mb-3">
-            {% for m in milestones %}
-            <li class="d-flex align-items-center justify-content-between py-2 border-bottom">
-              <div class="d-flex align-items-center gap-2">
-                <a href="{% url 'goal_toggle_milestone' goal.pk m.pk %}" class="text-decoration-none">
-                  <i class="bi {% if m.is_completed %}bi-check-circle-fill text-success{% else %}bi-circle text-muted{% endif %} fs-5"></i>
-                </a>
-                <div>
-                  <span class="{% if m.is_completed %}text-decoration-line-through text-muted{% endif %}">{{ m.title }}</span>
-                  {% if m.target_value %}
-                  <div class="text-muted small">{{ m.target_value|floatformat:0 }} {% if goal.unit %}{{ goal.unit }}{% endif %}</div>
-                  {% endif %}
-                </div>
-              </div>
-              {% if m.is_completed %}
-              <span class="badge bg-success-subtle text-success">Done</span>
-              {% endif %}
-            </li>
-            {% endfor %}
-          </ul>
-          {% else %}
-          <p class="text-muted small">No milestones yet. Add checkpoints to your goal!</p>
-          {% endif %}
-
-          <form method="post" action="{% url 'goal_add_milestone' goal.pk %}" class="mt-2">
-            {% csrf_token %}
-            <div class="input-group mb-2">
-              {{ milestone_form.title }}
-            </div>
-            <div class="input-group mb-2">
-              {{ milestone_form.target_value }}
-            </div>
-            <button type="submit" class="btn btn-sm btn-outline-warning w-100">
-              <i class="bi bi-flag me-1"></i>Add Milestone
-            </button>
-          </form>
-
-        </div>
-      </div>
-    </div>
-
+  <div class="d-flex justify-content-between small mt-4" style="color:#9a95a3">
+    <span><i class="bi bi-calendar-plus"></i> Started {{ goal.start_date|date:"j M Y" }}</span>
+    <span><i class="bi bi-calendar-check"></i> Target {{ goal.target_date|date:"j M Y" }}</span>
   </div>
-
-  <!-- Update History -->
-  {% if updates %}
-  <div class="card border-0 shadow-sm mt-4">
-    <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
-      <h5 class="fw-semibold"><i class="bi bi-clock-history text-info me-2"></i>Update History</h5>
-    </div>
-    <div class="card-body p-4">
-      <div class="table-responsive">
-        <table class="table table-sm table-hover align-middle">
-          <thead class="table-light">
-            <tr>
-              <th>Date</th>
-              <th>Value</th>
-              <th>Note</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for u in updates %}
-            <tr>
-              <td class="text-muted small">{{ u.date|date:"M d, Y" }}</td>
-              <td class="fw-semibold">{{ u.value|floatformat:0 }} {% if goal.unit %}{{ goal.unit }}{% endif %}</td>
-              <td class="text-muted small">{{ u.note|default:"-" }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
 </div>
 
-<script>
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="panel mb-4 reveal">
+      <div class="panel-head"><h2 class="panel-title"><span class="ico t-brand"><i class="bi bi-graph-up-arrow"></i></span>Progress over time</h2></div>
+      {% if updates %}<div style="height:260px"><canvas id="progressChart"></canvas></div>
+      {% else %}<div class="empty py-4"><div class="art"><i class="bi bi-graph-up"></i></div><h3>No updates yet</h3><p>Log your first progress update to see the curve.</p></div>{% endif %}
+    </div>
+    {% if updates %}
+    <div class="panel reveal">
+      <div class="panel-head"><h2 class="panel-title"><span class="ico t-ink"><i class="bi bi-clock-history"></i></span>History</h2></div>
+      <div class="timeline">
+        {% for u in updates %}
+        <div class="timeline-item">
+          <div class="d-flex justify-content-between gap-2"><strong class="num">{{ u.value|money }} {{ goal.unit|default:"" }}</strong><span class="cell-sub">{{ u.date|date:"j M Y" }}</span></div>
+          {% if u.note %}<div class="cell-sub">{{ u.note }}</div>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-5">
+    <div class="panel mb-4 reveal">
+      <div class="panel-head"><h2 class="panel-title"><span class="ico t-leaf"><i class="bi bi-plus-circle"></i></span>Log progress</h2></div>
+      <form method="post" action="{% url 'goal_add_update' goal.pk %}">
+        {% csrf_token %}
+        <div class="row g-3">
+          <div class="col-sm-6">{% include 'partials/field.html' with field=update_form.value icon='bi-graph-up' wrap='' %}</div>
+          <div class="col-sm-6">{% include 'partials/field.html' with field=update_form.date icon='bi-calendar-event' wrap='' %}</div>
+          <div class="col-12">{% include 'partials/field.html' with field=update_form.note wrap='' %}</div>
+        </div>
+        <button class="btn btn-brand w-100 mt-3"><i class="bi bi-check2"></i> Save update</button>
+      </form>
+    </div>
+
+    <div class="panel reveal">
+      <div class="panel-head">
+        <h2 class="panel-title"><span class="ico t-sun"><i class="bi bi-signpost-split"></i></span>Milestones</h2>
+        {% if milestones %}<span class="tag t-ink">{{ milestones|length }} step{{ milestones|length|pluralize }}</span>{% endif %}
+      </div>
+      {% for m in milestones %}
+        <a href="{% url 'goal_toggle_milestone' goal.pk m.pk %}" class="milestone text-reset {% if m.is_completed %}done{% endif %}">
+          <span class="check"><i class="bi bi-check-lg"></i></span>
+          <span class="flex-grow-1"><span class="title fw-semibold">{{ m.title }}</span>{% if m.target_value %}<span class="cell-sub d-block">{{ m.target_value|money }} {{ goal.unit|default:"" }}</span>{% endif %}</span>
+          {% if m.is_completed %}<span class="tag t-leaf">Done</span>{% endif %}
+        </a>
+      {% empty %}
+        <p class="text-muted small">Break the goal into steps. Each one you tick feels like a win.</p>
+      {% endfor %}
+      <form method="post" action="{% url 'goal_add_milestone' goal.pk %}" class="mt-3 pt-3" style="border-top:1px dashed var(--line)">
+        {% csrf_token %}
+        <div class="row g-2 align-items-end">
+          <div class="col-7">{% include 'partials/field.html' with field=milestone_form.title wrap='' %}</div>
+          <div class="col-5">{% include 'partials/field.html' with field=milestone_form.target_value wrap='' %}</div>
+        </div>
+        <button class="btn btn-ghost w-100 mt-2"><i class="bi bi-plus-lg"></i> Add milestone</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
 {% if updates %}
-const ctx = document.getElementById('progressChart').getContext('2d');
-const chartDates = {{ chart_dates|safe }};
-const chartValues = {{ chart_values|safe }};
-const targetValue = {% if goal.target_value %}{{ goal.target_value }}{% else %}null{% endif %};
-
-new Chart(ctx, {
-  type: 'line',
-  data: {
-    labels: chartDates,
-    datasets: [
-      {
-        label: 'Progress {% if goal.unit %}({{ goal.unit }}){% endif %}',
-        data: chartValues,
-        borderColor: '#0d6efd',
-        backgroundColor: 'rgba(13, 110, 253, 0.08)',
-        fill: true,
-        tension: 0.4,
-        pointBackgroundColor: '#0d6efd',
-        pointRadius: 5,
-      },
-      {% if goal.target_value %}
-      {
-        label: 'Target',
-        data: chartDates.map(() => targetValue),
-        borderColor: '#198754',
-        borderDash: [6, 3],
-        borderWidth: 2,
-        pointRadius: 0,
-        fill: false,
-      }
-      {% endif %}
-    ]
-  },
-  options: {
-    responsive: true,
-    plugins: {
-      legend: { position: 'bottom' },
-      tooltip: { mode: 'index', intersect: false }
-    },
-    scales: {
-      y: {
-        beginAtZero: false,
-        grid: { color: 'rgba(0,0,0,0.05)' }
-      },
-      x: {
-        grid: { display: false }
-      }
-    }
-  }
-});
-{% endif %}
+<script>
+  (function () {
+    const ctx = document.getElementById('progressChart').getContext('2d');
+    const labels = {{ chart_dates|safe }};
+    const values = {{ chart_values|safe }};
+    const brand = wilifeColor('--brand');
+    const g = ctx.createLinearGradient(0, 0, 0, 260); g.addColorStop(0, brand + '55'); g.addColorStop(1, brand + '00');
+    const datasets = [{ label: 'Progress', data: values, borderColor: brand, backgroundColor: g, fill: true, tension: .4, borderWidth: 3, pointRadius: 4, pointBackgroundColor: brand }];
+    {% if goal.target_value %}datasets.push({ label: 'Target', data: labels.map(() => {{ goal.target_value|stringformat:"s" }}), borderColor: wilifeColor('--leaf'), borderDash: [6, 5], borderWidth: 2, pointRadius: 0, fill: false });{% endif %}
+    new Chart(ctx, { type: 'line', data: { labels, datasets },
+      options: { maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' }, plugins: { legend: { position: 'bottom' } },
+        scales: { x: { grid: { display: false } }, y: { grid: { color: wilifeColor('--line') }, border: { display: false } } } } });
+  })();
 </script>
-
+{% endif %}
 {% endblock %}

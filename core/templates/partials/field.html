@@ -1,0 +1,7 @@
+{% load wilife %}
+<div class="{{ wrap|default:'mb-3' }}">
+  {% if field.label %}<label class="form-label" for="{{ field.id_for_label }}">{% if icon_label %}<i class="bi {{ icon_label }}"></i>{% endif %}{{ field.label }}{% if field.field.required %} <span class="req">*</span>{% endif %}</label>{% endif %}
+  {% if icon %}<div class="input-icon"><i class="bi {{ icon }}"></i>{{ field|styled }}</div>{% else %}{{ field|styled }}{% endif %}
+  {% if field.help_text %}<div class="form-text">{{ field.help_text|safe }}</div>{% endif %}
+  {% if field.errors %}<div class="field-error"><i class="bi bi-exclamation-circle"></i>{{ field.errors }}</div>{% endif %}
+</div>

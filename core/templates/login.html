@@ -1,105 +1,22 @@
-{% extends 'base.html' %}
-{% block title %}Login{% endblock %}
-
+{% extends 'layouts/auth.html' %}
+{% load wilife %}
+{% block title %}Sign in{% endblock %}
 {% block content %}
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
-
-<style>
-  .login-container {
-    max-width: 420px;
-    margin: auto;
-    padding-top: 6vh;
-    padding-bottom: 4vh;
-  }
-
-  .card {
-    border: none;
-    border-radius: 1rem;
-    box-shadow: 0 0 25px rgba(0, 0, 0, 0.05);
-  }
-
-  .form-label {
-    font-weight: 500;
-  }
-
-  .input-with-icon {
-    position: relative;
-  }
-
-  .input-with-icon i {
-    position: absolute;
-    left: 15px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #aaa;
-    pointer-events: none;
-  }
-
-  .input-with-icon input {
-    padding-left: 2.5rem !important;
-  }
-
-  @media (max-width: 575.98px) {
-    .login-container {
-      padding: 2rem 1rem;
-    }
-  }
-</style>
-
-<div class="container login-container">
-  <div class="card p-4">
-    <div class="text-center mb-4">
-      <h3 class="fw-bold">Welcome Back</h3>
-      <p class="text-muted mb-0">Please log in to continue</p>
-    </div>
-
-    <form method="post" novalidate>
-      {% csrf_token %}
-
-      {% if form.non_field_errors %}
-        <div class="alert alert-danger">
-          {{ form.non_field_errors }}
-        </div>
-      {% endif %}
-
-      <!-- Username Field -->
-      <div class="mb-3">
-        <label for="{{ form.username.id_for_label }}" class="form-label">Username</label>
-        <div class="input-with-icon">
-          <i class="fa fa-user"></i>
-          {{ form.username }}
-        </div>
-        {% for error in form.username.errors %}
-          <div class="text-danger small mt-1">{{ error }}</div>
-        {% endfor %}
-      </div>
-
-      <!-- Password Field -->
-      <div class="mb-3">
-        <label for="{{ form.password.id_for_label }}" class="form-label">Password</label>
-        <div class="input-with-icon">
-          <i class="fa fa-lock"></i>
-          {{ form.password }}
-        </div>
-        {% for error in form.password.errors %}
-          <div class="text-danger small mt-1">{{ error }}</div>
-        {% endfor %}
-      </div>
-
-      <button type="submit" class="btn btn-primary w-100 mb-3">
-        <i class="fas fa-sign-in-alt me-1"></i> Login
-      </button>
-    </form>
-
-    <a href="{% url 'register' %}" class="btn btn-outline-secondary w-100 mb-2">
-      <i class="fas fa-user-plus me-1"></i> Create an Account
-    </a>
-
-    <p class="text-center mt-3 mb-0">
-      <a href="{% url 'password_reset' %}" class="text-decoration-none">
-        <i class="fas fa-unlock-alt me-1"></i> Forgot your password?
-      </a>
-    </p>
+<span class="eyebrow">Welcome back</span>
+<h1>Karibu tena.</h1>
+<p class="lead-sm">Sign in to pick up where you left off.</p>
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="tip mb-3" style="background:var(--rose-soft);color:var(--rose)"><span class="emo">⚠️</span><div>{% for e in form.non_field_errors %}{{ e }}{% endfor %}</div></div>{% endif %}
+  {% include 'partials/field.html' with field=form.username icon='bi-person' %}
+  <div class="mb-2">
+    <label class="form-label" for="{{ form.password.id_for_label }}">Password</label>
+    <div class="input-icon position-relative"><i class="bi bi-lock"></i>{{ form.password|styled }}<button type="button" class="pw-toggle" aria-label="Show password"><i class="bi bi-eye"></i></button></div>
+    {% if form.password.errors %}<div class="field-error">{{ form.password.errors }}</div>{% endif %}
   </div>
-</div>
+  <div class="d-flex justify-content-end mb-4"><a href="{% url 'password_reset' %}" class="small fw-semibold">Forgot password?</a></div>
+  {% if request.GET.next %}<input type="hidden" name="next" value="{{ request.GET.next }}">{% endif %}
+  <button type="submit" class="btn btn-brand btn-lg w-100">Sign in <i class="bi bi-arrow-right"></i></button>
+</form>
+<div class="auth-foot">New to wILife? <a href="{% url 'register' %}" class="fw-bold">Create an account</a></div>
 {% endblock %}

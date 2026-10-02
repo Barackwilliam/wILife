@@ -1,97 +1,35 @@
 {% extends 'base.html' %}
-
 {% block title %}Notifications{% endblock %}
-
+{% block section %}Overview{% endblock %}{% block crumb %}Notifications{% endblock %}
 {% block content %}
-<div class="container py-4" style="max-width: 700px;">
-  <h2 class="mb-4 text-primary fw-bold">🔔 Your Notifications</h2>
-
-  <ul class="list-group shadow-sm rounded overflow-hidden">
-    {% for notification in notifications %}
-      <li class="list-group-item d-flex justify-content-between align-items-start 
-          {% if not notification.read %}bg-unread border-unread{% else %}bg-white{% endif %} 
-          border-bottom">
-        <div>
-          <p class="mb-1 fs-6 fw-semibold" style="color: {% if not notification.read %}#663300{% else %}#333{% endif %};">
-            {{ notification.message }}
-          </p>
-          <small class="text-muted fst-italic">{{ notification.created_at|date:"M d, Y H:i" }}</small>
-        </div>
-        <div class="d-flex flex-column gap-2">
-          {% if not notification.read %}
-          <a href="{% url 'mark_notification_read' notification.pk %}" 
-             class="btn btn-sm btn-outline-success shadow-sm"
-             style="border-radius: 20px; font-weight: 600;">
-             Mark as Read
-          </a>
-          {% endif %}
-          <a href="{% url 'notification_delete' notification.pk %}" 
-             class="btn btn-sm btn-outline-danger shadow-sm"
-             style="border-radius: 20px; font-weight: 600;"
-             onclick="return confirm('Are you sure you want to delete this notification?');">
-             Delete
-          </a>
-        </div>
-      </li>
-    {% empty %}
-      <li class="list-group-item text-center text-muted fst-italic py-4">
-        ✅ No new notifications.
-      </li>
-    {% endfor %}
-  </ul>
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Activity</span>
+    <h1 class="page-title">Notifications</h1>
+    <p class="page-sub">{% if unread_count %}{{ unread_count }} unread{% else %}You're all caught up.{% endif %}</p>
+  </div>
 </div>
-
-<style>
-  /* Orange background for unread notifications */
-  .bg-unread {
-    background-color: #FFA500 !important; /* Orange */
-  }
-  .border-unread {
-    border-color: #cc8400 !important; /* Darker orange border */
-  }
-
-  /* Text color for unread */
-  .list-group-item .bg-unread p {
-    color: #663300 !important; /* Dark brown-orange text */
-  }
-
-  /* Buttons styling */
-  .btn-outline-success {
-    color: #2e7d32;
-    border-color: #2e7d32;
-  }
-  .btn-outline-success:hover {
-    background-color: #2e7d32;
-    color: white;
-  }
-
-  .btn-outline-danger {
-    color: #c62828;
-    border-color: #c62828;
-  }
-  .btn-outline-danger:hover {
-    background-color: #c62828;
-    color: white;
-  }
-
-  /* Responsive tweaks */
-  @media (max-width: 576px) {
-    .list-group-item {
-      flex-direction: column !important;
-      align-items: flex-start !important;
-      gap: 0.5rem;
-    }
-    .list-group-item > div:last-child {
-      align-self: flex-end;
-      width: 100%;
-      display: flex;
-      justify-content: flex-end;
-      gap: 0.5rem;
-    }
-    .btn-sm {
-      font-size: 0.85rem;
-      padding: 0.25rem 0.75rem;
-    }
-  }
-</style>
+<div class="table-wrap reveal" style="max-width:860px">
+  {% for notification in notifications %}
+  <div class="notif {% if not notification.read %}unread{% endif %}">
+    <span class="ico-chip {% if 'deleted' in notification.message|lower %}t-rose{% elif 'updated' in notification.message|lower %}t-sky{% else %}t-leaf{% endif %}">
+      <i class="bi {% if 'deleted' in notification.message|lower %}bi-trash3{% elif 'updated' in notification.message|lower %}bi-pencil{% else %}bi-plus-lg{% endif %}"></i>
+    </span>
+    <div class="body">
+      <p>{{ notification.message }}</p>
+      <small class="text-muted">{{ notification.created_at|timesince }} ago · {{ notification.created_at|date:"j M, H:i" }}</small>
+    </div>
+    <div class="row-actions">
+      {% if not notification.read %}<a href="{% url 'mark_notification_read' notification.pk %}" class="btn btn-ghost btn-icon btn-sm" title="Mark as read"><i class="bi bi-check2"></i></a>{% endif %}
+      <a href="{% url 'notification_delete' notification.pk %}" class="btn btn-soft-danger btn-icon btn-sm" title="Delete"><i class="bi bi-x-lg"></i></a>
+    </div>
+  </div>
+  {% empty %}
+  <div class="empty">
+    <div class="art" style="background:var(--sky-soft);color:var(--sky)"><i class="bi bi-bell-slash"></i></div>
+    <h3>Quiet in here</h3>
+    <p>When you add, change or remove something, it shows up here.</p>
+  </div>
+  {% endfor %}
+</div>
 {% endblock %}

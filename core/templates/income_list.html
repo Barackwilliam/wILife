@@ -1,116 +1,61 @@
 {% extends 'base.html' %}
-{% block title %}Income List{% endblock %}
-
-{% block extra_head %}
-<style>
-  /* Dark mode table and alerts */
-  .dark-mode .table {
-    color: #e5e7eb;
-    background-color: #1f2937;
-  }
-  .dark-mode .table-striped > tbody > tr:nth-of-type(odd) {
-    background-color: #374151;
-  }
-  .dark-mode .table-hover tbody tr:hover {
-    background-color: #4b5563;
-  }
-  .dark-mode .table-light {
-    background-color: #111827;
-    color: #e5e7eb;
-  }
-  .dark-mode .alert-info {
-    background-color: #1e3a8a;
-    color: #e0f2fe;
-    border-color: #3b82f6;
-  }
-
-  /* Button styles for light mode */
-  .btn-outline-secondary {
-    color: #2f855a; /* medium green */
-    border-color: #2f855a;
-    font-weight: 600;
-    transition: background-color 0.2s ease, color 0.2s ease;
-  }
-  .btn-outline-secondary:hover {
-    background-color: #276749; /* darker green */
-    color: #d1fae5; /* very light green */
-  }
-
-  .btn-outline-danger {
-    color: #c53030; /* vibrant red */
-    border-color: #c53030;
-    font-weight: 600;
-    transition: background-color 0.2s ease, color 0.2s ease;
-  }
-  .btn-outline-danger:hover {
-    background-color: #9b2c2c; /* dark red */
-    color: #ffe5e5; /* very light red */
-  }
-
-  /* Button styles for dark mode */
-  .dark-mode .btn-outline-secondary {
-    color: #68d391; /* light green */
-    border-color: #68d391;
-  }
-  .dark-mode .btn-outline-secondary:hover {
-    background-color: #48bb78; /* green */
-    color: #e6ffed;
-  }
-
-  .dark-mode .btn-outline-danger {
-    color: #fc8181; /* light pink/red */
-    border-color: #fc8181;
-  }
-  .dark-mode .btn-outline-danger:hover {
-    background-color: #f56565; /* pink/red */
-    color: #fff0f0;
-  }
-</style>
-{% endblock %}
-
+{% load wilife %}
+{% block title %}Income{% endblock %}
+{% block section %}Money{% endblock %}{% block crumb %}Income{% endblock %}
 {% block content %}
-<div class="container py-4">
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h3 fw-bold">Income Records</h1>
-    <a href="{% url 'income_create' %}" class="btn btn-primary shadow-sm">
-      <i class="bi bi-plus-lg"></i> Add New Income
-    </a>
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Money in</span>
+    <h1 class="page-title">Income</h1>
+    <p class="page-sub">Every stream that keeps the lights on — and the ones that build your future.</p>
   </div>
+  <div class="page-actions">
+    <a href="{% url 'export_excel' %}" class="btn btn-ghost"><i class="bi bi-filetype-xlsx"></i> Export</a>
+    <a href="{% url 'income_create' %}" class="btn btn-brand"><i class="bi bi-plus-lg"></i> Add income</a>
+  </div>
+</div>
 
-  {% if incomes %}
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3 reveal"><div class="panel stat hover-lift"><div class="top"><span class="label">All-time income</span><span class="ico-chip t-leaf"><i class="bi bi-wallet2"></i></span></div><div class="value"><small>Tsh</small> <span data-count="{{ total|floatformat:0 }}">{{ total|money }}</span></div><div class="foot">{{ incomes|length }} entr{{ incomes|length|pluralize:"y,ies" }}</div></div></div>
+  <div class="col-sm-6 col-xl-3 reveal"><div class="panel stat hover-lift"><div class="top"><span class="label">This month</span><span class="ico-chip t-brand"><i class="bi bi-calendar2-month"></i></span></div><div class="value"><small>Tsh</small> <span data-count="{{ month_total|floatformat:0 }}">{{ month_total|money }}</span></div><div class="foot">Since the 1st</div></div></div>
+  <div class="col-sm-6 col-xl-3 reveal"><div class="panel stat hover-lift"><div class="top"><span class="label">Average entry</span><span class="ico-chip t-sky"><i class="bi bi-bar-chart"></i></span></div><div class="value"><small>Tsh</small> <span data-count="{{ average|floatformat:0 }}">{{ average|money }}</span></div><div class="foot">Per record</div></div></div>
+  <div class="col-sm-6 col-xl-3 reveal"><div class="panel stat hover-lift"><div class="top"><span class="label">Top source</span><span class="ico-chip t-sun"><i class="bi bi-star"></i></span></div><div class="value" style="font-size:1.45rem">{{ top_source.source|default:"—"|truncatechars:18 }}</div><div class="foot">{% if top_source %}Tsh {{ top_source.total|money }} total{% else %}No data yet{% endif %}</div></div></div>
+</div>
+
+{% if incomes %}
+<div class="table-wrap reveal">
+  <div class="table-toolbar">
+    <div class="search-field"><i class="bi bi-search"></i><input class="form-control" placeholder="Search income…" data-filter-target="#income-table tbody tr"></div>
+    <span class="text-muted small fw-semibold">{{ incomes|length }} record{{ incomes|length|pluralize }}</span>
+  </div>
   <div class="table-responsive">
-    <table class="table table-striped table-hover align-middle">
-      <thead class="table-light text-uppercase small">
-        <tr>
-          <th>Date</th>
-          <th>Source</th>
-          <th class="text-end">Amount (USD)</th>
-          <th class="text-center">Actions</th>
-        </tr>
-      </thead>
+    <table class="table table-hover table-stack" id="income-table">
+      <thead><tr><th>Source</th><th>Date</th><th class="text-end">Amount</th><th></th></tr></thead>
       <tbody>
-        {% for income in incomes %}
+      {% for income in incomes %}
         <tr>
-          <td>{{ income.date|date:"M d, Y" }}</td>
-          <td>{{ income.source }}</td>
-          <td class="text-end">Tsh.{{ income.amount|floatformat:2 }}/=</td>
-          <td class="text-center">
-            <a href="{% url 'income_update' income.id %}" class="btn btn-sm btn-outline-secondary me-2" title="Edit">
-              <i class="bi bi-pencil"></i>
-            </a>
-            <a href="{% url 'income_delete' income.id %}" class="btn btn-sm btn-outline-danger" title="Delete" onclick="return confirm('Are you sure you want to delete this income?');">
-              <i class="bi bi-trash"></i>
-            </a>
-          </td>
+          <td class="span-2"><div class="d-flex align-items-center gap-3">
+            <div class="date-chip"><b>{{ income.date|date:"d" }}</b><small>{{ income.date|date:"M" }}</small></div>
+            <div><div class="cell-main">{{ income.source }}</div>{% if income.notes %}<div class="cell-sub">{{ income.notes|truncatechars:60 }}</div>{% endif %}</div>
+          </div></td>
+          <td data-label="Date" class="text-muted">{{ income.date|date:"D, j M Y" }}</td>
+          <td data-label="Amount" class="text-md-end"><span class="amount c-leaf"><small>+TSH</small>{{ income.amount|money }}</span></td>
+          <td class="span-2"><div class="row-actions">
+            <a href="{% url 'income_update' income.id %}" class="btn btn-ghost btn-icon btn-sm" title="Edit"><i class="bi bi-pencil"></i></a>
+            <a href="{% url 'income_delete' income.id %}" class="btn btn-soft-danger btn-icon btn-sm" title="Delete"><i class="bi bi-trash3"></i></a>
+          </div></td>
         </tr>
-        {% endfor %}
+      {% endfor %}
       </tbody>
     </table>
   </div>
-  {% else %}
-  <div class="alert alert-info">
-    No income records found. <a href="{% url 'income_create' %}" class="alert-link">Add your first income</a>.
-  </div>
-  {% endif %}
 </div>
+{% else %}
+<div class="panel reveal"><div class="empty">
+  <div class="art" style="background:var(--leaf-soft);color:var(--leaf)"><i class="bi bi-wallet2"></i></div>
+  <h3>No income yet</h3>
+  <p>Start with your main source — salary, business, side hustle. Your dashboard comes alive once money is flowing in.</p>
+  <a href="{% url 'income_create' %}" class="btn btn-brand"><i class="bi bi-plus-lg"></i> Add your first income</a>
+</div></div>
+{% endif %}
 {% endblock %}

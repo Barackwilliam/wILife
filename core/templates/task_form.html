@@ -1,48 +1,18 @@
-{% extends 'base.html' %}
-{% block title %}{{ form.instance.pk|yesno:"Edit Task,Add Task" }}{% endblock %}
-
-{% block content %}
-<div class="container my-5" style="max-width: 600px;">
-  <h2 class="mb-4">{{ form.instance.pk|yesno:"Edit Task,Add Task" }} <a href="{% url 'task_list' %}" class="btn btn-sm btn-danger" title="Back to List">
-            <i class="bi bi-arrow-left"></i>
-          </a></h2>
-  
-  <form method="post" novalidate>
-    {% csrf_token %}
-    {{ form.non_field_errors }}
-
-    <div class="mb-3">
-      {{ form.title.label_tag }}
-      {{ form.title }}
-      <div class="text-danger small">{{ form.title.errors }}</div>
-    </div>
-
-    <div class="mb-3">
-      {{ form.description.label_tag }}
-      {{ form.description }}
-      <div class="text-danger small">{{ form.description.errors }}</div>
-    </div>
-
-    <div class="mb-3">
-      {{ form.status.label_tag }}
-      {{ form.status }}
-      <div class="text-danger small">{{ form.status.errors }}</div>
-    </div>
-
-    <div class="mb-3">
-      {{ form.date.label_tag }}
-      {{ form.date }}
-      <div class="text-danger small">{{ form.date.errors }}</div>
-    </div>
-
-    <div class="mb-3">
-      {{ form.priority.label_tag }}
-      {{ form.priority }}
-      <div class="text-danger small">{{ form.priority.errors }}</div>
-    </div>
-
-    <button type="submit" class="btn btn-primary">Save</button>
-    <a href="{% url 'task_list' %}" class="btn btn-secondary ms-2">Cancel</a>
-  </form>
+{% extends 'layouts/form.html' %}
+{% block title %}{{ form.instance.pk|yesno:"Edit task,Add task" }}{% endblock %}
+{% block section %}Life{% endblock %}{% block crumb %}{{ form.instance.pk|yesno:"Edit task,New task" }}{% endblock %}
+{% block back_url %}{% url 'task_list' %}{% endblock %}{% block back_label %}All tasks{% endblock %}
+{% block tone %}t-sky{% endblock %}{% block icon %}bi-check2-square{% endblock %}
+{% block heading %}{{ form.instance.pk|yesno:"Edit task,What needs doing?" }}{% endblock %}
+{% block subheading %}Small, clear tasks get done. Big vague ones don't.{% endblock %}
+{% block fields %}
+<div class="row g-3">
+  <div class="col-12">{% include 'partials/field.html' with field=form.title icon='bi-pencil' wrap='' %}</div>
+  <div class="col-12">{% include 'partials/field.html' with field=form.description wrap='' %}</div>
+  <div class="col-md-4">{% include 'partials/field.html' with field=form.date icon='bi-calendar-event' wrap='' %}</div>
+  <div class="col-md-4">{% include 'partials/field.html' with field=form.priority icon='bi-flag' wrap='' %}</div>
+  <div class="col-md-4">{% include 'partials/field.html' with field=form.status icon='bi-circle-half' wrap='' %}</div>
 </div>
 {% endblock %}
+{% block cancel_url %}{% url 'task_list' %}{% endblock %}
+{% block submit_label %}{{ form.instance.pk|yesno:"Save changes,Add task" }}{% endblock %}

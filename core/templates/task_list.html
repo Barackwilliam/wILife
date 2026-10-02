@@ -1,58 +1,74 @@
 {% extends 'base.html' %}
-{% block title %}My Tasks{% endblock %}
-
+{% block title %}Tasks{% endblock %}
+{% block section %}Life{% endblock %}{% block crumb %}Tasks{% endblock %}
 {% block content %}
-<div class="container py-5">
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="fw-bold"><i class="bi bi-check2-square me-2"></i>Tasks</h2>
-    <a href="{% url 'task_create' %}" class="btn btn-primary">
-      <i class="bi bi-plus-circle me-1"></i> Add New Task
-    </a>
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Get it done</span>
+    <h1 class="page-title">Tasks</h1>
+    <p class="page-sub">{% if pending_count %}{{ pending_count }} open{% if overdue_count %}, <span class="c-rose fw-bold">{{ overdue_count }} overdue</span>{% endif %}. One at a time.{% else %}Inbox zero. Enjoy it.{% endif %}</p>
   </div>
-
-  {% if tasks %}
-  <div class="table-responsive">
-    <table class="table table-bordered table-hover align-middle shadow-sm">
-      <thead class="table-light">
-        <tr>
-          <th>Title</th>
-          <th>Status</th>
-          <th>Due Date</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for task in tasks %}
-        <tr>
-          <td class="fw-medium">{{ task.title }}</td>
-          <td>
-            {% if task.status == 'done' %}
-              <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Done</span>
-            {% elif task.status == 'pending' %}
-              <span class="badge bg-warning text-dark"><i class="bi bi-clock-history me-1"></i>Pending</span>
-            {% else %}
-              <span class="badge bg-secondary">{{ task.status }}</span>
-            {% endif %}
-          </td>
-          <td>{{ task.due_date|date:"M d, Y" }}</td>
-          <td>
-            <a href="{% url 'task_update' task.id %}" class="btn btn-sm btn-outline-secondary me-1">
-              <i class="bi bi-pencil-square"></i> Edit
-            </a>
-            <a href="{% url 'task_delete' task.id %}" class="btn btn-sm btn-outline-danger"
-               onclick="return confirm('Are you sure you want to delete this task?');">
-              <i class="bi bi-trash"></i> Delete
-            </a>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}
-    <div class="alert alert-info">
-      <i class="bi bi-info-circle"></i> No tasks found. <a href="{% url 'task_create' %}">Add your first task</a>.
-    </div>
-  {% endif %}
+  <div class="page-actions"><a href="{% url 'task_create' %}" class="btn btn-brand"><i class="bi bi-plus-lg"></i> New task</a></div>
 </div>
+
+{% with total=pending_count|add:done_count %}
+<div class="row g-3 mb-4">
+  <div class="col-md-4 reveal"><div class="panel stat"><div class="top"><span class="label">Open</span><span class="ico-chip t-sun"><i class="bi bi-hourglass-split"></i></span></div><div class="value" data-count="{{ pending_count }}">{{ pending_count }}</div><div class="foot">{% if overdue_count %}<span class="tag t-rose"><span class="dot"></span>{{ overdue_count }} overdue</span>{% else %}Nothing overdue{% endif %}</div></div></div>
+  <div class="col-md-4 reveal"><div class="panel stat"><div class="top"><span class="label">Done</span><span class="ico-chip t-leaf"><i class="bi bi-check2-all"></i></span></div><div class="value" data-count="{{ done_count }}">{{ done_count }}</div><div class="foot">Completed so far</div></div></div>
+  <div class="col-md-4 reveal"><div class="panel stat"><div class="top"><span class="label">Completion</span><span class="ico-chip t-sky"><i class="bi bi-speedometer"></i></span></div>
+    {% load wilife %}{% with p=done_count|pct:total %}<div class="value">{{ p }}<small>%</small></div><div class="meter leaf"><span data-w="{{ p }}"></span></div>{% endwith %}</div></div>
+</div>
+{% endwith %}
+
+{% if tasks %}
+<div class="table-wrap reveal">
+  <div class="table-toolbar">
+    <div class="tabs-x" role="tablist">
+      <button class="on" data-tab="all">All <span class="n">{{ tasks|length }}</span></button>
+      <button data-tab="pending">Open <span class="n">{{ pending_count }}</span></button>
+      <button data-tab="done">Done <span class="n">{{ done_count }}</span></button>
+    </div>
+    <div class="search-field"><i class="bi bi-search"></i><input class="form-control" placeholder="Search tasks…" data-filter-target=".task-row"></div>
+  </div>
+  <div id="task-list">
+  {% for task in tasks %}
+    <div class="task-row {% if task.status == 'done' %}done{% endif %}" data-status="{{ task.status }}">
+      <span class="prio prio-{{ task.priority }}" title="{{ task.get_priority_display }} priority"></span>
+      <form method="post" action="{% url 'task_toggle' task.id %}" class="m-0">{% csrf_token %}
+        <button class="task-check" title="{% if task.status == 'done' %}Mark as open{% else %}Mark as done{% endif %}" aria-label="Toggle done"><i class="bi bi-check-lg"></i></button>
+      </form>
+      <div class="flex-grow-1" style="min-width:0">
+        <div class="cell-main text-truncate">{{ task.title }}</div>
+        <div class="cell-sub d-flex flex-wrap gap-2 align-items-center mt-1">
+          {% if task.status == 'pending' and task.date < today %}<span class="tag t-rose"><i class="bi bi-alarm"></i> Overdue · {{ task.date|date:"j M" }}</span>
+          {% elif task.date == today %}<span class="tag t-brand"><i class="bi bi-sun"></i> Today</span>
+          {% else %}<span class="tag t-ink"><i class="bi bi-calendar-event"></i> {{ task.date|date:"D j M" }}</span>{% endif %}
+          <span class="tag {% if task.priority == 'high' %}t-rose{% elif task.priority == 'medium' %}t-sun{% else %}t-leaf{% endif %}"><span class="dot"></span>{{ task.get_priority_display }}</span>
+          {% if task.description %}<span class="text-truncate d-none d-md-inline" style="max-width:340px">{{ task.description }}</span>{% endif %}
+        </div>
+      </div>
+      <div class="row-actions">
+        <a href="{% url 'task_update' task.id %}" class="btn btn-ghost btn-icon btn-sm" title="Edit"><i class="bi bi-pencil"></i></a>
+        <a href="{% url 'task_delete' task.id %}" class="btn btn-soft-danger btn-icon btn-sm" title="Delete"><i class="bi bi-trash3"></i></a>
+      </div>
+    </div>
+  {% endfor %}
+  </div>
+</div>
+{% else %}
+<div class="panel reveal"><div class="empty">
+  <div class="art" style="background:var(--sky-soft);color:var(--sky)"><i class="bi bi-check2-square"></i></div>
+  <h3>A clean slate</h3>
+  <p>Add the one thing that would make today a good day.</p>
+  <a href="{% url 'task_create' %}" class="btn btn-brand"><i class="bi bi-plus-lg"></i> Add a task</a>
+</div></div>
+{% endif %}
+{% endblock %}
+{% block extra_scripts %}
+<script>
+  document.querySelectorAll('.tabs-x button').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('.tabs-x button').forEach(x => x.classList.toggle('on', x === b));
+    document.querySelectorAll('.task-row').forEach(r => { r.style.display = (b.dataset.tab === 'all' || r.dataset.status === b.dataset.tab) ? '' : 'none'; });
+  }));
+</script>
 {% endblock %}

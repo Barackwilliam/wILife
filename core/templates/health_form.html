@@ -1,41 +1,17 @@
-{% extends 'base.html' %}
-{% block title %}{{ form.instance.pk|yesno:"Edit Health Record,Add Health Record" }}{% endblock %}
-
-{% block content %}
-<div class="container py-4" style="max-width: 600px;">
-  <h2>{{ form.instance.pk|yesno:"Edit Health Record,Add Health Record" }} <a href="{% url 'health_list' %}" class="btn btn-sm btn-danger" title="Back to List">
-            <i class="bi bi-arrow-left"></i>
-          </a></h2>
-  <form method="post" novalidate>
-      {% csrf_token %}
-      {{ form.non_field_errors }}
-
-      <div class="mb-3">
-          {{ form.date.label_tag }}
-          {{ form.date }}
-          <div class="text-danger">{{ form.date.errors }}</div>
-      </div>
-
-      <div class="mb-3">
-          {{ form.weight.label_tag }}
-          {{ form.weight }}
-          <div class="text-danger">{{ form.weight.errors }}</div>
-      </div>
-
-      <div class="mb-3">
-          {{ form.exercise_minutes.label_tag }}
-          {{ form.exercise_minutes }}
-          <div class="text-danger">{{ form.exercise_minutes.errors }}</div>
-      </div>
-
-      <div class="mb-3">
-          {{ form.sleep_hours.label_tag }}
-          {{ form.sleep_hours }}
-          <div class="text-danger">{{ form.sleep_hours.errors }}</div>
-      </div>
-
-      <button type="submit" class="btn btn-primary">Save</button>
-      <a href="{% url 'health_list' %}" class="btn btn-secondary">Cancel</a>
-  </form>
+{% extends 'layouts/form.html' %}
+{% block title %}{{ form.instance.pk|yesno:"Edit health log,Log health" }}{% endblock %}
+{% block section %}Wellbeing{% endblock %}{% block crumb %}{{ form.instance.pk|yesno:"Edit health log,New health log" }}{% endblock %}
+{% block back_url %}{% url 'health_list' %}{% endblock %}{% block back_label %}Health{% endblock %}
+{% block tone %}t-teal{% endblock %}{% block icon %}bi-heart-pulse{% endblock %}
+{% block heading %}{{ form.instance.pk|yesno:"Edit health log,How was today?" }}{% endblock %}
+{% block subheading %}Weight, movement and sleep — the three numbers that move everything else.{% endblock %}
+{% block fields %}
+<div class="row g-3">
+  <div class="col-md-6">{% include 'partials/field.html' with field=form.date icon='bi-calendar-event' wrap='' %}</div>
+  <div class="col-md-6">{% include 'partials/field.html' with field=form.weight icon='bi-speedometer2' wrap='' %}</div>
+  <div class="col-md-6">{% include 'partials/field.html' with field=form.exercise_minutes icon='bi-activity' wrap='' %}</div>
+  <div class="col-md-6">{% include 'partials/field.html' with field=form.sleep_hours icon='bi-moon' wrap='' %}</div>
 </div>
 {% endblock %}
+{% block cancel_url %}{% url 'health_list' %}{% endblock %}
+{% block submit_label %}{{ form.instance.pk|yesno:"Save changes,Save log" }}{% endblock %}

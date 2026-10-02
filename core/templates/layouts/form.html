@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="form-shell">
+  <a href="{% block back_url %}{% url 'dashboard' %}{% endblock %}" class="panel-link mb-3 d-inline-flex"><i class="bi bi-arrow-left"></i> {% block back_label %}Back{% endblock %}</a>
+  <div class="form-hero reveal">
+    <span class="ico-chip {% block tone %}t-brand{% endblock %}"><i class="bi {% block icon %}bi-pencil{% endblock %}"></i></span>
+    <div>
+      <h1>{% block heading %}{% endblock %}</h1>
+      <p>{% block subheading %}{% endblock %}</p>
+    </div>
+  </div>
+  <form method="post" novalidate class="panel form-card reveal">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="tip mb-3" style="background:var(--rose-soft);color:var(--rose)"><span class="emo">⚠️</span><div>{{ form.non_field_errors }}</div></div>{% endif %}
+    {% block fields %}{% endblock %}
+    <div class="form-actions">
+      <a href="{% block cancel_url %}{% url 'dashboard' %}{% endblock %}" class="btn btn-ghost">Cancel</a>
+      <button type="submit" class="btn btn-brand"><i class="bi bi-check2"></i> {% block submit_label %}Save{% endblock %}</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

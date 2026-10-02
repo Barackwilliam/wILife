@@ -1,14 +1,5 @@
-{% extends 'base.html' %}
-{% block content %}
-<div class="container py-4" style="max-width: 600px;">
-  <h2 class="mb-3 text-danger">Delete Menstrual Record</h2>
-  <div class="alert alert-warning">
-    Are you sure you want to delete the record from <strong>{{ record.start_date }}</strong> to <strong>{{ record.end_date }}</strong>?
-  </div>
-  <form method="post">
-    {% csrf_token %}
-    <button type="submit" class="btn btn-danger">Yes, Delete</button>
-    <a href="{% url 'menstrual_list' %}" class="btn btn-secondary">Cancel</a>
-  </form>
-</div>
-{% endblock %}
+{% extends 'partials/confirm_delete.html' %}
+{% block section %}Wellbeing{% endblock %}{% block noun %}cycle record{% endblock %}
+{% block question %}Delete this cycle record?{% endblock %}
+{% block details %}<strong>{{ record.start_date|date:"j M" }} – {{ record.end_date|date:"j M Y" }}</strong> · {{ record.get_flow_level_display }} flow{% endblock %}
+{% block cancel_url %}{% url 'menstrual_list' %}{% endblock %}

@@ -1,0 +1,1 @@
+<span class="tag {% if goal.is_overdue %}t-rose{% elif goal.status == 'completed' %}t-leaf{% elif goal.status == 'paused' %}t-sun{% elif goal.status == 'cancelled' %}t-ink{% else %}t-sky{% endif %}"><span class="dot"></span>{% if goal.is_overdue %}Overdue{% else %}{{ goal.get_status_display }}{% endif %}</span>

@@ -1,90 +1,24 @@
-{% extends 'base.html' %}
-{% block title %}{{ action }} Goal{% endblock %}
-
-{% block content %}
-<div class="container py-4" style="max-width: 680px;">
-  <div class="d-flex align-items-center mb-4">
-    <a href="{% if goal %}{% url 'goal_detail' goal.pk %}{% else %}{% url 'goal_list' %}{% endif %}"
-       class="btn btn-sm btn-outline-secondary me-3">
-      <i class="bi bi-arrow-left"></i>
-    </a>
-    <h2 class="fw-bold mb-0">
-      <i class="bi bi-trophy me-2 text-warning"></i>{{ action }} Goal
-    </h2>
-  </div>
-
-  <div class="card border-0 shadow-sm">
-    <div class="card-body p-4">
-      <form method="post">
-        {% csrf_token %}
-
-        <div class="mb-3">
-          <label class="form-label fw-semibold">Goal Title <span class="text-danger">*</span></label>
-          {{ form.title }}
-          {% if form.title.errors %}
-            <div class="text-danger small mt-1">{{ form.title.errors }}</div>
-          {% endif %}
-        </div>
-
-        <div class="mb-3">
-          <label class="form-label fw-semibold">Description</label>
-          {{ form.description }}
-        </div>
-
-        <div class="row g-3 mb-3">
-          <div class="col-md-6">
-            <label class="form-label fw-semibold">Category</label>
-            {{ form.category }}
-          </div>
-          <div class="col-md-6">
-            <label class="form-label fw-semibold">Status</label>
-            {{ form.status }}
-          </div>
-        </div>
-
-        <div class="row g-3 mb-3">
-          <div class="col-md-4">
-            <label class="form-label fw-semibold">Target Value</label>
-            {{ form.target_value }}
-            <small class="text-muted">e.g. 1000000</small>
-          </div>
-          <div class="col-md-4">
-            <label class="form-label fw-semibold">Current Value</label>
-            {{ form.current_value }}
-          </div>
-          <div class="col-md-4">
-            <label class="form-label fw-semibold">Unit</label>
-            {{ form.unit }}
-            <small class="text-muted">e.g. Tsh, kg, books</small>
-          </div>
-        </div>
-
-        <div class="row g-3 mb-4">
-          <div class="col-md-6">
-            <label class="form-label fw-semibold">Start Date</label>
-            {{ form.start_date }}
-          </div>
-          <div class="col-md-6">
-            <label class="form-label fw-semibold">Target Date <span class="text-danger">*</span></label>
-            {{ form.target_date }}
-            {% if form.target_date.errors %}
-              <div class="text-danger small mt-1">{{ form.target_date.errors }}</div>
-            {% endif %}
-          </div>
-        </div>
-
-        <div class="d-flex gap-2">
-          <button type="submit" class="btn btn-primary flex-grow-1">
-            <i class="bi bi-check-circle me-2"></i>{{ action }} Goal
-          </button>
-          <a href="{% if goal %}{% url 'goal_detail' goal.pk %}{% else %}{% url 'goal_list' %}{% endif %}"
-             class="btn btn-outline-secondary">
-            Cancel
-          </a>
-        </div>
-
-      </form>
-    </div>
-  </div>
+{% extends 'layouts/form.html' %}
+{% block title %}{{ action }} goal{% endblock %}
+{% block section %}Life{% endblock %}{% block crumb %}{{ action }} goal{% endblock %}
+{% block back_url %}{% if goal %}{% url 'goal_detail' goal.pk %}{% else %}{% url 'goal_list' %}{% endif %}{% endblock %}{% block back_label %}{% if goal %}Back to goal{% else %}All goals{% endif %}{% endblock %}
+{% block tone %}t-sun{% endblock %}{% block icon %}bi-bullseye{% endblock %}
+{% block heading %}{% if action == 'Edit' %}Edit goal{% else %}Dream it. Measure it.{% endif %}{% endblock %}
+{% block subheading %}Give it a number and a date — that's what turns a wish into a plan.{% endblock %}
+{% block fields %}
+<div class="row g-3">
+  <div class="col-12">{% include 'partials/field.html' with field=form.title icon='bi-stars' wrap='' %}</div>
+  <div class="col-12">{% include 'partials/field.html' with field=form.description wrap='' %}</div>
+  <div class="col-md-6">{% include 'partials/field.html' with field=form.category icon='bi-tag' wrap='' %}</div>
+  <div class="col-md-6">{% include 'partials/field.html' with field=form.status icon='bi-circle-half' wrap='' %}</div>
+  <div class="col-12"><div class="eyebrow mt-2">Measure</div></div>
+  <div class="col-md-4">{% include 'partials/field.html' with field=form.target_value icon='bi-flag' wrap='' %}</div>
+  <div class="col-md-4">{% include 'partials/field.html' with field=form.current_value icon='bi-graph-up' wrap='' %}</div>
+  <div class="col-md-4">{% include 'partials/field.html' with field=form.unit icon='bi-rulers' wrap='' %}</div>
+  <div class="col-12"><div class="eyebrow mt-2">Timeline</div></div>
+  <div class="col-md-6">{% include 'partials/field.html' with field=form.start_date icon='bi-calendar-plus' wrap='' %}</div>
+  <div class="col-md-6">{% include 'partials/field.html' with field=form.target_date icon='bi-calendar-check' wrap='' %}</div>
 </div>
 {% endblock %}
+{% block cancel_url %}{% if goal %}{% url 'goal_detail' goal.pk %}{% else %}{% url 'goal_list' %}{% endif %}{% endblock %}
+{% block submit_label %}{{ action }} goal{% endblock %}

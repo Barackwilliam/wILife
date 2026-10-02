@@ -1,188 +1,136 @@
 {% extends 'base.html' %}
-{% block title %}Health Records{% endblock %}
-
+{% block title %}Health{% endblock %}
+{% block section %}Wellbeing{% endblock %}{% block crumb %}Health{% endblock %}
 {% block content %}
-<div class="container py-4">
-  <!-- Header with Add Button -->
-  <div class="row mb-4 align-items-center">
-    <div class="col-12 col-md-6 mb-3 mb-md-0">
-      <h1 class="h3">Health Records</h1>
-    </div>
-    <div class="col-12 col-md-6 text-md-end">
-      <a href="{% url 'health_create' %}" class="btn btn-primary w-100 w-md-auto">Add New Health Record</a>
-    </div>
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Body &amp; rest</span>
+    <h1 class="page-title">Health</h1>
+    <p class="page-sub">Weight, movement and sleep — logged daily, understood weekly.</p>
   </div>
-
-  <!-- Health Records Table -->
-  {% if health_records %}
-  <div class="table-responsive mb-4">
-    <table class="table table-striped table-hover align-middle shadow-sm border rounded">
-      <thead class="table-dark text-white">
-        <tr>
-          <th>Date</th>
-          <th>Weight (kg)</th>
-          <th>Exercise (min)</th>
-          <th>Sleep (hrs)</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for record in health_records %}
-        <tr>
-          <td>{{ record.date|date:"M d, Y" }}</td>
-          <td>{{ record.weight|default:"-" }}</td>
-          <td>{{ record.exercise_minutes|default:"-" }}</td>
-          <td>{{ record.sleep_hours|default:"-" }}</td>
-          <td>
-            <a href="{% url 'health_update' record.id %}" class="btn btn-sm btn-outline-secondary me-2">Edit</a>
-            <a href="{% url 'health_delete' record.id %}" class="btn btn-sm btn-outline-danger onclick="return confirm('Are you sure you want to delete this record?');">Delete</a>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}
-  <p>No health records found.</p>
-  <a href="{% url 'health_create' %}" class="btn btn-link">Add your first health record</a>
-  {% endif %}
-
-  <!-- Gender Buttons -->
-  <div class="text-center my-5">
-    <h4 class="mb-4">Select your gender to continue:</h4>
-    <div class="d-flex flex-column flex-md-row justify-content-center gap-3">
-      <button onclick="showMenstrual()" class="btn btn-lg btn-danger px-4 py-2">🚺 I'm Female</button>
-      <button onclick="showLifeAdvice()" class="btn btn-lg btn-secondary px-4 py-2">🚹 I'm Male</button>
-    </div>
-  </div>
-
-  <!-- Menstrual Section -->
-  <div id="menstrual-section" class="p-4 rounded shadow mb-4" style="display: none; background-color: #fdf4ff;">
-    <h4 class="text-purple mb-3">🩸 Menstrual Tracker</h4>
-    <a href="{% url 'menstrual_list' %}" class="animated-btn">Go to Menstrual Records</a>
-    <p style="color: black;">Track your cycle, period, pain level, and more for better reproductive health.</p>
-  </div>
-
-  <!-- Life Advice Section -->
-  <div id="life-advice-section" class="alert alert-info text-center mb-4" style="display:none; font-size: 1.1rem;">
-    <h4>💡 Life Advice for You</h4>
-    <p id="life-advice-message" class="mt-2"></p>
+  <div class="page-actions">
+    <a href="{% url 'menstrual_list' %}" class="btn btn-ghost"><i class="bi bi-moon-stars"></i> Cycle tracker</a>
+    <a href="{% url 'health_create' %}" class="btn btn-brand"><i class="bi bi-plus-lg"></i> Log today</a>
   </div>
 </div>
 
-<!-- Custom Styles -->
-<style>
-  .text-purple {
-    color: #6a1b9a;
-  }
+<div class="row g-3 mb-4">
+  <div class="col-md-4 reveal"><div class="panel stat hover-lift"><div class="top"><span class="label">Weight · 7-day avg</span><span class="ico-chip t-sky"><i class="bi bi-speedometer2"></i></span></div>
+    <div class="value">{% if week_avg.weight %}<span data-count="{{ week_avg.weight|floatformat:1 }}" data-decimals="1">{{ week_avg.weight|floatformat:1 }}</span><small>kg</small>{% else %}—{% endif %}</div>
+    <div class="foot">{% if latest.weight %}Latest {{ latest.weight }} kg · {{ latest.date|date:"j M" }}{% else %}No weigh-ins yet{% endif %}</div></div></div>
+  <div class="col-md-4 reveal"><div class="panel stat hover-lift"><div class="top"><span class="label">Exercise · 7-day avg</span><span class="ico-chip t-leaf"><i class="bi bi-activity"></i></span></div>
+    <div class="value">{% if week_avg.exercise %}<span data-count="{{ week_avg.exercise|floatformat:0 }}">{{ week_avg.exercise|floatformat:0 }}</span><small>min</small>{% else %}—{% endif %}</div>
+    {% load wilife %}{% with p=week_avg.exercise|default:0|pct:30 %}<div class="meter leaf"><span data-w="{{ p }}"></span></div><div class="foot">{{ p }}% of a 30-min daily goal</div>{% endwith %}</div></div>
+  <div class="col-md-4 reveal"><div class="panel stat hover-lift"><div class="top"><span class="label">Sleep · 7-day avg</span><span class="ico-chip t-plum"><i class="bi bi-moon"></i></span></div>
+    <div class="value">{% if week_avg.sleep %}<span data-count="{{ week_avg.sleep|floatformat:1 }}" data-decimals="1">{{ week_avg.sleep|floatformat:1 }}</span><small>hrs</small>{% else %}—{% endif %}</div>
+    {% with p=week_avg.sleep|default:0|pct:8 %}<div class="meter" style="--x:0"><span data-w="{{ p }}" style="background:linear-gradient(90deg,var(--plum),#b9a6f5)"></span></div><div class="foot">{{ p }}% of 8 hours</div>{% endwith %}</div></div>
+</div>
 
-  .btn-pink {
-    background-color: #ec407a;
-    border-radius: 8px;
-    padding: 10px 20px;
-  }
+{% if health_records %}
+<div class="row g-4">
+  <div class="col-xl-7 reveal">
+    <div class="panel h-100">
+      <div class="panel-head">
+        <h2 class="panel-title"><span class="ico t-teal"><i class="bi bi-graph-up"></i></span>Trends</h2>
+        <div class="seg" id="metricSeg"><button class="on" data-m="weight">Weight</button><button data-m="sleep">Sleep</button><button data-m="exercise">Exercise</button></div>
+      </div>
+      <div style="height:280px"><canvas id="trendChart"></canvas></div>
+    </div>
+  </div>
+  <div class="col-xl-5 reveal">
+    <div class="table-wrap h-100">
+      <div class="table-toolbar"><strong>History</strong><span class="text-muted small fw-semibold">{{ health_records|length }} log{{ health_records|length|pluralize }}</span></div>
+      <div class="table-responsive" style="max-height:340px">
+        <table class="table table-hover table-stack">
+          <thead><tr><th>Date</th><th>Weight</th><th>Move</th><th>Sleep</th><th></th></tr></thead>
+          <tbody>
+          {% for record in health_records %}
+            <tr>
+              <td class="span-2 cell-main">{{ record.date|date:"D j M" }}</td>
+              <td data-label="Weight" class="num">{{ record.weight|default:"—" }}{% if record.weight %} <span class="text-muted small">kg</span>{% endif %}</td>
+              <td data-label="Exercise" class="num">{{ record.exercise_minutes|default:"—" }}{% if record.exercise_minutes %} <span class="text-muted small">min</span>{% endif %}</td>
+              <td data-label="Sleep" class="num">{{ record.sleep_hours|default:"—" }}{% if record.sleep_hours %} <span class="text-muted small">h</span>{% endif %}</td>
+              <td class="span-2"><div class="row-actions">
+                <a href="{% url 'health_update' record.id %}" class="btn btn-ghost btn-icon btn-sm" title="Edit"><i class="bi bi-pencil"></i></a>
+                <a href="{% url 'health_delete' record.id %}" class="btn btn-soft-danger btn-icon btn-sm" title="Delete"><i class="bi bi-trash3"></i></a>
+              </div></td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="panel reveal"><div class="empty">
+  <div class="art" style="background:var(--teal-soft);color:var(--teal)"><i class="bi bi-heart-pulse"></i></div>
+  <h3>Start your first log</h3>
+  <p>Ten seconds a day: weight, minutes moved, hours slept. Trends show up after a few days.</p>
+  <a href="{% url 'health_create' %}" class="btn btn-brand"><i class="bi bi-plus-lg"></i> Log today</a>
+</div></div>
+{% endif %}
 
-  .animated-btn {
-    display: inline-block;
-    padding: 15px 30px;
-    font-size: 1.1rem;
-    font-weight: bold;
-    color: white;
-    background: linear-gradient(135deg, #ec407a, #ad1457);
-    border: none;
-    border-radius: 12px;
-    text-decoration: none;
-    box-shadow: 0 4px 20px rgba(236, 64, 122, 0.4);
-    transition: all 0.3s ease-in-out;
-    animation: bounceGlow 2s ease-in-out infinite;
-    letter-spacing: 1px;
-  }
-
-  .animated-btn:hover {
-    transform: scale(1.05) translateY(-3px);
-    background: linear-gradient(135deg, #d81b60, #880e4f);
-    box-shadow: 0 6px 30px rgba(173, 20, 87, 0.6);
-  }
-
-  @keyframes bounceGlow {
-    0%, 100% {
-      transform: scale(1) translateY(0);
-      box-shadow: 0 0 0 0 rgba(173, 20, 87, 0.4);
-    }
-    50% {
-      transform: scale(1.08) translateY(-5px);
-      box-shadow: 0 0 20px 6px rgba(173, 20, 87, 0.6);
-    }
-  }
-
-  @media (max-width: 576px) {
-    .btn-lg {
-      font-size: 1rem;
-      padding: 12px 16px;
-    }
-
-    table {
-      font-size: 0.9rem;
-    }
-  }
-</style>
-
-<!-- JavaScript -->
+<div class="row g-4 mt-1">
+  <div class="col-md-6 reveal">
+    <a href="{% url 'menstrual_list' %}" class="panel d-flex gap-3 align-items-center hover-lift text-reset h-100">
+      <span class="ico-chip t-rose" style="width:52px;height:52px;font-size:1.4rem;border-radius:16px"><i class="bi bi-moon-stars"></i></span>
+      <div class="flex-grow-1"><h3 class="mb-1" style="font-size:1.25rem">Cycle tracker</h3><p class="text-muted mb-0 small">Periods, symptoms and predictions — private to you.</p></div>
+      <i class="bi bi-arrow-right fs-5 text-muted"></i>
+    </a>
+  </div>
+  <div class="col-md-6 reveal">
+    <div class="panel h-100 d-flex gap-3 align-items-center" style="background:var(--sun-soft);border-color:transparent">
+      <span style="font-size:2rem">💡</span>
+      <div class="flex-grow-1"><div class="eyebrow mb-1" style="color:#9a6400">Ushauri wa leo</div><p class="mb-0 fw-semibold" id="life-tip"></p></div>
+      <button class="btn btn-ghost btn-icon btn-sm" id="next-tip" title="Another one"><i class="bi bi-arrow-repeat"></i></button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
 <script>
-  function showMenstrual() {
-    document.getElementById("menstrual-section").style.display = "block";
-    document.getElementById("life-advice-section").style.display = "none";
-  }
+  (function () {
+    const tips = [
+      "Hakikisha unalala angalau saa 7 kila usiku kwa ufanisi.",
+      "Zingatia afya ya akili sawa na afya ya mwili.",
+      "Fanya mazoezi ya kupumzika na kupunguza msongo wa mawazo kila siku.",
+      "Jifunze kupika na kula vyakula vyenye virutubisho bora.",
+      "Fanya bajeti ya kila mwezi na ufuate kwa uaminifu.",
+      "Tumia muda na familia na marafiki ili kujenga uhusiano imara.",
+      "Kuwa na mtazamo wa shukrani hata katika changamoto.",
+      "Hakikisha unafuatilia maendeleo yako mara kwa mara.",
+      "Usiogope kuchukua hatari zilizohesabiwa kwa maendeleo.",
+      "Tambua kwamba kila shida huja na suluhisho; usikate tamaa."
+    ];
+    let i = Math.floor(Math.random() * tips.length);
+    const el = document.getElementById('life-tip');
+    const show = () => { el.textContent = tips[i % tips.length]; };
+    document.getElementById('next-tip').addEventListener('click', () => { i++; show(); });
+    show();
 
-  const lifeAdvices = [
-    "Jifunze kuwekeza muda na nguvu kwenye mambo yanayokuza kitaaluma.",
-    "Epuka watu wenye mtazamo hasi ili kujiweka kwenye mazingira chanya.",
-    "Fanya bajeti ya kila mwezi na ufuate kwa uaminifu.",
-    "Tambua kwamba kila shida huja na suluhisho; usikate tamaa.",
-    "Hakikisha unajiwekea malengo yaliyo halisi na yanayoweza kufikiwa.",
-    "Usikubali kushindwa kukuzuia; jaribu tena kwa mbinu tofauti.",
-    "Tumia muda na familia na marafiki ili kujenga uhusiano imara.",
-    "Jifunze kusimamia mabadiliko kama sehemu ya maisha.",
-    "Kuwa na mtazamo wa shukrani hata katika changamoto.",
-    "Fanya mazoezi ya kupumzika na kupunguza msongo wa mawazo kila siku.",
-    "Jifunze kujitambua na kuelewa hisia zako kwa kina.",
-    "Zingatia afya ya akili sawa na afya ya mwili.",
-    "Tafuta mwalimu au mshauri katika nyanja unazotaka kufaulu.",
-    "Hakikisha unalala angalau saa 7 kila usiku kwa ufanisi.",
-    "Jifunze kupika na kula vyakula vyenye virutubisho bora.",
-    "Usiogope kuchukua hatari zilizohesabiwa kwa maendeleo.",
-    "Jifunze kusimamia fedha kwa njia ya kisasa na teknolojia.",
-    "Tumia muda kupumzika na kufanya vitu unavyovipenda.",
-    "Hakikisha unafuatilia maendeleo yako mara kwa mara.",
-    "Jifunze kutumia mitandao ya kijamii kwa ufanisi na si kupoteza muda."
-  ];
-
-  function getShownMessages() {
-    const shown = sessionStorage.getItem('shownLifeAdvices');
-    return shown ? JSON.parse(shown) : [];
-  }
-
-  function saveShownMessages(arr) {
-    sessionStorage.setItem('shownLifeAdvices', JSON.stringify(arr));
-  }
-
-  function showLifeAdvice() {
-    document.getElementById("menstrual-section").style.display = "none";
-    document.getElementById("life-advice-section").style.display = "block";
-
-    let shownMessages = getShownMessages();
-    let availableMessages = lifeAdvices.filter((msg, idx) => !shownMessages.includes(idx));
-
-    if (availableMessages.length === 0) {
-      shownMessages = [];
-      availableMessages = lifeAdvices;
-    }
-
-    let chosenIndex = lifeAdvices.indexOf(availableMessages[Math.floor(Math.random() * availableMessages.length)]);
-    document.getElementById("life-advice-message").textContent = lifeAdvices[chosenIndex];
-
-    shownMessages.push(chosenIndex);
-    saveShownMessages(shownMessages);
-  }
+    const canvas = document.getElementById('trendChart');
+    if (!canvas) return;
+    const labels = {{ chart_labels|safe }};
+    const series = {
+      weight:   { data: {{ chart_weight|safe }},   color: wilifeColor('--sky'),  unit: 'kg' },
+      sleep:    { data: {{ chart_sleep|safe }},    color: wilifeColor('--plum'), unit: 'h' },
+      exercise: { data: {{ chart_exercise|safe }}, color: wilifeColor('--leaf'), unit: 'min' },
+    };
+    const ctx = canvas.getContext('2d');
+    const grad = (c) => { const g = ctx.createLinearGradient(0, 0, 0, 280); g.addColorStop(0, c + '55'); g.addColorStop(1, c + '00'); return g; };
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: { labels, datasets: [{ data: series.weight.data, borderColor: series.weight.color, backgroundColor: grad(series.weight.color), fill: true, tension: .4, borderWidth: 3, pointRadius: 0, pointHoverRadius: 6, spanGaps: true }] },
+      options: { maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' }, plugins: { legend: { display: false } },
+        scales: { x: { grid: { display: false } }, y: { grid: { color: wilifeColor('--line') }, border: { display: false } } } }
+    });
+    document.querySelectorAll('#metricSeg button').forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll('#metricSeg button').forEach(x => x.classList.toggle('on', x === b));
+      const s = series[b.dataset.m];
+      Object.assign(chart.data.datasets[0], { data: s.data, borderColor: s.color, backgroundColor: grad(s.color) });
+      chart.update();
+    }));
+  })();
 </script>
 {% endblock %}

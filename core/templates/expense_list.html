@@ -1,55 +1,102 @@
 {% extends 'base.html' %}
-{% block title %}Expense Records{% endblock %}
-
+{% load wilife %}
+{% block title %}Expenses{% endblock %}
+{% block section %}Money{% endblock %}{% block crumb %}Expenses{% endblock %}
 {% block content %}
-<div class="container py-5">
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="mb-0"><i class="bi bi-cash-coin me-2 text-primary"></i>Expense Records</h2>
-    <a href="{% url 'expense_create' %}" class="btn btn-primary">
-      <i class="bi bi-plus-circle-fill me-1"></i> Add New Expense
-    </a>
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Money out</span>
+    <h1 class="page-title">Expenses</h1>
+    <p class="page-sub">Know where it goes. That's the whole secret.</p>
   </div>
+  <div class="page-actions">
+    <a href="{% url 'export_excel' %}" class="btn btn-ghost"><i class="bi bi-filetype-xlsx"></i> Export</a>
+    <a href="{% url 'expense_create' %}" class="btn btn-brand"><i class="bi bi-plus-lg"></i> Add expense</a>
+  </div>
+</div>
 
-  {% if expenses %}
+<div class="row g-3 mb-4">
+  <div class="col-lg-4">
+    <div class="row g-3">
+      <div class="col-sm-6 col-lg-12 reveal"><div class="panel stat hover-lift"><div class="top"><span class="label">All-time spending</span><span class="ico-chip t-rose"><i class="bi bi-receipt"></i></span></div><div class="value"><small>Tsh</small> <span data-count="{{ total|floatformat:0 }}">{{ total|money }}</span></div><div class="foot">{{ expenses|length }} transaction{{ expenses|length|pluralize }}</div></div></div>
+      <div class="col-sm-6 col-lg-12 reveal"><div class="panel stat hover-lift"><div class="top"><span class="label">This month</span><span class="ico-chip t-brand"><i class="bi bi-calendar2-month"></i></span></div><div class="value"><small>Tsh</small> <span data-count="{{ month_total|floatformat:0 }}">{{ month_total|money }}</span></div><div class="foot">Since the 1st</div></div></div>
+    </div>
+  </div>
+  <div class="col-lg-8 reveal">
+    <div class="panel h-100">
+      <div class="panel-head"><h2 class="panel-title"><span class="ico t-plum"><i class="bi bi-pie-chart"></i></span>Where it goes</h2></div>
+      {% if by_category %}
+      <div class="row g-4 align-items-center">
+        <div class="col-md-5"><div style="max-width:220px;margin:auto"><canvas id="catChart"></canvas></div></div>
+        <div class="col-md-7">
+          {% for c in by_category|slice:":6" %}
+          <div class="mb-3">
+            <div class="d-flex justify-content-between small fw-semibold mb-1"><span>{{ c.label }}</span><span class="text-muted num">Tsh {{ c.total|money }} · {{ c.pct }}%</span></div>
+            <div class="meter"><span data-w="{{ c.pct }}" style="background:var(--cat-{{ forloop.counter0 }})"></span></div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% else %}<p class="text-muted mb-0">Your spending breakdown appears here after your first expense.</p>{% endif %}
+    </div>
+  </div>
+</div>
+
+{% if expenses %}
+<div class="table-wrap reveal">
+  <div class="table-toolbar">
+    <div class="search-field"><i class="bi bi-search"></i><input class="form-control" placeholder="Search expenses…" data-filter-target="#expense-table tbody tr"></div>
+    <span class="text-muted small fw-semibold">{{ expenses|length }} record{{ expenses|length|pluralize }}</span>
+  </div>
   <div class="table-responsive">
-    <table class="table table-bordered table-hover align-middle shadow-sm">
-      <thead class="table-light">
-        <tr>
-          <th scope="col">📅 Date</th>
-          <th scope="col">📂 Category</th>
-          <th scope="col">💵 Amount</th>
-          <th scope="col">⚙️ Actions</th>
-        </tr>
-      </thead>
+    <table class="table table-hover table-stack" id="expense-table">
+      <thead><tr><th>Category</th><th>Date</th><th class="text-end">Amount</th><th></th></tr></thead>
       <tbody>
-        {% for expense in expenses %}
+      {% for expense in expenses %}
         <tr>
-          <td>{{ expense.date }}</td>
-          <td>
-            <span class="badge bg-secondary text-capitalize">
-              {{ expense.category }}
-            </span>
-          </td>
-          <td class="text-danger fw-bold">Tsh.{{ expense.amount|floatformat:2 }}/=</td>
-          <td>
-            <a href="{% url 'expense_update' expense.id %}" class="btn btn-sm btn-outline-primary">
-              <i class="bi bi-pencil-square"></i> Edit
-            </a>
-            <a href="{% url 'expense_delete' expense.id %}" class="btn btn-sm btn-outline-danger"
-              onclick="return confirm('Are you sure you want to delete this expense?');">
-              <i class="bi bi-trash3"></i> Delete
-            </a>
-          </td>
+          <td class="span-2"><div class="d-flex align-items-center gap-3">
+            <div class="date-chip"><b>{{ expense.date|date:"d" }}</b><small>{{ expense.date|date:"M" }}</small></div>
+            <div><div class="cell-main">{{ expense.get_category_display }}</div>{% if expense.notes %}<div class="cell-sub">{{ expense.notes|truncatechars:60 }}</div>{% endif %}</div>
+          </div></td>
+          <td data-label="Date" class="text-muted">{{ expense.date|date:"D, j M Y" }}</td>
+          <td data-label="Amount" class="text-md-end"><span class="amount c-rose"><small>−TSH</small>{{ expense.amount|money }}</span></td>
+          <td class="span-2"><div class="row-actions">
+            <a href="{% url 'expense_update' expense.id %}" class="btn btn-ghost btn-icon btn-sm" title="Edit"><i class="bi bi-pencil"></i></a>
+            <a href="{% url 'expense_delete' expense.id %}" class="btn btn-soft-danger btn-icon btn-sm" title="Delete"><i class="bi bi-trash3"></i></a>
+          </div></td>
         </tr>
-        {% endfor %}
+      {% endfor %}
       </tbody>
     </table>
   </div>
-  {% else %}
-  <div class="alert alert-warning d-flex align-items-center" role="alert">
-    <i class="bi bi-exclamation-circle me-2"></i>
-    No expense records found. <a href="{% url 'expense_create' %}" class="ms-1">Add your first expense</a>.
-  </div>
-  {% endif %}
 </div>
+{% else %}
+<div class="panel reveal"><div class="empty">
+  <div class="art" style="background:var(--rose-soft);color:var(--rose)"><i class="bi bi-receipt"></i></div>
+  <h3>Nothing spent — yet</h3>
+  <p>Log your first expense. Even the small ones — chai, bajaji, airtime — add up faster than you think.</p>
+  <a href="{% url 'expense_create' %}" class="btn btn-brand"><i class="bi bi-plus-lg"></i> Add an expense</a>
+</div></div>
+{% endif %}
+{% endblock %}
+
+{% block extra_head %}
+<style>
+  :root { --cat-0:#e2603f; --cat-1:#7b5cd6; --cat-2:#2f9e7a; --cat-3:#e9a020; --cat-4:#3d7bd9; --cat-5:#d9466b; }
+</style>
+{% endblock %}
+{% block extra_scripts %}
+{% if by_category %}
+<script>
+  (function () {
+    const cats = [{% for c in by_category %}{label: "{{ c.label|escapejs }}", total: {{ c.total|floatformat:2 }}}{% if not forloop.last %},{% endif %}{% endfor %}];
+    const palette = ['#e2603f','#7b5cd6','#2f9e7a','#e9a020','#3d7bd9','#d9466b','#1f9bb0','#8f8a98','#b8472a','#4cc39b','#f0819e'];
+    new Chart(document.getElementById('catChart'), {
+      type: 'doughnut',
+      data: { labels: cats.map(c => c.label), datasets: [{ data: cats.map(c => c.total), backgroundColor: palette, borderWidth: 0, hoverOffset: 8 }] },
+      options: { cutout: '72%', plugins: { legend: { display: false } } }
+    });
+  })();
+</script>
+{% endif %}
 {% endblock %}
