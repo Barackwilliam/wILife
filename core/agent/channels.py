@@ -16,8 +16,10 @@ Channel preference for send_to_self, set by AGENT_SELF_CHANNEL:
                free tier where SMTP ports are blocked, no 24-hour window, no
                template approval. This is the default.
     telegram   No window, good formatting — but blocked without a VPN in TZ.
-    whatsapp   Only usable inside Meta's 24-hour window unless you have
-               approved templates.
+    whatsapp   Through the Baileys bridge (no window), or Meta's Cloud API
+               (24-hour window unless you have approved templates).
+    all        Every configured channel at once. Succeeds if at least one
+               delivers; the failures are logged.
 
 If the preferred channel fails, it falls through to the next configured one
 rather than losing the message. A reminder that arrives by the second-choice
@@ -29,6 +31,7 @@ import logging
 from django.conf import settings
 
 from core.agent import email_channel, telegram
+from core.agent import whatsapp
 from core.agent.whatsapp import WhatsAppError, resolve_recipient, send_whatsapp
 
 log = logging.getLogger("core.agent")
@@ -47,26 +50,42 @@ def _email_ready():
 
 
 def _whatsapp_ready(user):
-    return bool(getattr(settings, "WHATSAPP_ENABLED", False)) and bool(resolve_recipient(user))
+    if not whatsapp.configured():
+        return False
+    if user is None:
+        return bool(getattr(settings, "AGENT_DEFAULT_RECIPIENT", ""))
+    return bool(resolve_recipient(user))
+
+
+CHANNELS = ("email", "telegram", "whatsapp")
+
+
+def _ready(user):
+    return {
+        "email": _email_ready(),
+        "telegram": _telegram_ready(),
+        "whatsapp": _whatsapp_ready(user),
+    }
 
 
 def self_channel(user=None):
-    """Which channel a message to William will actually use, right now."""
+    """Which channel a message to William will actually use, right now ('all' or one name)."""
     preferred = getattr(settings, "AGENT_SELF_CHANNEL", "email").strip().lower()
+    ready = _ready(user)
 
-    ready = {
-        "email": _email_ready(),
-        "telegram": _telegram_ready(),
-        "whatsapp": _whatsapp_ready(user) if user is not None else bool(
-            getattr(settings, "WHATSAPP_ENABLED", False)),
-    }
-
+    if preferred == "all":
+        return "all" if any(ready.values()) else "none"
     if ready.get(preferred):
         return preferred
-    for name in ("email", "telegram", "whatsapp"):
+    for name in CHANNELS:
         if ready.get(name):
             return name
     return "none"
+
+
+def ready_channels(user=None):
+    """Names of every channel that is configured right now."""
+    return [name for name, ok in _ready(user).items() if ok]
 
 
 def _send_on(channel, user, text):
@@ -84,8 +103,11 @@ def _send_on(channel, user, text):
 
 def send_to_self(user, text):
     """
-    Deliver a message to William, trying the preferred channel first and
-    falling through to any other configured one on failure.
+    Deliver a message to William.
+
+    With AGENT_SELF_CHANNEL=all, send on every configured channel and succeed if
+    any one delivers. Otherwise try the preferred channel first and fall through
+    to any other configured one on failure.
     """
     preferred = self_channel(user)
     if preferred == "none":
@@ -94,16 +116,26 @@ def send_to_self(user, text):
             "or AGENT_TELEGRAM_CHAT_ID, or a WhatsApp number"
         )
 
-    order = [preferred] + [c for c in ("email", "telegram", "whatsapp") if c != preferred]
+    ready = _ready(user)
     errors = []
 
+    if preferred == "all":
+        results = {}
+        for channel in CHANNELS:
+            if not ready[channel]:
+                continue
+            try:
+                results[channel] = _send_on(channel, user, text)
+            except Exception as exc:
+                errors.append(f"{channel}: {exc}")
+                log.error("delivery failed on %s: %s", channel, exc)
+        if results:
+            return results
+        raise DeliveryError("; ".join(errors) or "no channel available")
+
+    order = [preferred] + [c for c in CHANNELS if c != preferred]
     for channel in order:
-        ready = {
-            "email": _email_ready(),
-            "telegram": _telegram_ready(),
-            "whatsapp": _whatsapp_ready(user),
-        }[channel]
-        if not ready:
+        if not ready[channel]:
             continue
         try:
             result = _send_on(channel, user, text)

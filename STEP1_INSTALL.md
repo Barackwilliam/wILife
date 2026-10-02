@@ -45,7 +45,7 @@ personal_assistant/settings.py     ← replaces the existing file
 
 ### 2. Edit `core/models.py`
 
-Three changes — see `core/models_APPEND_THIS.py` for the exact code.
+Three changes (already applied in `core/models.py`):
 
 - Add `whatsapp_number` to the existing `Profile` class
 - Add a `Meta` class with the reminder index to the existing `Schedule` class

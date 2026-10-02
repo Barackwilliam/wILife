@@ -80,6 +80,7 @@ urlpatterns = [
     path('goals/<int:pk>/milestone/', views.goal_add_milestone, name='goal_add_milestone'),
     path('goals/<int:pk>/milestone/<int:milestone_pk>/toggle/', views.goal_toggle_milestone, name='goal_toggle_milestone'),
     path('agent/whatsapp/', views_whatsapp.whatsapp_webhook, name='whatsapp_webhook'),
+    path('agent/whatsapp/baileys/', views_whatsapp.baileys_incoming, name='whatsapp_baileys_incoming'),
     # Dashboard preferences
     path('dashboard/save-prefs/', views.dashboard_save_prefs, name='dashboard_save_prefs'),
     path('agent/telegram/', views_telegram.telegram_webhook, name='telegram_webhook'),

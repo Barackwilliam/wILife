@@ -120,6 +120,10 @@ AGENT_ENABLED = env_bool("AGENT_ENABLED", True)
 AGENT_TICK_BUDGET_SECONDS = int(env("AGENT_TICK_BUDGET_SECONDS", "20"))
 AGENT_STALE_REMINDER_HOURS = int(env("AGENT_STALE_REMINDER_HOURS", "24"))
 WHATSAPP_ENABLED = env_bool("WHATSAPP_ENABLED", True)
+# baileys = Node bridge in whatsapp_bridge/ (no 24h window); meta = Cloud API
+WHATSAPP_PROVIDER = env("WHATSAPP_PROVIDER", "baileys")
+WHATSAPP_BRIDGE_URL = env("WHATSAPP_BRIDGE_URL", "")
+WHATSAPP_BRIDGE_KEY = env("WHATSAPP_BRIDGE_KEY", "")
 WHATSAPP_TOKEN = env("WHATSAPP_TOKEN", "")
 WHATSAPP_PHONE_NUMBER_ID = env("WHATSAPP_PHONE_NUMBER_ID", "")
 WHATSAPP_API_VERSION = env("WHATSAPP_API_VERSION", "v21.0")
@@ -229,7 +233,7 @@ TELEGRAM_WEBHOOK_SECRET = env("TELEGRAM_WEBHOOK_SECRET", "")
 AGENT_TELEGRAM_CHAT_ID = env("AGENT_TELEGRAM_CHAT_ID", "")
 
 
-# Self channel: email | telegram | whatsapp
+# Self channel: email | telegram | whatsapp | all
 AGENT_SELF_CHANNEL = env("AGENT_SELF_CHANNEL", "email")
 
 # Email channel (Resend over HTTPS — SMTP ports are blocked on Render free)

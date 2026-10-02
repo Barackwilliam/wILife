@@ -3,7 +3,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login
 from django.contrib import messages
 from .forms import UserRegisterForm, UserUpdateForm, ProfileUpdateForm
-from .models import Notification, Schedule,HealthRecord
+from .models import Notification, Schedule, HealthRecord, Profile
 from django.http import JsonResponse
 from django.db.models import Sum
 from django.utils import timezone
@@ -15,6 +15,7 @@ from django.db.models import Sum, Count, Avg
 
 from datetime import date, timedelta
 from django.http import HttpResponse
+import io
 import pandas as pd
 from xhtml2pdf import pisa
 from django.template.loader import render_to_string
@@ -467,17 +468,26 @@ def export_excel(request):
     health = HealthRecord.objects.filter(user=user).values('date', 'weight', 'exercise_minutes', 'sleep_hours')
     schedules = Schedule.objects.filter(user=user).values('title', 'description', 'start_datetime', 'end_datetime', 'location')
 
-    with pd.ExcelWriter('report.xlsx', engine='openpyxl') as writer:
-        pd.DataFrame(list(incomes)).to_excel(writer, sheet_name='Incomes', index=False)
-        pd.DataFrame(list(expenses)).to_excel(writer, sheet_name='Expenses', index=False)
-        pd.DataFrame(list(tasks)).to_excel(writer, sheet_name='Tasks', index=False)
-        pd.DataFrame(list(health)).to_excel(writer, sheet_name='Health', index=False)
-        pd.DataFrame(list(schedules)).to_excel(writer, sheet_name='Schedule', index=False)
+    def frame(rows):
+        # Excel cannot store timezone-aware datetimes; write them as local time.
+        df = pd.DataFrame(list(rows))
+        for col in df.columns:
+            if isinstance(df[col].dtype, pd.DatetimeTZDtype):
+                df[col] = df[col].dt.tz_convert(timezone.get_current_timezone_name()).dt.tz_localize(None)
+        return df
 
-    with open('report.xlsx', 'rb') as f:
-        response = HttpResponse(f.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = 'attachment; filename=report.xlsx'
-        return response
+    # Build in memory: a shared file on disk could hand one user's report to another.
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+        frame(incomes).to_excel(writer, sheet_name='Incomes', index=False)
+        frame(expenses).to_excel(writer, sheet_name='Expenses', index=False)
+        frame(tasks).to_excel(writer, sheet_name='Tasks', index=False)
+        frame(health).to_excel(writer, sheet_name='Health', index=False)
+        frame(schedules).to_excel(writer, sheet_name='Schedule', index=False)
+
+    response = HttpResponse(buffer.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename=report.xlsx'
+    return response
 
 # Export reports as PDF
 
