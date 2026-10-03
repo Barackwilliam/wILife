@@ -1,0 +1,5 @@
+{% load news_tags %}<aside class="side"><div class="sticky">
+  {% if popular %}<div class="box rv-pop"><h3>{% icon "fire" %} Zinazosomwa zaidi</h3><ol>{% for p in popular %}<li class="c-{{ p.category }}"><a href="{{ p.get_absolute_url }}"><span class="rv-cat">{{ p.get_category_display }}</span>{{ p.title }}</a></li>{% endfor %}</ol></div>{% endif %}
+  {% for s in services %}{% include 'news/_ad.html' with service=s %}{% endfor %}
+  {% if topics %}<div class="box"><h3>{% icon "hash" %} Mada moto</h3><div class="tags mt-1">{% for name, slug in topics %}{% if slug != current_slug %}<a href="{% url 'news:topic' slug %}">{{ name }}</a>{% endif %}{% endfor %}</div></div>{% endif %}
+</div></aside>

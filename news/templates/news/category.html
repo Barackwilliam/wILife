@@ -3,15 +3,11 @@
 {% block title %}Habari za {{ label }} Leo{% if page.number > 1 %} — Ukurasa {{ page.number }}{% endif %} | wILife{% endblock %}
 {% block description %}{{ blurb }} Habari mpya za {{ label }} kwa Kiswahili, kila siku.{% endblock %}
 {% block og_title %}Habari za {{ label }} — wILife{% endblock %}
+{% block preload %}{% if lead %}<link rel="preload" as="image" href="{{ lead.art_url }}" fetchpriority="high">{% endif %}{% endblock %}
 {% block content %}
-<div class="c-{{ category }}">
-  <header class="ph"><nav class="crumbs"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><span>{{ label }}</span></nav><h1>{{ label }}</h1><p>{{ blurb }}</p></header>
-  <div class="cols">
-    <div>{% include 'news/_list_page.html' with feature=True %}</div>
-    <aside class="side"><div class="sticky">
-      {% if popular %}<div class="box"><h3>Zinazosomwa zaidi</h3><ol class="tl">{% for p in popular %}<li class="c-{{ p.category }}"><a href="{{ p.get_absolute_url }}">{{ p.title }}</a></li>{% endfor %}</ol></div>{% endif %}
-      {% for s in services %}{% include 'news/_ad.html' with service=s %}{% endfor %}
-    </div></aside>
-  </div>
+{% include 'news/_river_hero.html' with crumb=label heading=label intro=blurb active=category %}
+<div class="cols rv-cols c-{{ category }}">
+  <div>{% include 'news/_river.html' %}</div>
+  {% include 'news/_river_side.html' %}
 </div>
 {% endblock %}

@@ -3,9 +3,11 @@
 {% block title %}{{ name|capfirst }} — Habari za Hivi Punde{% if page.number > 1 %} (Ukurasa {{ page.number }}){% endif %} | wILife{% endblock %}
 {% block description %}Habari zote kuhusu {{ name }} kwa Kiswahili — za karibuni kutoka Tanzania, Afrika na Dunia.{% endblock %}
 {% block content %}
-<header class="ph"><nav class="crumbs"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><span>Mada</span></nav><h1>#{{ name }}</h1><p>Habari zote kuhusu {{ name }}.</p></header>
-<div class="cols">
-  <div>{% include 'news/_list_page.html' %}</div>
-  <aside class="side"><div class="sticky">{% if topics %}<div class="box"><h3>Mada nyingine</h3><div class="tags mt-1">{% for n, s in topics %}{% if s != slug %}<a href="{% url 'news:topic' s %}">{% icon "hash" %}{{ n }}</a>{% endif %}{% endfor %}</div></div>{% endif %}</div></aside>
+{% with heading="#"|add:name intro="Habari zote kuhusu "|add:name|add:", kuanzia ya karibuni zaidi." %}
+{% include 'news/_river_hero.html' with crumb="Mada" heading=heading intro=intro topic_page=True %}
+{% endwith %}
+<div class="cols rv-cols">
+  <div>{% include 'news/_river.html' %}</div>
+  {% include 'news/_river_side.html' with current_slug=slug %}
 </div>
 {% endblock %}

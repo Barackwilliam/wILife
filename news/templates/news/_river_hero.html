@@ -1,0 +1,19 @@
+{% load news_tags %}<header class="rv-hero{% if active %} c-{{ active }}{% endif %}">
+  <nav class="crumbs"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><span>{{ crumb }}</span></nav>
+  <div class="rv-hero-top">
+    <div class="rv-hero-tx">
+      <span class="rv-live"><i></i>{% if updated %}Imesasishwa {{ updated|sw_ago }}{% else %}Habari za kila siku{% endif %}</span>
+      <h1>{{ heading }}</h1>
+      {% if intro %}<p>{{ intro }}</p>{% endif %}
+    </div>
+    <dl class="rv-stats">
+      <div><dt>Zote</dt><dd>{{ total }}</dd></div>
+      <div><dt>Saa 24</dt><dd>{{ day_count }}</dd></div>
+      <div><dt>Wiki hii</dt><dd>{{ week_count }}</dd></div>
+    </dl>
+  </div>
+  <nav class="rv-chips" aria-label="Chuja kwa kundi">
+    <a href="{% url 'news:latest' %}" class="{% if not active and not topic_page %}on{% endif %}">Zote <b>{{ all_count }}</b></a>
+    {% for value, label, n in chips %}<a href="{% url 'news:category' value %}" class="c-{{ value }}{% if active == value %} on{% endif %}"><i></i>{% if value == 'jamiitek' %}Teknolojia{% else %}{{ label }}{% endif %} <b>{{ n }}</b></a>{% endfor %}
+  </nav>
+</header>
