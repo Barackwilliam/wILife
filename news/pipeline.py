@@ -119,7 +119,7 @@ def request_batch_approval(batch):
     articles = list(batch.articles.filter(status="draft").order_by("slot"))
     site = getattr(settings, "SITE_URL", "").rstrip("/")
     review = f"{site}{reverse('news:review')}" if site else reverse("news:review")
-    lines = [f"📰 *wILife — rasimu za {swahili_date(batch.date)}* ({len(articles)})", ""]
+    lines = [f"📰 *Rasimu za habari — {swahili_date(batch.date)}* ({len(articles)})", ""]
     for a in articles:
         lines.append(f"{a.slot}. [{a.get_category_display()}] {a.title}")
     approval = ApprovalRequest.objects.create(
@@ -182,6 +182,10 @@ def run(now=None, deadline=None, dry_run=False, force=False):
         return {"job": "news_drafts", "sent": 0, "failed": 0, "detail": "dry run"}
 
     batch, _ = NewsBatch.objects.get_or_create(date=local.date())
+    if batch.status in ("published", "rejected") and not batch.articles.exists():
+        # Closed before anything was written (e.g. "publish" pressed on an empty batch): reopen it.
+        batch.status = "drafting"
+        batch.save(update_fields=["status"])
     if batch.status != "drafting":
         return {"job": "news_drafts", "sent": 0, "failed": 0, "detail": f"batch {batch.status}"}
 

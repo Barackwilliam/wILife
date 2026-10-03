@@ -14,12 +14,11 @@ party is not a heartbeat.
 import json
 import logging
 
-import requests
 from django.conf import settings
 
-log = logging.getLogger("core.agent")
+from core import groq
 
-GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+log = logging.getLogger("core.agent")
 
 PHRASE_SYSTEM = """You rewrite a personal daily brief for William, a solo software developer and agency owner in Dar es Salaam.
 
@@ -45,26 +44,7 @@ def _enabled():
 
 
 def _call(system, user_content, max_tokens=900, temperature=0.3, timeout=12):
-    key = settings.GROQ_API_KEY
-    model = getattr(settings, "GROQ_MODEL", "llama-3.3-70b-versatile")
-    response = requests.post(
-        GROQ_URL,
-        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-        json={
-            "model": model,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user_content},
-            ],
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-        },
-        timeout=timeout,
-    )
-    if response.status_code != 200:
-        raise RuntimeError(f"groq HTTP {response.status_code}: {response.text[:200]}")
-    data = response.json()
-    return data["choices"][0]["message"]["content"].strip()
+    return groq.chat(system, user_content, max_tokens=max_tokens, temperature=temperature, timeout=timeout)
 
 
 def phrase_brief(fallback_text, facts=None):

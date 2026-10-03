@@ -18,9 +18,9 @@ import re
 import requests
 from django.conf import settings
 
-log = logging.getLogger("news")
+from core import groq
 
-GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+log = logging.getLogger("news")
 
 
 class WriterError(Exception):
@@ -70,21 +70,11 @@ def enabled():
 def _call(system, user_content, max_tokens=1800, temperature=0.4, timeout=45):
     if not enabled():
         raise WriterError("GROQ_API_KEY is not set")
-    response = requests.post(
-        GROQ_URL,
-        headers={"Authorization": f"Bearer {settings.GROQ_API_KEY}", "Content-Type": "application/json"},
-        json={
-            "model": getattr(settings, "NEWS_MODEL", "") or getattr(settings, "GROQ_MODEL", "llama-3.3-70b-versatile"),
-            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user_content}],
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-            "response_format": {"type": "json_object"},
-        },
-        timeout=timeout,
-    )
-    if response.status_code != 200:
-        raise WriterError(f"groq HTTP {response.status_code}: {response.text[:200]}")
-    return response.json()["choices"][0]["message"]["content"]
+    try:
+        return groq.chat(system, user_content, model=getattr(settings, "NEWS_MODEL", "") or None,
+                         max_tokens=max_tokens, temperature=temperature, timeout=timeout, json_mode=True)
+    except (groq.GroqError, requests.RequestException) as exc:
+        raise WriterError(str(exc)) from exc
 
 
 def _parse(raw):

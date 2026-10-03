@@ -231,7 +231,9 @@ def review_action(request):
     action = request.POST.get("action")
     if action in ("publish_batch", "reject_batch"):
         batch = get_object_or_404(NewsBatch, pk=request.POST.get("batch"))
-        if action == "publish_batch":
+        if action == "publish_batch" and not batch.articles.filter(status="draft").exists():
+            messages.warning(request, "Hakuna rasimu za kuchapisha bado.")
+        elif action == "publish_batch":
             n = pipeline.publish_batch(batch)
             if batch.approval and batch.approval.status == "pending":
                 batch.approval.status = "sent"

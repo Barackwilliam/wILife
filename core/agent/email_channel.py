@@ -10,11 +10,10 @@ business-initiated messages outside its 24-hour window without approved
 templates. Email has neither problem — it works today, everywhere, for free.
 
 The agent's messages are written in WhatsApp-style markup (*bold*, _italic_).
-This module converts that to simple HTML so the same message text works on
-every channel without any job knowing which one is in use.
+message_format turns that into a designed HTML email, so the same message text
+works on every channel without any job knowing which one is in use.
 """
 
-import html
 import logging
 import re
 import time
@@ -54,20 +53,9 @@ def _subject_from(text):
 
 
 def to_html(text):
-    """Convert WhatsApp-style markup to minimal, readable HTML."""
-    escaped = html.escape(text)
-    escaped = re.sub(r"\*([^*\n]+)\*", r"<strong>\1</strong>", escaped)
-    escaped = re.sub(r"_([^_\n]+)_", r"<em>\1</em>", escaped)
-    escaped = escaped.replace("\n", "<br>")
-    return (
-        '<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;'
-        'font-size:15px;line-height:1.6;color:#1a1a1a;max-width:620px;'
-        'padding:20px;background:#ffffff;">'
-        f"{escaped}"
-        '<hr style="border:none;border-top:1px solid #e5e5e5;margin:24px 0 12px;">'
-        '<div style="font-size:12px;color:#8a8a8a;">wILife</div>'
-        "</div>"
-    )
+    """Render a message as a designed HTML email (see message_format)."""
+    from core.agent.message_format import email_html
+    return email_html(text)
 
 
 def send_email(to, text, subject=None, retries=2, timeout=10):

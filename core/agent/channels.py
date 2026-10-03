@@ -31,6 +31,7 @@ import logging
 from django.conf import settings
 
 from core.agent import email_channel, telegram
+from core.agent.message_format import for_chat
 from core.agent import whatsapp
 from core.agent.whatsapp import WhatsAppError, resolve_recipient, send_whatsapp
 
@@ -92,12 +93,12 @@ def _send_on(channel, user, text):
     if channel == "email":
         return email_channel.send_email(settings.AGENT_EMAIL_TO, text)
     if channel == "telegram":
-        return telegram.send_telegram(settings.AGENT_TELEGRAM_CHAT_ID, text)
+        return telegram.send_telegram(settings.AGENT_TELEGRAM_CHAT_ID, for_chat(text))
     if channel == "whatsapp":
         number = resolve_recipient(user)
         if not number:
             raise WhatsAppError("no WhatsApp number configured")
-        return send_whatsapp(number, text)
+        return send_whatsapp(number, for_chat(text))
     raise DeliveryError(f"unknown channel: {channel}")
 
 
