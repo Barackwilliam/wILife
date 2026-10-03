@@ -61,7 +61,8 @@ class SendToSelfAllChannelsTests(TestCase):
 
         bridge_call = next(c for c in post.call_args_list if c.args[0].startswith("http://bridge.test"))
         self.assertEqual(bridge_call.args[0], "http://bridge.test/send")
-        self.assertEqual(bridge_call.kwargs["json"], {"to": "255712345678", "text": "*Kumbusho* test"})
+        self.assertEqual(bridge_call.kwargs["json"]["to"], "255712345678")
+        self.assertTrue(bridge_call.kwargs["json"]["text"].startswith("*Kumbusho* test\n━"))
         self.assertEqual(bridge_call.kwargs["headers"]["X-Bridge-Key"], "bridge-key")
 
     def test_one_failing_channel_does_not_stop_the_others(self):
@@ -280,3 +281,59 @@ class UiFlowTests(TestCase):
         self.client.post("/profile/", {"username": "owner", "email": "o@x.com", "whatsapp_number": "0712345678"})
         self.user.profile.refresh_from_db()
         self.assertEqual(self.user.profile.whatsapp_number, "0712345678")
+
+
+class MessageFormatTests(TestCase):
+    BRIEF = (
+        "☀️ *Habari za asubuhi, William*\n_Jumamosi_\n\n📅 *Ratiba ya leo*\n  09:00  Kikao\n\n"
+        "✅ *Vipaumbele*\n  🔴 Invoice\n  Kupiga simu\n\n💰 *Mwezi huu*\n  Mapato:   TZS 1,000\n"
+    )
+    APPROVAL = (
+        "✍️ *Rasimu inasubiri idhini*\n\n*Kwenda kwa:* Asha\n────────────\nHabari <b>Asha</b>\n────────────\n\n"
+        "Soma: https://example.com/r/\nJibu *OK 1234* kutuma\nJibu *NO 1234* kufuta\n"
+    )
+
+    def test_parse_reads_the_message_structure(self):
+        from core.agent.message_format import parse
+        emoji, title, blocks = parse(self.BRIEF)
+        self.assertEqual((emoji, title), ("☀️", "Habari za asubuhi, William"))
+        kinds = [k for k, _ in blocks if k != "space"]
+        self.assertEqual(kinds, ["note", "section", "item", "section", "item", "item", "section", "kv"])
+        self.assertIn(("kv", ("Mapato", "TZS 1,000")), blocks)
+
+        _, _, blocks = parse(self.APPROVAL)
+        self.assertIn(("label", {"label": "Kwenda kwa", "value": "Asha"}), blocks)
+        self.assertIn(("quote", ["Habari <b>Asha</b>"]), blocks)
+        self.assertIn(("link", ("Soma", "https://example.com/r/")), blocks)
+        self.assertEqual(blocks[-1], ("replies", [("OK", "1234", "kutuma"), ("NO", "1234", "kufuta")]))
+
+    def test_email_html_is_designed_and_escaped(self):
+        from core.agent.email_channel import to_html
+        out = to_html(self.APPROVAL)
+        self.assertIn("Rasimu inasubiri idhini", out)
+        self.assertIn('href="https://example.com/r/"', out)
+        self.assertIn("OK 1234", out)
+        self.assertIn("&lt;b&gt;Asha&lt;/b&gt;", out)
+        self.assertNotIn("<b>Asha</b>", out)
+
+    def test_chat_version_adds_rule_bullets_and_signature(self):
+        from core.agent.message_format import CHAT_RULE, for_chat
+        out = for_chat(self.BRIEF)
+        lines = out.splitlines()
+        self.assertEqual(lines[1], CHAT_RULE)
+        self.assertIn("  • 09:00  Kikao", lines)
+        self.assertIn("  🔴 Invoice", lines)
+        self.assertIn("  • Kupiga simu", lines)
+        self.assertTrue(out.endswith("_— wILife_"))
+        numbered = for_chat("📰 *Rasimu*\n\n1. [Dunia] A\n2. [Afrika] B")
+        self.assertIn("1. [Dunia] A", numbered)
+
+    @override_settings(**{**ALL_CHANNELS, "EMAIL_CHANNEL_ENABLED": False, "TELEGRAM_ENABLED": False})
+    def test_messages_to_william_use_the_chat_format_but_messages_to_clients_do_not(self):
+        from core.agent import channels
+        with mock.patch("requests.post", side_effect=_fake_post) as post:
+            channels.send_to_self(None, "⏰ *Kumbusho*\n\nKikao")
+            channels.send_to_other("255700000009", "Habari Asha")
+        texts = [c.kwargs["json"]["text"] for c in post.call_args_list if c.args[0].endswith("/send")]
+        self.assertTrue(texts[0].startswith("⏰ *Kumbusho*\n━"))
+        self.assertEqual(texts[1], "Habari Asha")

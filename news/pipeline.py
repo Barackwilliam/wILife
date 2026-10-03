@@ -119,7 +119,7 @@ def request_batch_approval(batch):
     articles = list(batch.articles.filter(status="draft").order_by("slot"))
     site = getattr(settings, "SITE_URL", "").rstrip("/")
     review = f"{site}{reverse('news:review')}" if site else reverse("news:review")
-    lines = [f"📰 *wILife — rasimu za {swahili_date(batch.date)}* ({len(articles)})", ""]
+    lines = [f"📰 *Rasimu za habari — {swahili_date(batch.date)}* ({len(articles)})", ""]
     for a in articles:
         lines.append(f"{a.slot}. [{a.get_category_display()}] {a.title}")
     approval = ApprovalRequest.objects.create(
