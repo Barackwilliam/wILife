@@ -48,6 +48,7 @@
 
   <header class="hdr" id="hdr">
     <div class="wrap">
+      <button class="burger" id="burger" type="button" aria-label="Fungua menyu" aria-controls="drawer" aria-expanded="false">{% icon "list" %}</button>
       <a href="{% url 'news:home' %}" class="logo" aria-label="wILife — mwanzo">{% include 'partials/brand_mark.html' %}<b>w<em>I</em>Life</b></a>
       {% firstof category article.category '' as c %}{% with u=request.resolver_match.url_name %}
       <nav class="nav" id="nav" aria-label="Makundi">
@@ -60,12 +61,47 @@
         <a href="{% url 'news:services' %}" class="hl {% if 'service' in u %}on{% endif %}">Huduma</a>
       </nav>
       {% endwith %}
+      <a class="hdr-s" href="{% url 'news:search' %}" aria-label="Tafuta habari">{% icon "search" %}</a>
       <div class="hdr-act">
         <form class="hdr-search" action="{% url 'news:search' %}" role="search">{% icon "search" %}<input type="search" name="q" placeholder="Tafuta habari…" aria-label="Tafuta" value="{{ q|default:'' }}"></form>
       </div>
-      <button class="burger" id="burger" aria-label="Menyu" aria-controls="nav">{% icon "list" %}</button>
     </div>
   </header>
+
+  {% firstof category article.category '' as dc %}{% with u=request.resolver_match.url_name %}
+  <div class="dr-back" id="dr-back" hidden></div>
+  <aside class="drawer" id="drawer" aria-label="Menyu" aria-hidden="true">
+    <div class="dr-head">
+      <a href="{% url 'news:home' %}" class="logo">{% include 'partials/brand_mark.html' %}<b>w<em>I</em>Life</b></a>
+      <button class="dr-x" id="dr-x" type="button" aria-label="Funga menyu">{% icon "x-lg" %}</button>
+    </div>
+    <div class="dr-body">
+      <form class="dr-search" action="{% url 'news:search' %}" role="search">{% icon "search" %}<input type="search" name="q" placeholder="Tafuta habari…" aria-label="Tafuta" value="{{ q|default:'' }}"></form>
+      <p class="dr-lbl">Habari</p>
+      <nav class="dr-nav" aria-label="Makundi ya habari">
+        <a href="{% url 'news:home' %}" class="{% if u == 'home' %}on{% endif %}"><span class="dr-ic">{% icon "newspaper" %}</span>Mwanzo{% icon "chevron-right" %}</a>
+        <a href="{% url 'news:latest' %}" class="{% if u == 'latest' %}on{% endif %}"><span class="dr-ic">{% icon "lightning-charge-fill" %}</span>Habari mpya{% icon "chevron-right" %}</a>
+        <a href="{% url 'news:category' 'tanzania' %}" class="c-tanzania{% if dc == 'tanzania' %} on{% endif %}"><span class="dr-dot"></span>Tanzania{% icon "chevron-right" %}</a>
+        <a href="{% url 'news:category' 'afrika' %}" class="c-afrika{% if dc == 'afrika' %} on{% endif %}"><span class="dr-dot"></span>Afrika{% icon "chevron-right" %}</a>
+        <a href="{% url 'news:category' 'dunia' %}" class="c-dunia{% if dc == 'dunia' %} on{% endif %}"><span class="dr-dot"></span>Dunia{% icon "chevron-right" %}</a>
+        <a href="{% url 'news:category' 'jamiitek' %}" class="c-jamiitek{% if dc == 'jamiitek' %} on{% endif %}"><span class="dr-dot"></span>Teknolojia{% icon "chevron-right" %}</a>
+      </nav>
+      <p class="dr-lbl">JamiiTek</p>
+      <nav class="dr-nav" aria-label="Huduma">
+        <a href="{% url 'news:services' %}" class="{% if u == 'services' %}on{% endif %}"><span class="dr-ic">{% icon "stars" %}</span>Huduma zote{% icon "chevron-right" %}</a>
+        {% for s in footer_services %}<a href="{{ s.get_absolute_url }}" class="dr-sub{% if service.slug == s.slug %} on{% endif %}">{{ s.name }}</a>{% endfor %}
+        <a href="{% url 'news:about' %}" class="{% if u == 'about' %}on{% endif %}"><span class="dr-ic">{% icon "info-circle" %}</span>Kuhusu sisi{% icon "chevron-right" %}</a>
+      </nav>
+    </div>
+    <div class="dr-foot">
+      <a href="{% if user.is_authenticated %}{% url 'dashboard' %}{% else %}{% url 'login' %}{% endif %}" class="dr-cta">{% icon "grid-1x2-fill" %} {% if user.is_authenticated %}Fungua wILife{% else %}Ingia wILife{% endif %}</a>
+      <div class="dr-row">
+        <button class="dr-theme" data-theme-toggle type="button"><span class="moon">{% icon "moon-stars-fill" %}</span><span class="sun">{% icon "sun-fill" %}</span><span>Badilisha mwanga</span></button>
+        <span class="dr-soc">{% for s in social_links %}<a href="{{ s.url }}" target="_blank" rel="noopener me" aria-label="{{ s.icon }}">{% icon s.icon %}</a>{% endfor %}</span>
+      </div>
+    </div>
+  </aside>
+  {% endwith %}
 
   {% block ticker %}{% endblock %}
 
@@ -94,7 +130,21 @@
     (function () {
       var h = document.getElementById('hdr'), n = document.getElementById('nav'), b = document.getElementById('burger');
       addEventListener('scroll', function () { h.classList.toggle('scrolled', scrollY > 10); }, { passive: true });
-      b && b.addEventListener('click', function () { n.classList.toggle('open'); });
+      var d = document.getElementById('drawer'), bk = document.getElementById('dr-back'), x = document.getElementById('dr-x');
+      function menu(open) {
+        if (!d) return;
+        d.classList.toggle('open', open); d.setAttribute('aria-hidden', open ? 'false' : 'true');
+        b.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) { bk.hidden = false; requestAnimationFrame(function () { bk.classList.add('on'); }); }
+        else { bk.classList.remove('on'); setTimeout(function () { if (!d.classList.contains('open')) bk.hidden = true; }, 250); }
+        document.documentElement.classList.toggle('dr-lock', open);
+        (open ? x : b).focus({ preventScroll: true });
+      }
+      b && b.addEventListener('click', function () { menu(true); });
+      x && x.addEventListener('click', function () { menu(false); });
+      bk && bk.addEventListener('click', function () { menu(false); });
+      addEventListener('keydown', function (e) { if (e.key === 'Escape' && d.classList.contains('open')) menu(false); });
+      matchMedia('(min-width: 861px)').addEventListener('change', function (m) { if (m.matches && d.classList.contains('open')) menu(false); });
       document.addEventListener('click', function (e) {
         var t = e.target.closest('[data-theme-toggle]'); if (!t) return;
         var r = document.documentElement, next = r.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
