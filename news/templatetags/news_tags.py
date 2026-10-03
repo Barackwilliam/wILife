@@ -178,3 +178,43 @@ def icon(name, cls=""):
     key = name[3:] if name.startswith("bi-") else name
     inner = ICONS.get(key) or ICONS["stars"]
     return mark_safe(f'<svg class="i {cls}" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">{inner}</svg>')
+
+
+def _as_date(value):
+    from datetime import date
+    from django.utils import timezone
+    if isinstance(value, str):
+        try:
+            return date.fromisoformat(value)
+        except ValueError:
+            return None
+    return timezone.localtime(value).date() if hasattr(value, "hour") else value
+
+
+@register.filter
+def sw_day(value):
+    """'Leo', 'Jana', or the weekday name — for day headings in the news river."""
+    from datetime import timedelta
+    from django.utils import timezone
+    from news.pipeline import SWAHILI_DAYS
+    day = _as_date(value)
+    if not day:
+        return ""
+    today = timezone.localdate()
+    if day == today:
+        return "Leo"
+    if day == today - timedelta(days=1):
+        return "Jana"
+    return SWAHILI_DAYS[day.weekday()]
+
+
+@register.filter
+def sw_daydate(value):
+    """'4 Oktoba' (year added only when it is not this year)."""
+    from django.utils import timezone
+    from news.pipeline import SWAHILI_MONTHS
+    day = _as_date(value)
+    if not day:
+        return ""
+    text = f"{day.day} {SWAHILI_MONTHS[day.month - 1]}"
+    return text if day.year == timezone.localdate().year else f"{text} {day.year}"

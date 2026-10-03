@@ -356,3 +356,47 @@ class DatabaseFallbackTests(TestCase):
         self.assertIsNotNone(a.cover_png)
         self.assertEqual(a.art_url, f"/habari/picha/{a.pk}-sanaa.webp")
         self.assertEqual(self.client.get(a.art_url)["Content-Type"], "image/webp")
+
+
+class RiverListTests(TestCase):
+    """The list pages: lead story, day groups, load-more fragment, scoped stats."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)  # anonymous pages are cached; keep other tests clean
+        now = timezone.now()
+        for i in range(20):
+            Article.objects.create(
+                title=f"Habari namba {i}", category="tanzania" if i % 2 else "dunia", excerpt="x", body="y " * 50,
+                keywords="Dodoma", source_url=f"https://example.tz/{i}", status="published",
+                published_at=now - timezone.timedelta(hours=i * 6))
+
+    def test_latest_page_has_lead_day_groups_and_load_more(self):
+        r = self.client.get("/habari/")
+        self.assertContains(r, 'class="rv-lead')
+        self.assertContains(r, "Habari namba 0")
+        self.assertContains(r, 'class="rv-day"')
+        self.assertContains(r, "data-more")
+        self.assertContains(r, "?page=2")
+        self.assertNotContains(r, "core/css/wilife.css")
+
+    def test_partial_returns_only_rows_and_is_not_indexed(self):
+        r = self.client.get("/habari/?page=2&partial=1")
+        self.assertEqual(r["X-Robots-Tag"], "noindex")
+        self.assertContains(r, 'class="rv-row')
+        self.assertNotContains(r, "<html")
+        self.assertNotContains(r, "rv-lead")
+        self.assertNotContains(r, "data-next")  # 20 articles fit on two pages
+
+    def test_category_stats_count_only_that_category(self):
+        r = self.client.get("/habari/tanzania/")
+        self.assertEqual(r.context["total"], 10)
+        self.assertEqual(r.context["all_count"], 20)
+        self.assertNotContains(r, "Habari namba 0")  # dunia
+
+    def test_topic_and_search_use_the_river(self):
+        self.assertContains(self.client.get("/mada/dodoma/"), 'class="rv-row')
+        r = self.client.get("/tafuta/?q=namba")
+        self.assertContains(r, 'class="rv-row')
+        self.assertNotContains(r, "rv-lead")  # search results are not ranked by "lead"

@@ -1,0 +1,38 @@
+{% load news_tags %}{% if lead or rows %}
+<div class="rv">
+  {% if lead %}<a href="{{ lead.get_absolute_url }}" class="rv-lead c-{{ lead.category }}">
+    <div class="rv-lead-img"><img src="{{ lead.art_url }}" fetchpriority="high" decoding="async" width="1200" height="630" alt="{{ lead.title }}"></div>
+    <div class="rv-lead-tx">
+      <div class="rv-lead-k"><span class="rv-badge">{% icon "lightning-charge-fill" %} Habari kuu</span><span class="rv-cat">{{ lead.get_category_display }}</span></div>
+      <h2>{{ lead.title }}</h2>
+      <p>{{ lead.excerpt }}</p>
+      <div class="rv-lead-f"><span>{{ lead.published_at|sw_ago }} · {{ lead.reading_minutes }} dk kusoma</span><span class="rv-go">Soma habari {% icon "arrow-right" %}</span></div>
+    </div>
+  </a>{% endif %}
+  <div class="rv-list" id="rv-list">{% include 'news/_river_rows.html' %}</div>
+  {% if page.has_next %}<div class="rv-more">
+    <a class="rv-btn" data-more rel="next" href="?{% if q %}q={{ q|urlencode }}&amp;{% endif %}page={{ page.next_page_number }}"><span>Pakia habari zaidi</span>{% icon "arrow-right" %}</a>
+    <span class="rv-pg">Ukurasa {{ page.number }} kati ya {{ page.paginator.num_pages }}</span>
+  </div>{% endif %}
+  {% if page.has_previous %}<div class="rv-more"><a class="rv-prev" rel="prev" href="?{% if q %}q={{ q|urlencode }}&amp;{% endif %}page={{ page.previous_page_number }}">{% icon "arrow-left" %} Habari mpya zaidi</a></div>{% endif %}
+</div>
+<script>
+document.addEventListener("click", async function (e) {
+  var btn = e.target.closest("[data-more]"); if (!btn) return;
+  e.preventDefault(); if (btn.classList.contains("ld")) return; btn.classList.add("ld");
+  var url = new URL(btn.href, location.href); url.searchParams.set("partial", "1");
+  try {
+    var res = await fetch(url, {headers: {"X-Requested-With": "fetch"}}); if (!res.ok) throw 0;
+    var tpl = document.createElement("template"); tpl.innerHTML = await res.text();
+    var list = document.getElementById("rv-list"), last = list.querySelector(".rv-day:last-of-type");
+    tpl.content.querySelectorAll(".rv-day").forEach(function (day) {
+      if (last && last.dataset.day === day.dataset.day) { day.querySelectorAll(".rv-row").forEach(function (r) { last.appendChild(r); }); }
+      else { list.appendChild(day); last = day; }
+    });
+    var next = tpl.content.querySelector("[data-next]");
+    if (next) { btn.href = next.getAttribute("href"); btn.classList.remove("ld"); var pg = btn.parentNode.querySelector(".rv-pg"); if (pg) pg.remove(); }
+    else { btn.parentNode.innerHTML = '<span class="rv-end">Umefika mwisho — hongera, umesoma kila kitu.</span>'; }
+  } catch (err) { location.href = btn.href; }
+});
+</script>
+{% else %}<div class="empty-x"><h2>{{ empty_title|default:"Bado hakuna habari hapa." }}</h2><p>{{ empty_text|default:"Habari mpya zitaonekana hapa hivi punde." }}</p></div>{% endif %}

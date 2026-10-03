@@ -6,7 +6,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.paginator import Paginator
-from django.db.models import F, Q
+from django.db.models import Count, F, Q
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -35,6 +35,50 @@ def public_page(view):
             return view(request, *args, **kwargs)
         return cached(request, *args, **kwargs)
     return gzip_page(wrapper)
+
+
+RIVER_PAGE = 16
+
+
+def _count(items, since=None):
+    """Count a queryset or a list of articles, optionally only those published since a time."""
+    if isinstance(items, list):
+        return sum(1 for a in items if since is None or a.published_at >= since)
+    return (items.filter(published_at__gte=since) if since else items).count()
+
+
+def _river(request, items, template, context, lead=True):
+    """
+    Shared by every list page: paginate, pick a lead story for page 1, and
+    serve only the rows when the "load more" button asks for ?partial=1.
+    """
+    page = Paginator(items, RIVER_PAGE).get_page(request.GET.get("page"))
+    rows = list(page.object_list)
+    partial = request.GET.get("partial") == "1"
+    lead_item = rows.pop(0) if lead and rows and page.number == 1 and not partial else None
+    context = {**context, "page": page, "rows": rows, "lead": lead_item}
+    if partial:
+        response = render(request, "news/_river_rows.html", context)
+        response["X-Robots-Tag"] = "noindex"
+        return response
+    week_ago = timezone.now() - timedelta(days=7)
+    popular = list(_published().filter(published_at__gte=week_ago).order_by("-views")[:5]) or \
+        list(_published().order_by("-views")[:5])
+    counts = dict(Article.published.order_by().values_list("category").annotate(n=Count("id")))
+    context.setdefault("popular", popular)
+    context.setdefault("topics", _topics(12))
+    context.setdefault("services", JamiiTekService.objects.filter(active=True).order_by("?")[:1])
+    context.update({
+        "chips": [(value, label, counts.get(value, 0)) for value, label in Category.choices],
+        "all_count": sum(counts.values()),
+        "total": _count(items),
+        "day_count": _count(items, timezone.now() - timedelta(hours=24)),
+        "week_count": _count(items, week_ago),
+        "updated": rows[0].published_at if rows else (lead_item.published_at if lead_item else None),
+    })
+    if lead_item and lead_item.published_at and (not rows or lead_item.published_at > rows[0].published_at):
+        context["updated"] = lead_item.published_at
+    return render(request, template, context)
 
 
 def _topics(limit=14):
@@ -83,21 +127,18 @@ def home(request):
 
 @public_page
 def latest(request):
-    page = Paginator(_published(), 20).get_page(request.GET.get("page"))
-    return render(request, "news/latest.html", {"page": page, "topics": _topics()})
+    return _river(request, _published(), "news/latest.html", {})
 
 
 @public_page
 def category(request, category):
     if category not in Category.values:
         raise Http404
-    page = Paginator(_published().filter(category=category), 13).get_page(request.GET.get("page"))
     week_ago = timezone.now() - timedelta(days=7)
-    return render(request, "news/category.html", {
+    return _river(request, _published().filter(category=category), "news/category.html", {
         "category": category,
         "label": Category(category).label,
         "blurb": CATEGORY_BLURBS[category],
-        "page": page,
         "popular": _published().filter(category=category, published_at__gte=week_ago).order_by("-views")[:5],
         "services": JamiiTekService.objects.filter(active=True)[:2],
     })
@@ -110,8 +151,7 @@ def topic(request, slug):
     if not matches:
         raise Http404
     name = next(n for n, k in matches[0].tag_list() if k == slug)
-    page = Paginator(matches, 13).get_page(request.GET.get("page"))
-    return render(request, "news/topic.html", {"name": name, "slug": slug, "page": page, "topics": _topics()})
+    return _river(request, matches, "news/topic.html", {"name": name, "slug": slug})
 
 
 def article(request, category, slug):
@@ -178,8 +218,7 @@ def search(request):
     results = _published().filter(
         Q(title__icontains=q) | Q(excerpt__icontains=q) | Q(keywords__icontains=q)
     ) if q else Article.objects.none()
-    page = Paginator(results, 12).get_page(request.GET.get("page"))
-    return render(request, "news/search.html", {"q": q, "page": page})
+    return _river(request, results, "news/search.html", {"q": q}, lead=False)
 
 
 @public_page

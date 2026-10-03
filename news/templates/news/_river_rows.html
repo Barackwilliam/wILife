@@ -1,0 +1,14 @@
+{% load news_tags %}{% regroup rows by published_at|date:"Y-m-d" as days %}{% for d in days %}
+<section class="rv-day" data-day="{{ d.grouper }}">
+  <h2 class="rv-dh"><span><b>{{ d.grouper|sw_day }}</b>{{ d.grouper|sw_daydate }}</span></h2>
+  {% for a in d.list %}<article class="rv-row c-{{ a.category }}">
+    <time class="rv-time" datetime="{{ a.published_at|date:'c' }}">{{ a.published_at|date:"H:i" }}</time>
+    <div class="rv-tx">
+      <div class="rv-meta"><a class="rv-cat" href="{% url 'news:category' a.category %}">{{ a.get_category_display }}</a><span class="rv-ago">{{ a.published_at|sw_ago }}</span></div>
+      <h3 class="rv-t"><a href="{{ a.get_absolute_url }}">{{ a.title }}</a></h3>
+      <p class="rv-x">{{ a.excerpt }}</p>
+      <span class="rv-f">{% icon "clock" %} {{ a.reading_minutes }} dk kusoma</span>
+    </div>
+    <div class="rv-img"><img src="{{ a.art_url }}" loading="lazy" decoding="async" width="1200" height="630" alt=""></div>
+  </article>{% endfor %}
+</section>{% endfor %}{% if page.has_next %}<a hidden data-next href="?{% if q %}q={{ q|urlencode }}&amp;{% endif %}page={{ page.next_page_number }}"></a>{% endif %}

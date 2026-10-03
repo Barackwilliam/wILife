@@ -25,8 +25,10 @@
   {% block preload %}{% endblock %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,500&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link href="{% static 'core/css/wilife.css' %}" rel="stylesheet">
+  {% with fonts="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,500&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" %}
+  <link rel="preload" as="style" href="{{ fonts }}">
+  <link href="{{ fonts }}" rel="stylesheet" media="print" onload="this.media='all'">
+  <noscript><link href="{{ fonts }}" rel="stylesheet"></noscript>{% endwith %}
   <link href="{% static 'news/news.css' %}" rel="stylesheet">
   {% site_jsonld %}
   {% block jsonld %}{% endblock %}

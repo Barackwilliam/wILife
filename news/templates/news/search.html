@@ -3,7 +3,11 @@
 {% block title %}{% if q %}“{{ q }}” — Tafuta{% else %}Tafuta habari{% endif %} | wILife{% endblock %}
 {% block robots %}<meta name="robots" content="noindex, follow">{% endblock %}
 {% block content %}
-<header class="ph"><h1>{% if q %}“{{ q }}”{% else %}Tafuta{% endif %}</h1>
-  <form action="{% url 'news:search' %}" class="hdr-search mt-2" style="display:block"><span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--muted)">{% icon "search" %}</span><input type="search" name="q" value="{{ q }}" placeholder="Mfano: uchumi, Dodoma, teknolojia" style="width:100%;max-width:560px;padding:13px 16px 13px 40px;font-size:1rem" autofocus></form></header>
-{% if q %}{% include 'news/_list_page.html' with empty_title="Hakuna kilichopatikana" empty_text="Jaribu neno lingine." %}{% endif %}
+<header class="rv-hero rv-search">
+  <nav class="crumbs"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><span>Tafuta</span></nav>
+  <h1>{% if q %}“{{ q }}”{% else %}Tafuta habari{% endif %}</h1>
+  {% if q %}<p>Matokeo {{ page.paginator.count }} yamepatikana.</p>{% endif %}
+  <form action="{% url 'news:search' %}" class="rv-sf" role="search">{% icon "search" %}<input type="search" name="q" value="{{ q }}" placeholder="Mfano: uchumi, Dodoma, teknolojia" aria-label="Tafuta" {% if not q %}autofocus{% endif %}><button type="submit">Tafuta</button></form>
+</header>
+{% if q %}<div class="cols rv-cols"><div>{% include 'news/_river.html' with empty_title="Hakuna kilichopatikana" empty_text="Jaribu neno lingine, au angalia habari mpya zote." %}</div>{% include 'news/_river_side.html' %}</div>{% endif %}
 {% endblock %}
