@@ -129,6 +129,57 @@ class PipelineTests(TestCase):
             with self.assertRaises(writer.WriterError):
                 writer.write_news("Tanzania", fake_item(1, "tanzania"))
 
+    def test_batch_closed_while_empty_is_reopened(self):
+        NewsBatch.objects.create(date=date(2026, 10, 6), status="published")
+        result, _ = self._run(date(2026, 10, 6))
+        self.assertEqual(result["sent"], 6)
+        self.assertEqual(NewsBatch.objects.get(date=date(2026, 10, 6)).status, "pending")
+
+    def test_review_page_refuses_to_publish_empty_batch(self):
+        batch = NewsBatch.objects.create(date=date(2026, 10, 6))
+        self.client.force_login(self.owner)
+        self.client.post("/habari-admin/rasimu/action/", {"action": "publish_batch", "batch": batch.pk})
+        batch.refresh_from_db()
+        self.assertEqual(batch.status, "drafting")
+
+
+def _groq_response(status, body):
+    response = mock.Mock(status_code=status, text=json.dumps(body))
+    response.json.return_value = body
+    return response
+
+
+@override_settings(GROQ_API_KEY="k", GROQ_MODEL="retired-model")
+class GroqModelFallbackTests(TestCase):
+    def setUp(self):
+        from core import groq
+        groq._replacements.clear()
+        self.groq = groq
+
+    def test_retired_model_is_replaced_and_remembered(self):
+        gone = _groq_response(404, {"error": {"code": "model_not_found"}})
+        ok = _groq_response(200, {"choices": [{"message": {"content": " habari "}}]})
+        models = _groq_response(200, {"data": [{"id": "whisper-large-v3"}, {"id": "llama-3.1-8b-instant"},
+                                               {"id": "openai/gpt-oss-120b"}]})
+        with mock.patch("core.groq.requests.post", side_effect=[gone, ok, ok]) as post, \
+             mock.patch("core.groq.requests.get", return_value=models):
+            self.assertEqual(self.groq.chat("s", "u", json_mode=True), "habari")
+            self.groq.chat("s", "u")
+        used = [c.kwargs["json"]["model"] for c in post.call_args_list]
+        self.assertEqual(used, ["retired-model", "openai/gpt-oss-120b", "openai/gpt-oss-120b"])
+        self.assertEqual(post.call_args_list[1].kwargs["json"]["response_format"], {"type": "json_object"})
+
+    def test_other_errors_are_not_retried(self):
+        with mock.patch("core.groq.requests.post", return_value=_groq_response(401, {"error": "bad key"})) as post:
+            with self.assertRaises(self.groq.GroqError):
+                self.groq.chat("s", "u")
+        self.assertEqual(post.call_count, 1)
+
+    def test_writer_reports_groq_failure_as_writer_error(self):
+        with mock.patch("core.groq.requests.post", return_value=_groq_response(500, {})):
+            with self.assertRaises(writer.WriterError):
+                writer.write_news("Tanzania", fake_item(1, "tanzania"))
+
 
 class PublicSiteTests(TestCase):
     def setUp(self):

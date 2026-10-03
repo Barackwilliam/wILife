@@ -182,6 +182,10 @@ def run(now=None, deadline=None, dry_run=False, force=False):
         return {"job": "news_drafts", "sent": 0, "failed": 0, "detail": "dry run"}
 
     batch, _ = NewsBatch.objects.get_or_create(date=local.date())
+    if batch.status in ("published", "rejected") and not batch.articles.exists():
+        # Closed before anything was written (e.g. "publish" pressed on an empty batch): reopen it.
+        batch.status = "drafting"
+        batch.save(update_fields=["status"])
     if batch.status != "drafting":
         return {"job": "news_drafts", "sent": 0, "failed": 0, "detail": f"batch {batch.status}"}
 
