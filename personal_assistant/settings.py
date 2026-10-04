@@ -278,7 +278,12 @@ AGENT_EMAIL_TO = env("AGENT_EMAIL_TO", "")
 # ---------------------------------------------------------------------------
 # wILife Habari (public news site)
 # ---------------------------------------------------------------------------
-SITE_URL = env("SITE_URL", "")                      # e.g. https://wilife.co.tz — used in links sent by WhatsApp
+SITE_URL = env("SITE_URL", "")                      # e.g. https://www.wlife.online — used in links sent by email/WhatsApp
+if not SITE_URL and CSRF_TRUSTED_ORIGINS:
+    # Links in messages must be absolute. Fall back to the custom domain the
+    # site already trusts (prefer it over the *.onrender.com address).
+    SITE_URL = next((o for o in CSRF_TRUSTED_ORIGINS if "onrender.com" not in o), CSRF_TRUSTED_ORIGINS[0])
+SITE_URL = SITE_URL.rstrip("/")
 NEWS_ENABLED = env_bool("NEWS_ENABLED", False)      # turn the daily drafting on
 NEWS_DRAFT_HOUR = int(env("NEWS_DRAFT_HOUR", "5"))  # local hour drafting starts
 NEWS_GIVE_UP_HOUR = int(env("NEWS_GIVE_UP_HOUR", "10"))

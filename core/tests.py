@@ -337,3 +337,13 @@ class MessageFormatTests(TestCase):
         texts = [c.kwargs["json"]["text"] for c in post.call_args_list if c.args[0].endswith("/send")]
         self.assertTrue(texts[0].startswith("⏰ *Kumbusho*\n━"))
         self.assertEqual(texts[1], "Habari Asha")
+
+    def test_site_paths_become_absolute_links(self):
+        from core.agent.message_format import email_html
+        text = "📰 *Rasimu*\n\nSoma/hariri: /habari-admin/rasimu/\nMwezi huu (tangu 01/10)"
+        with override_settings(SITE_URL="https://www.wlife.online"):
+            out = email_html(text)
+        self.assertIn('href="https://www.wlife.online/habari-admin/rasimu/"', out)
+        self.assertIn("01/10", out)  # a date is not mistaken for a link
+        with override_settings(SITE_URL=""):
+            self.assertNotIn('href="/habari-admin', email_html(text))
