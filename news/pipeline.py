@@ -168,6 +168,27 @@ def reject_batch(batch):
     batch.save(update_fields=["status"])
 
 
+def _offer_more(batch):
+    """Tell the owner about drafts written after the batch was first sent."""
+    if batch.status == "published" or not batch.approval or batch.approval.status != "pending":
+        # The first part is already decided: ask again for the new drafts only.
+        batch.status = "drafting"
+        batch.save(update_fields=["status"])
+        request_batch_approval(batch)
+        return
+    from core.agent.channels import DeliveryError, send_to_self
+    drafts = list(batch.articles.filter(status="draft").order_by("slot"))
+    site = getattr(settings, "SITE_URL", "").rstrip("/")
+    lines = [f"📰 *Rasimu zaidi — {swahili_date(batch.date)}* ({len(drafts)})", ""]
+    lines += [f"{a.slot}. [{a.get_category_display()}] {a.title}" for a in drafts]
+    lines += ["", f"Soma/hariri: {site}{reverse('news:review')}",
+              f"Jibu *OK {batch.approval.code}* kuchapisha zote", f"Jibu *NO {batch.approval.code}* kuzikataa"]
+    try:
+        send_to_self(batch.approval.user, "\n".join(lines))
+    except DeliveryError as exc:
+        log.error("news top-up message not delivered: %s", exc)
+
+
 def run(now=None, deadline=None, dry_run=False, force=False):
     """Agent job: draft today's batch a few articles per tick, then ask for approval."""
     if not getattr(settings, "NEWS_ENABLED", False) and not force:
@@ -186,7 +207,10 @@ def run(now=None, deadline=None, dry_run=False, force=False):
         # Closed before anything was written (e.g. "publish" pressed on an empty batch): reopen it.
         batch.status = "drafting"
         batch.save(update_fields=["status"])
-    if batch.status != "drafting":
+    missing = [s for s, _ in plan_for(batch.date) if not batch.articles.filter(slot=s).exists()]
+    top_up = (batch.status in ("pending", "published") and missing
+              and local.hour < getattr(settings, "NEWS_STOP_HOUR", 16))
+    if batch.status != "drafting" and not top_up:
         return {"job": "news_drafts", "sent": 0, "failed": 0, "detail": f"batch {batch.status}"}
 
     done_slots = set(batch.articles.values_list("slot", flat=True))
@@ -208,7 +232,13 @@ def run(now=None, deadline=None, dry_run=False, force=False):
 
     remaining = [s for s, _ in plan_for(batch.date)
                  if not batch.articles.filter(slot=s).exists()]
-    if not remaining:
+    if top_up:
+        # A partial batch already went out; slots that failed earlier are retried
+        # until NEWS_STOP_HOUR and offered to the owner as they arrive.
+        if written:
+            _offer_more(batch)
+            notes.append(f"top-up: {written} more draft(s) offered")
+    elif not remaining:
         request_batch_approval(batch)
         notes.append("batch complete — approval requested")
     elif failed and local.hour >= getattr(settings, "NEWS_GIVE_UP_HOUR", 10) and batch.articles.exists():

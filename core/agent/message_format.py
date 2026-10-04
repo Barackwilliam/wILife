@@ -41,7 +41,8 @@ ACCENTS = {
 
 RULE_RE = re.compile(r"^\s*[─━\-=_]{4,}\s*$")
 REPLY_RE = re.compile(r"^Jibu \*(OK|NO) (\w+)\*\s*(.*)$")
-URL_RE = re.compile(r"https?://\S+")
+# Absolute links, or site paths like "/habari-admin/rasimu/" (made absolute with SITE_URL).
+URL_RE = re.compile(r"https?://\S+|(?<![\w/])/[a-z][\w\-./?=&]*")
 SECTION_RE = re.compile(r"^(?P<emoji>[^\w\s*_(]{1,3})\s*\*(?P<title>[^*]+)\*\s*(?P<rest>.*)$")
 BOLD_LINE_RE = re.compile(r"^\*(?P<title>[^*]+)\*\s*(?P<rest>.*)$")
 LABEL_RE = re.compile(r"^\*(?P<label>[^*:]{1,30}):\*\s*(?P<value>.+)$")
@@ -91,9 +92,10 @@ def parse(text):
             replies.append((reply[1], reply[2], reply[3]))
             continue
         url = URL_RE.search(line)
-        if url:
+        href = url and (url.group(0) if url.group(0).startswith("http") else (_site() + url.group(0) if _site() else ""))
+        if href:
             label = line[:url.start()].strip().rstrip(":").strip() or "Fungua"
-            blocks.append(("link", (label.replace("*", ""), url.group(0))))
+            blocks.append(("link", (label.replace("*", ""), href)))
             continue
         for kind, regex in (("section", SECTION_RE), ("label", LABEL_RE)):
             match = regex.match(line.strip()) if not raw.startswith("  ") else None
