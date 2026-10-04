@@ -129,6 +129,37 @@ class PipelineTests(TestCase):
             with self.assertRaises(writer.WriterError):
                 writer.write_news("Tanzania", fake_item(1, "tanzania"))
 
+    def test_missing_slots_are_retried_after_a_partial_batch(self):
+        day = date(2026, 10, 6)  # Tuesday: six slots
+
+        def dry_afrika(category, exclude_urls=(), **kw):
+            return ([], ["feed down"]) if category == "afrika" else fake_collect(category, exclude_urls)
+
+        def at(hour, collect):
+            when = timezone.make_aware(datetime(day.year, day.month, day.day, hour, 0))
+            with mock.patch("news.feeds.collect", side_effect=collect), \
+                 mock.patch("news.writer._call", return_value=json.dumps(ARTICLE_JSON)), \
+                 mock.patch("core.agent.channels.send_to_self") as send:
+                pipeline.run(now=when)
+            return send
+
+        at(10, dry_afrika)
+        batch = NewsBatch.objects.get(date=day)
+        self.assertEqual((batch.status, batch.articles.count()), ("pending", 4))
+        send = at(11, fake_collect)  # feeds are back
+        batch.refresh_from_db()
+        self.assertEqual((batch.status, batch.articles.count()), ("pending", 6))
+        self.assertIn("Rasimu zaidi", send.call_args.args[1])
+        self.assertIn(f"OK {batch.approval.code}", send.call_args.args[1])
+
+    def test_no_top_up_after_stop_hour(self):
+        day = date(2026, 10, 6)
+        batch = NewsBatch.objects.create(date=day, status="pending")
+        when = timezone.make_aware(datetime(day.year, day.month, day.day, 17, 0))
+        with mock.patch("news.feeds.collect", side_effect=fake_collect) as collect:
+            self.assertEqual(pipeline.run(now=when)["detail"], "batch pending")
+        collect.assert_not_called()
+
     def test_batch_closed_while_empty_is_reopened(self):
         NewsBatch.objects.create(date=date(2026, 10, 6), status="published")
         result, _ = self._run(date(2026, 10, 6))
