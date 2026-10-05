@@ -124,10 +124,11 @@
 .brand-mark {
   width: 38px; height: 38px; border-radius: 12px;
   display: grid; place-items: center;
-  background: linear-gradient(140deg, var(--brand), #f4b25a);
-  box-shadow: 0 8px 20px -8px rgba(226, 96, 63, .8), inset 0 1px 0 rgba(255, 255, 255, .35);
+  background: #000; overflow: hidden;
+  box-shadow: 0 8px 20px -10px rgba(37, 99, 235, .8), inset 0 0 0 1px rgba(255, 255, 255, .08);
   flex-shrink: 0;
 }
+.brand-mark img { width: 100%; height: 100%; display: block; }
 .brand-mark svg { width: 22px; height: 22px; }
 html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 body.news { -webkit-font-smoothing: antialiased; letter-spacing: -.005em; }
@@ -174,7 +175,7 @@ body.news .btn-lg { font-size: 1.02rem; }
 .logo { display: flex; align-items: center; gap: 11px; flex-shrink: 0; }
 .logo .brand-mark { width: 40px; height: 40px; border-radius: 12px; }
 .logo b { font-family: var(--font-display); font-size: 1.85rem; font-weight: 700; letter-spacing: -.04em; line-height: 1; color: var(--ink); }
-.logo b em { font-style: italic; color: var(--brand); font-weight: 500; }
+.logo b em { font-style: italic; color: var(--blue); font-weight: 500; }
 .nav { display: flex; align-items: stretch; gap: 2px; height: 100%; overflow-x: auto; scrollbar-width: none; flex: 1; }
 .nav::-webkit-scrollbar { display: none; }
 .nav a { display: flex; align-items: center; padding: 0 13px; font-weight: 700; font-size: .86rem; letter-spacing: .02em; text-transform: uppercase; color: var(--ink-2); white-space: nowrap; border-bottom: 3px solid transparent; margin-bottom: -1px; transition: color .15s, border-color .15s; }

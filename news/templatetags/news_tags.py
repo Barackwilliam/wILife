@@ -2,6 +2,7 @@ import json
 
 from django import template
 from django.conf import settings
+from django.templatetags.static import static
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
 
@@ -91,7 +92,8 @@ def article_jsonld(context, article):
         "keywords": article.keywords,
         "author": {"@type": "Organization", "name": "Dawati la Habari, wILife", "url": request.build_absolute_uri("/kuhusu/")},
         "publisher": {"@type": "Organization", "name": "wILife",
-                      "logo": {"@type": "ImageObject", "url": request.build_absolute_uri("/static/news/logo.png")}},
+                      "logo": {"@type": "ImageObject", "url": request.build_absolute_uri(static("news/brand/logo-600.png")),
+                               "width": 600, "height": 466}},
         "isBasedOn": [s.get("url") for s in article.sources if s.get("url", "").startswith("http")] or None,
     }, {
         "@context": "https://schema.org",
@@ -112,7 +114,9 @@ def site_jsonld(context):
     root = request.build_absolute_uri("/")
     data = [{
         "@context": "https://schema.org", "@type": "NewsMediaOrganization", "name": "wILife",
-        "url": root, "logo": request.build_absolute_uri("/static/news/logo.png"),
+        "url": root, "logo": {"@type": "ImageObject", "url": request.build_absolute_uri(static("news/brand/icon-512.png")),
+                              "width": 512, "height": 512},
+        "image": request.build_absolute_uri(static("news/brand/og-default.jpg")),
         "parentOrganization": {"@type": "Organization", "name": "JamiiTek Digital Agency"},
         "sameAs": getattr(settings, "SOCIAL_LINKS", []) or None,
         "publishingPrinciples": request.build_absolute_uri("/kuhusu/"),

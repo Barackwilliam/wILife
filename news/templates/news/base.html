@@ -10,17 +10,25 @@
   <link rel="alternate" hreflang="sw" href="{% absolute request.path %}">
   <link rel="alternate" hreflang="x-default" href="{% absolute request.path %}">
   <link rel="alternate" type="application/rss+xml" title="wILife — Habari" href="{% url 'news:rss' %}">
-  <meta name="theme-color" content="#17151d">
-  <link rel="icon" href="{% static 'news/logo.png' %}">
-  <link rel="apple-touch-icon" href="{% static 'news/logo.png' %}">
+  <meta name="theme-color" content="#0f1a3a">
+  <link rel="icon" href="/favicon.ico" sizes="48x48">
+  <link rel="icon" type="image/png" sizes="32x32" href="{% static 'news/brand/favicon-32.png' %}">
+  <link rel="icon" type="image/png" sizes="192x192" href="{% static 'news/brand/icon-192.png' %}">
+  <link rel="apple-touch-icon" href="{% static 'news/brand/apple-touch-icon.png' %}">
+  <link rel="manifest" href="/site.webmanifest">
   <meta property="og:site_name" content="wILife">
   <meta property="og:locale" content="sw_TZ">
   <meta property="og:type" content="{% block og_type %}website{% endblock %}">
   <meta property="og:title" content="{% block og_title %}wILife — Habari za Leo kwa Kiswahili{% endblock %}">
   <meta property="og:description" content="{% block og_description %}Habari za Tanzania, Afrika na Dunia kwa Kiswahili.{% endblock %}">
   <meta property="og:url" content="{% absolute request.path %}">
-  <meta property="og:image" content="{% block og_image %}{% absolute '/static/news/logo.png' %}{% endblock %}">
+  {% static 'news/brand/og-default.jpg' as og_default %}
+  <meta property="og:image" content="{% block og_image %}{% absolute og_default %}{% endblock %}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="{% block og_image_alt %}wILife — Habari, Matukio, Ratiba, Maisha Yako{% endblock %}">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="{% block twitter_image %}{% absolute og_default %}{% endblock %}">
   {% block extra_meta %}{% endblock %}
   {% block preload %}{% endblock %}
   <link rel="preconnect" href="https://fonts.googleapis.com">

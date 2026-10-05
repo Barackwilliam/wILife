@@ -1,6 +1,5 @@
 {% extends 'news/base.html' %}
-{% load news_tags %}
-{% block og_image %}{% if lead %}{% abs_url lead.og_url %}{% else %}{% absolute '/static/news/logo.png' %}{% endif %}{% endblock %}
+{% load static news_tags %}
 {% block preload %}{% if lead %}<link rel="preload" as="image" href="{{ lead.art_url }}" fetchpriority="high">{% endif %}{% endblock %}
 {% block ticker %}{% if ticker %}
 <div class="tick"><div class="wrap"><span class="lbl">Sasa hivi</span><div class="track"><div class="run">
