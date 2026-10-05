@@ -431,3 +431,26 @@ class RiverListTests(TestCase):
         r = self.client.get("/tafuta/?q=namba")
         self.assertContains(r, 'class="rv-row')
         self.assertNotContains(r, "rv-lead")  # search results are not ranked by "lead"
+
+
+class BrandAssetTests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)  # anonymous pages are cached; keep other tests clean
+
+    def test_favicon_manifest_and_share_image(self):
+        r = self.client.get("/favicon.ico")
+        self.assertEqual((r.status_code, r["Content-Type"]), (200, "image/x-icon"))
+        manifest = self.client.get("/site.webmanifest").json()
+        self.assertEqual(manifest["short_name"], "wILife")
+        self.assertTrue(any(i["sizes"] == "512x512" for i in manifest["icons"]))
+        home = self.client.get("/").content.decode()
+        self.assertIn("news/brand/og-default", home)
+        self.assertIn('rel="apple-touch-icon"', home)
+        self.assertIn("news/brand/icon-512", home)  # publisher logo for Google
+        self.assertIn("news/brand/mark-96", home)    # header logo
+
+    def test_generated_covers_carry_the_logo(self):
+        from news import covers
+        self.assertIsNotNone(covers._mark(52))

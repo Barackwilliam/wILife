@@ -42,6 +42,17 @@ def _font(bold, size):
         return ImageFont.load_default()
 
 
+MARK_PATH = os.path.join(os.path.dirname(__file__), "static", "news", "brand", "icon-192.png")
+
+
+def _mark(size):
+    """The logo icon (rounded tile) at `size` px, or None if the file is missing."""
+    try:
+        return Image.open(MARK_PATH).convert("RGBA").resize((size, size), Image.LANCZOS)
+    except OSError:
+        return None
+
+
 def _wrap(draw, text, font, max_width):
     words, lines, line = text.split(), [], ""
     for word in words:
@@ -98,10 +109,14 @@ def render(title, category, date_text="", seed=0, with_title=True):
         img.save(buf, "PNG")
         return buf.getvalue()
 
-    # Brand
-    d.rounded_rectangle((70, 60, 116, 106), radius=13, fill=(226, 96, 63))
-    d.line([(80, 74), (88, 96), (93, 85), (98, 96), (106, 74)], fill="white", width=5, joint="curve")
-    d.text((130, 64), "wILife", font=_font(True, 30), fill=(243, 239, 232))
+    # Brand: the wILife logo mark, so shared links carry the logo
+    mark = _mark(52)
+    if mark:
+        img.paste(mark, (70, 58), mark)
+        d = ImageDraw.Draw(img, "RGBA")
+    else:
+        d.rounded_rectangle((70, 60, 116, 106), radius=13, fill=(37, 99, 235))
+    d.text((134, 64), "wILife", font=_font(True, 30), fill=(243, 239, 232))
     if date_text:
         d.text((130, 98), date_text, font=_font(False, 17), fill=(185, 180, 192))
 

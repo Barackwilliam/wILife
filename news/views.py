@@ -5,9 +5,11 @@ from functools import wraps
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.staticfiles import finders
 from django.core.paginator import Paginator
 from django.db.models import Count, F, Q
-from django.http import Http404, HttpResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
+from django.templatetags.static import static
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.text import slugify
@@ -235,6 +237,30 @@ def robots(request):
         f"Sitemap: {root}/sitemap.xml", f"Sitemap: {root}/news-sitemap.xml",
     ])
     return HttpResponse(body + "\n", content_type="text/plain")
+
+
+def favicon(request):
+    """Google and browsers ask for /favicon.ico at the site root."""
+    path = finders.find("news/brand/favicon.ico")
+    response = FileResponse(open(path, "rb"), content_type="image/x-icon")
+    response["Cache-Control"] = "public, max-age=604800"
+    return response
+
+
+def webmanifest(request):
+    icons = [
+        {"src": static("news/brand/icon-192.png"), "sizes": "192x192", "type": "image/png"},
+        {"src": static("news/brand/icon-512.png"), "sizes": "512x512", "type": "image/png"},
+        {"src": static("news/brand/maskable-512.png"), "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+    ]
+    response = JsonResponse({
+        "name": "wILife — Habari, Matukio, Ratiba, Maisha Yako", "short_name": "wILife",
+        "start_url": "/", "display": "standalone", "lang": "sw",
+        "background_color": "#000000", "theme_color": "#0f1a3a", "icons": icons,
+    })
+    response["Content-Type"] = "application/manifest+json"
+    response["Cache-Control"] = "public, max-age=86400"
+    return response
 
 
 def indexnow_key(request, key):
