@@ -859,8 +859,26 @@ from .forms import GoalForm, GoalUpdateForm, GoalMilestoneForm
 from django.utils import timezone as tz
 
 
+def _savings_cards(user):
+    """Debts carried from last month, shown first on the goals page, plus this month's state per goal."""
+    from core import savings
+    debts, months = [], {}
+    for goal in Goal.objects.filter(user=user, kind=Goal.KIND_MONTHLY_SAVINGS, status='active'):
+        rows = savings.ledger(goal)
+        if not rows:
+            continue
+        month = rows[-1]
+        months[goal.pk] = month
+        savings.sync(goal)
+        if month.debt_in > 0:
+            debts.append({'goal': goal, 'month': month, 'from_label': rows[-2].label if len(rows) > 1 else '',
+                          'percent': int(month.debt_paid / month.debt_in * 100)})
+    return debts, months
+
+
 @login_required
 def goal_list(request):
+    debts, savings_months = _savings_cards(request.user)
     goals = Goal.objects.filter(user=request.user)
 
     # Stats
@@ -876,6 +894,10 @@ def goal_list(request):
     if status_filter:
         goals = goals.filter(status=status_filter)
 
+    goals = list(goals)
+    for g in goals:
+        g.month = savings_months.get(g.pk)
+
     context = {
         'goals': goals,
         'active_count': active,
@@ -884,6 +906,8 @@ def goal_list(request):
         'categories': Goal.CATEGORY_CHOICES,
         'selected_category': category,
         'selected_status': status_filter,
+        'debts': debts,
+        'savings_months': savings_months,
     }
     return render(request, 'goal_list.html', context)
 
@@ -896,6 +920,8 @@ def goal_create(request):
             goal = form.save(commit=False)
             goal.user = request.user
             goal.save()
+            from core import savings
+            savings.sync(goal)
             messages.success(request, 'Goal created successfully!')
             return redirect('goal_list')
     else:
@@ -909,7 +935,8 @@ def goal_update(request, pk):
     if request.method == 'POST':
         form = GoalForm(request.POST, instance=goal)
         if form.is_valid():
-            form.save()
+            from core import savings
+            savings.sync(form.save())
             messages.success(request, 'Goal updated!')
             return redirect('goal_detail', pk=pk)
     else:
@@ -941,14 +968,26 @@ def goal_detail(request, pk):
     update_form = GoalUpdateForm(initial={'date': timezone.now().date()})
     milestone_form = GoalMilestoneForm()
 
+    history = []
+    if goal.is_monthly_savings:
+        from core import savings
+        savings.sync(goal)
+        history = savings.ledger(goal)[::-1]
+        chart_dates = json.dumps([m.label for m in history[::-1]][-12:])
+        chart_values = json.dumps([float(m.saved) for m in history[::-1]][-12:])
+    else:
+        chart_dates, chart_values = json.dumps(chart_dates), json.dumps(chart_values)
+
     context = {
         'goal': goal,
+        'history': history,
+        'this_month': history[0] if history else None,
         'updates': updates,
         'milestones': milestones,
         'update_form': update_form,
         'milestone_form': milestone_form,
-        'chart_dates': json.dumps(chart_dates),
-        'chart_values': json.dumps(chart_values),
+        'chart_dates': chart_dates,
+        'chart_values': chart_values,
     }
     return render(request, 'goal_detail.html', context)
 
@@ -956,6 +995,9 @@ def goal_detail(request, pk):
 @login_required
 def goal_add_update(request, pk):
     goal = get_object_or_404(Goal, pk=pk, user=request.user)
+    if goal.is_monthly_savings:
+        messages.info(request, 'This goal updates itself from your income and expenses.')
+        return redirect('goal_detail', pk=pk)
     if request.method == 'POST':
         form = GoalUpdateForm(request.POST)
         if form.is_valid():

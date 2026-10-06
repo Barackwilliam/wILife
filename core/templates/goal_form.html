@@ -9,16 +9,34 @@
 <div class="row g-3">
   <div class="col-12">{% include 'partials/field.html' with field=form.title icon='bi-stars' wrap='' %}</div>
   <div class="col-12">{% include 'partials/field.html' with field=form.description wrap='' %}</div>
-  <div class="col-md-6">{% include 'partials/field.html' with field=form.category icon='bi-tag' wrap='' %}</div>
+  <div class="col-12">
+    <div class="eyebrow mt-2">How is progress measured?</div>
+    <div class="kind-pick mt-2">{% for radio in form.kind %}<label class="kind-opt">{{ radio.tag }}<span>{{ radio.choice_label }}</span></label>{% endfor %}</div>
+    <p class="small text-muted mt-2 mb-0" data-kind-help="monthly_savings">Set how much you want left over each month. wILife fills in the progress from your income and expenses, and if a month ends in the red the shortfall becomes next month's first priority.</p>
+  </div>
+  <div class="col-md-6" data-kind-hide="monthly_savings">{% include 'partials/field.html' with field=form.category icon='bi-tag' wrap='' %}</div>
   <div class="col-md-6">{% include 'partials/field.html' with field=form.status icon='bi-circle-half' wrap='' %}</div>
   <div class="col-12"><div class="eyebrow mt-2">Measure</div></div>
   <div class="col-md-4">{% include 'partials/field.html' with field=form.target_value icon='bi-flag' wrap='' %}</div>
-  <div class="col-md-4">{% include 'partials/field.html' with field=form.current_value icon='bi-graph-up' wrap='' %}</div>
+  <div class="col-md-4" data-kind-hide="monthly_savings">{% include 'partials/field.html' with field=form.current_value icon='bi-graph-up' wrap='' %}</div>
   <div class="col-md-4">{% include 'partials/field.html' with field=form.unit icon='bi-rulers' wrap='' %}</div>
   <div class="col-12"><div class="eyebrow mt-2">Timeline</div></div>
   <div class="col-md-6">{% include 'partials/field.html' with field=form.start_date icon='bi-calendar-plus' wrap='' %}</div>
-  <div class="col-md-6">{% include 'partials/field.html' with field=form.target_date icon='bi-calendar-check' wrap='' %}</div>
+  <div class="col-md-6" data-kind-hide="monthly_savings">{% include 'partials/field.html' with field=form.target_date icon='bi-calendar-check' wrap='' %}</div>
 </div>
 {% endblock %}
 {% block cancel_url %}{% if goal %}{% url 'goal_detail' goal.pk %}{% else %}{% url 'goal_list' %}{% endif %}{% endblock %}
 {% block submit_label %}{{ action }} goal{% endblock %}
+{% block extra_scripts %}
+<script>
+  (function () {
+    function apply() {
+      var picked = (document.querySelector('input[name="kind"]:checked') || {}).value;
+      document.querySelectorAll('[data-kind-hide]').forEach(function (el) { el.hidden = el.dataset.kindHide === picked; });
+      document.querySelectorAll('[data-kind-help]').forEach(function (el) { el.hidden = el.dataset.kindHelp !== picked; });
+    }
+    document.querySelectorAll('input[name="kind"]').forEach(function (r) { r.addEventListener('change', apply); });
+    apply();
+  })();
+</script>
+{% endblock %}

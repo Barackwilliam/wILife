@@ -34,6 +34,23 @@
   {% if selected_category %}<input type="hidden" name="category" value="{{ selected_category }}">{% endif %}
 </form>
 
+{% if debts %}
+<div class="debt-list mb-4 reveal">
+  {% for d in debts %}
+  <a href="{% url 'goal_detail' d.goal.pk %}" class="panel debt-card">
+    <span class="ico-chip t-rose"><i class="bi bi-exclamation-triangle"></i></span>
+    <div class="debt-tx">
+      <span class="eyebrow c-rose">Priority this month</span>
+      <h3>Pay back {{ d.from_label }}'s overspend</h3>
+      <p class="small text-muted mb-2">You spent {{ d.month.debt_in|money }} Tsh more than you earned last month. This month's savings go here first, then to “{{ d.goal.title }}”.</p>
+      <div class="bar"><span style="width:{{ d.percent }}%"></span></div>
+      <div class="cell-sub mt-1 num">{{ d.month.debt_paid|money }} / {{ d.month.debt_in|money }} Tsh paid back</div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
 {% if goals %}
 <div class="row g-4">
   {% for goal in goals %}
@@ -48,12 +65,13 @@
         <div style="min-width:0">
           <h3><a href="{% url 'goal_detail' goal.pk %}" class="stretched-link-x">{{ goal.title }}</a></h3>
           {% if goal.target_value %}<div class="cell-sub mt-1 num">{{ goal.current_value|money }} / {{ goal.target_value|money }} {{ goal.unit|default:"" }}</div>{% endif %}
+          {% if goal.month %}<div class="cell-sub mt-1">{% if goal.month.debt_out %}<span class="c-rose fw-semibold"><i class="bi bi-arrow-down-right"></i> {{ goal.month.debt_out|money }} Tsh in the red this month</span>{% elif goal.month.reached %}<span class="c-leaf fw-semibold"><i class="bi bi-check2-circle"></i> Reached this month</span>{% else %}Saved this month · {{ goal.month.label }}{% endif %}</div>{% endif %}
         </div>
       </div>
       {% if goal.description %}<p class="text-muted small mb-0">{{ goal.description|truncatechars:110 }}</p>{% endif %}
       <div class="mt-auto d-flex align-items-center justify-content-between gap-2 pt-2" style="border-top:1px dashed var(--line)">
         <span class="small fw-semibold {% if goal.is_overdue %}c-rose{% else %}text-muted{% endif %}"><i class="bi bi-flag"></i>
-          {% if goal.status == 'completed' %}Achieved{% elif goal.is_overdue %}{{ goal.days_remaining|stringformat:"d"|cut:"-" }} days over{% else %}{{ goal.days_remaining }} day{{ goal.days_remaining|pluralize }} left · {{ goal.target_date|date:"j M" }}{% endif %}</span>
+          {% if goal.is_monthly_savings %}<i class="bi bi-arrow-repeat"></i> Every month · {{ goal.days_remaining }} day{{ goal.days_remaining|pluralize }} left in this one{% elif goal.status == 'completed' %}Achieved{% elif goal.is_overdue %}{{ goal.days_remaining|stringformat:"d"|cut:"-" }} days over{% else %}{{ goal.days_remaining }} day{{ goal.days_remaining|pluralize }} left · {{ goal.target_date|date:"j M" }}{% endif %}</span>
         <div class="d-flex gap-1">
           <a href="{% url 'goal_update' goal.pk %}" class="btn btn-ghost btn-icon btn-sm" title="Edit"><i class="bi bi-pencil"></i></a>
           <a href="{% url 'goal_detail' goal.pk %}" class="btn btn-soft btn-icon btn-sm" title="Open"><i class="bi bi-arrow-right"></i></a>
