@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
+from django.utils import timezone
 from .models import Schedule, Profile
 from .models import Income,HealthRecord, Expense, Task
 
@@ -177,9 +178,10 @@ from .models import Goal, GoalMilestone, GoalUpdate
 class GoalForm(forms.ModelForm):
     class Meta:
         model = Goal
-        fields = ['title', 'description', 'category', 'target_value', 'current_value',
+        fields = ['title', 'description', 'kind', 'category', 'target_value', 'current_value',
                   'unit', 'start_date', 'target_date', 'status']
         widgets = {
+            'kind': forms.RadioSelect,
             'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Save 1,000,000 Tsh'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Optional description'}),
             'category': forms.Select(attrs={'class': 'form-select'}),
@@ -190,6 +192,31 @@ class GoalForm(forms.ModelForm):
             'target_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'status': forms.Select(attrs={'class': 'form-select'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # A monthly savings goal fills these in itself.
+        self.fields['target_date'].required = False
+        self.fields['current_value'].required = False
+
+    def clean(self):
+        data = super().clean()
+        if data.get('kind') == Goal.KIND_MONTHLY_SAVINGS:
+            from core.savings import month_end
+            if not data.get('target_value'):
+                self.add_error('target_value', 'How much do you want to save each month?')
+            start = data.get('start_date') or timezone.localdate()
+            data['start_date'] = start.replace(day=1)
+            data['target_date'] = month_end(timezone.localdate())
+            data['current_value'] = self.instance.current_value or 0
+            data['category'] = 'finance'
+            data['unit'] = data.get('unit') or 'Tsh'
+        else:
+            if not data.get('target_date'):
+                self.add_error('target_date', 'Pick the date you want to reach this goal.')
+            if data.get('current_value') is None:
+                data['current_value'] = 0
+        return data
 
 
 class GoalUpdateForm(forms.ModelForm):

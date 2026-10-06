@@ -32,6 +32,7 @@ class Expense(models.Model):
         ('love', 'Love'),
         ('debt', 'Debt'),
         ('beauty', 'Beauty'),
+        ('savings', 'Savings / investment'),  # money put aside — not spending
         ('other', 'Other'),
     ]
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='expenses')
@@ -170,8 +171,16 @@ class Goal(models.Model):
         ('paused', 'Paused'),
         ('cancelled', 'Cancelled'),
     ]
+    KIND_MANUAL = 'manual'
+    KIND_MONTHLY_SAVINGS = 'monthly_savings'
+    KIND_CHOICES = [
+        (KIND_MANUAL, 'I update progress myself'),
+        (KIND_MONTHLY_SAVINGS, 'Monthly savings (income − expenses, automatic)'),
+    ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='goals')
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES, default=KIND_MANUAL,
+                            help_text="Monthly savings goals track themselves from your income and expenses")
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
     category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, default='personal')
@@ -204,7 +213,11 @@ class Goal(models.Model):
         return delta.days
 
     def is_overdue(self):
-        return self.days_remaining() < 0 and self.status == 'active'
+        return self.days_remaining() < 0 and self.status == 'active' and not self.is_monthly_savings
+
+    @property
+    def is_monthly_savings(self):
+        return self.kind == self.KIND_MONTHLY_SAVINGS
 
 
 class GoalMilestone(models.Model):

@@ -120,6 +120,8 @@ def upcoming_milestones(user, days=None):
 
     try:
         qs = model.objects.all()
+        if "kind" in _field_names(model):  # monthly savings goals have their own brief section
+            qs = qs.exclude(kind="monthly_savings")
         if "user" in _field_names(model):
             qs = qs.filter(user=user)
         elif "goal" in _field_names(model):

@@ -164,6 +164,8 @@ def build_brief(user, now=None):
 
     try:
         lines.extend(goals_section(user))
+        from core import savings
+        lines.extend(savings.brief_lines(user, today=local_now.date()))
     except Exception as exc:  # a goals schema surprise must not kill the brief
         log.warning("goals section skipped: %s", exc)
 

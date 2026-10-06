@@ -15,8 +15,8 @@
       <h1>{{ goal.title }}</h1>
       {% if goal.description %}<p>{{ goal.description }}</p>{% endif %}
       <div class="hero-metrics">
-        <div><small>Current</small><b class="num">{{ goal.current_value|money }} <span style="font-size:.9rem;color:#9a95a3">{{ goal.unit|default:"" }}</span></b></div>
-        <div><small>Target</small><b class="num">{% if goal.target_value %}{{ goal.target_value|money }} <span style="font-size:.9rem;color:#9a95a3">{{ goal.unit|default:"" }}</span>{% else %}—{% endif %}</b></div>
+        <div><small>{% if goal.is_monthly_savings %}This month{% else %}Current{% endif %}</small><b class="num">{{ goal.current_value|money }} <span style="font-size:.9rem;color:#9a95a3">{{ goal.unit|default:"" }}</span></b></div>
+        <div><small>{% if goal.is_monthly_savings %}Monthly target{% else %}Target{% endif %}</small><b class="num">{% if goal.target_value %}{{ goal.target_value|money }} <span style="font-size:.9rem;color:#9a95a3">{{ goal.unit|default:"" }}</span>{% else %}—{% endif %}</b></div>
         <div><small>{% if goal.status == 'completed' %}Finished{% elif goal.is_overdue %}Overdue by{% else %}Time left{% endif %}</small><b class="{% if goal.is_overdue %}neg{% endif %}">{% if goal.status == 'completed' %}✓{% elif goal.is_overdue %}{{ goal.days_remaining|stringformat:"d"|cut:"-" }} d{% else %}{{ goal.days_remaining }} d{% endif %}</b></div>
       </div>
       <div class="hero-actions">
@@ -32,12 +32,41 @@
   </div>
   <div class="d-flex justify-content-between small mt-4" style="color:#9a95a3">
     <span><i class="bi bi-calendar-plus"></i> Started {{ goal.start_date|date:"j M Y" }}</span>
-    <span><i class="bi bi-calendar-check"></i> Target {{ goal.target_date|date:"j M Y" }}</span>
+    <span><i class="bi bi-calendar-check"></i> {% if goal.is_monthly_savings %}This month ends {{ goal.target_date|date:"j M Y" }} · repeats every month{% else %}Target {{ goal.target_date|date:"j M Y" }}{% endif %}</span>
   </div>
 </div>
 
 <div class="row g-4">
   <div class="col-lg-7">
+    {% if goal.is_monthly_savings %}
+    <div class="panel mb-4 reveal">
+      <div class="panel-head"><h2 class="panel-title"><span class="ico t-brand"><i class="bi bi-bar-chart"></i></span>Saved each month</h2></div>
+      <div style="height:260px"><canvas id="progressChart"></canvas></div>
+    </div>
+    <div class="panel reveal">
+      <div class="panel-head"><h2 class="panel-title"><span class="ico t-ink"><i class="bi bi-calendar3"></i></span>Month by month</h2></div>
+      <div class="table-responsive">
+        <table class="table align-middle mb-0 savings-table">
+          <thead><tr><th>Month</th><th class="text-end">Saved</th><th>Result</th></tr></thead>
+          <tbody>
+          {% for m in history %}
+            <tr>
+              <td class="fw-semibold">{{ m.label }}{% if m.is_current %} <span class="tag t-sky">now</span>{% endif %}</td>
+              <td class="text-end num {% if m.saved < 0 %}c-rose{% endif %}">{{ m.saved|money }}</td>
+              <td>
+                {% if m.status == 'deficit' %}<span class="tag t-rose"><i class="bi bi-arrow-down-right"></i> {{ m.debt_out|money }} carried over</span>
+                {% elif m.status == 'reached' %}<span class="tag t-leaf"><i class="bi bi-check2"></i> Reached{% if m.surplus %} +{{ m.surplus|money }}{% endif %}</span>
+                {% elif m.status == 'in_progress' %}<span class="tag t-sky">{{ m.shortfall|money }} to go</span>
+                {% else %}<span class="tag t-sun">Missed by {{ m.shortfall|money }}</span>{% endif %}
+                {% if m.debt_in %}<div class="cell-sub mt-1">Paid back {{ m.debt_paid|money }} of {{ m.debt_in|money }} first</div>{% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% else %}
     <div class="panel mb-4 reveal">
       <div class="panel-head"><h2 class="panel-title"><span class="ico t-brand"><i class="bi bi-graph-up-arrow"></i></span>Progress over time</h2></div>
       {% if updates %}<div style="height:260px"><canvas id="progressChart"></canvas></div>
@@ -56,9 +85,24 @@
       </div>
     </div>
     {% endif %}
+    {% endif %}
   </div>
 
   <div class="col-lg-5">
+    {% if goal.is_monthly_savings and this_month %}
+    <div class="panel mb-4 reveal">
+      <div class="panel-head"><h2 class="panel-title"><span class="ico t-leaf"><i class="bi bi-wallet2"></i></span>{{ this_month.label }}</h2></div>
+      <dl class="savings-sum">
+        <div><dt>Income</dt><dd class="num">{{ this_month.income|money }}</dd></div>
+        <div><dt>Expenses</dt><dd class="num">− {{ this_month.expenses|money }}</dd></div>
+        <div class="tot"><dt>Saved</dt><dd class="num {% if this_month.saved < 0 %}c-rose{% endif %}">{{ this_month.saved|money }}</dd></div>
+        {% if this_month.debt_in %}<div><dt>Paying back last month first</dt><dd class="num">− {{ this_month.debt_paid|money }} <small class="text-muted">of {{ this_month.debt_in|money }}</small></dd></div>{% endif %}
+        <div class="tot"><dt>Toward {{ goal.target_value|money }} goal</dt><dd class="num">{{ this_month.toward_goal|money }}</dd></div>
+      </dl>
+      <div class="meter {% if this_month.debt_out %}rose{% elif this_month.reached %}leaf{% endif %} lg mt-2"><span style="width:{{ this_month.percent }}%"></span></div>
+      <p class="small text-muted mt-3 mb-0"><i class="bi bi-info-circle"></i> Updates itself from your income and expenses. Expenses in the <b>Savings / investment</b> category are money put aside, so they don't count as spending. If a month ends in the red, that amount is paid back first the next month.</p>
+    </div>
+    {% else %}
     <div class="panel mb-4 reveal">
       <div class="panel-head"><h2 class="panel-title"><span class="ico t-leaf"><i class="bi bi-plus-circle"></i></span>Log progress</h2></div>
       <form method="post" action="{% url 'goal_add_update' goal.pk %}">
@@ -71,6 +115,7 @@
         <button class="btn btn-brand w-100 mt-3"><i class="bi bi-check2"></i> Save update</button>
       </form>
     </div>
+    {% endif %}
 
     <div class="panel reveal">
       <div class="panel-head">
@@ -99,7 +144,7 @@
 </div>
 {% endblock %}
 {% block extra_scripts %}
-{% if updates %}
+{% if updates or history %}
 <script>
   (function () {
     const ctx = document.getElementById('progressChart').getContext('2d');
@@ -107,7 +152,8 @@
     const values = {{ chart_values|safe }};
     const brand = wilifeColor('--brand');
     const g = ctx.createLinearGradient(0, 0, 0, 260); g.addColorStop(0, brand + '55'); g.addColorStop(1, brand + '00');
-    const datasets = [{ label: 'Progress', data: values, borderColor: brand, backgroundColor: g, fill: true, tension: .4, borderWidth: 3, pointRadius: 4, pointBackgroundColor: brand }];
+    {% if goal.is_monthly_savings %}const datasets = [{ type: 'bar', label: 'Saved', data: values, borderRadius: 8, backgroundColor: values.map(v => v < 0 ? wilifeColor('--rose') : brand) }];
+    {% else %}const datasets = [{ label: 'Progress', data: values, borderColor: brand, backgroundColor: g, fill: true, tension: .4, borderWidth: 3, pointRadius: 4, pointBackgroundColor: brand }];{% endif %}
     {% if goal.target_value %}datasets.push({ label: 'Target', data: labels.map(() => {{ goal.target_value|stringformat:"s" }}), borderColor: wilifeColor('--leaf'), borderDash: [6, 5], borderWidth: 2, pointRadius: 0, fill: false });{% endif %}
     new Chart(ctx, { type: 'line', data: { labels, datasets },
       options: { maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' }, plugins: { legend: { position: 'bottom' } },

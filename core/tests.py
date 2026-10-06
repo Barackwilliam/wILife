@@ -347,3 +347,90 @@ class MessageFormatTests(TestCase):
         self.assertIn("01/10", out)  # a date is not mistaken for a link
         with override_settings(SITE_URL=""):
             self.assertNotIn('href="/habari-admin', email_html(text))
+
+
+class MonthlySavingsTests(TestCase):
+    """The example from the design: Oct overspends, Nov pays it back and reaches, Dec misses."""
+
+    def setUp(self):
+        from datetime import date
+        from core.models import Expense, Goal, Income
+        self.D = date
+        self.user = User.objects.create_user("w", password="x")
+        self.goal = Goal.objects.create(user=self.user, title="Akiba ya kila mwezi", kind="monthly_savings",
+                                        target_value=300000, start_date=date(2026, 10, 1), target_date=date(2026, 10, 31))
+        for d, amount in [(date(2026, 10, 3), 900000), (date(2026, 11, 3), 1000000), (date(2026, 12, 3), 800000)]:
+            Income.objects.create(user=self.user, amount=amount, source="kazi", date=d)
+        for d, amount in [(date(2026, 10, 9), 980000), (date(2026, 11, 9), 620000), (date(2026, 12, 9), 650000)]:
+            Expense.objects.create(user=self.user, amount=amount, category="bills", date=d)
+        # Money moved to savings is not spending.
+        Expense.objects.create(user=self.user, amount=100000, category="savings", date=date(2026, 12, 20))
+
+    def test_ledger_carries_only_real_deficits(self):
+        from core.savings import ledger
+        oct_, nov, dec = ledger(self.goal, today=self.D(2026, 12, 28))
+        self.assertEqual((oct_.saved, oct_.debt_out, oct_.status), (-80000, 80000, "deficit"))
+        self.assertEqual((nov.debt_in, nov.debt_paid, nov.toward_goal, nov.status), (80000, 80000, 300000, "reached"))
+        self.assertEqual((dec.debt_in, dec.toward_goal, dec.shortfall, dec.status), (0, 150000, 150000, "in_progress"))
+
+    def test_editing_a_closed_month_recomputes_the_chain(self):
+        from core.models import Income
+        from core.savings import ledger
+        Income.objects.create(user=self.user, amount=100000, source="ziada", date=self.D(2026, 10, 30))
+        oct_, nov, _ = ledger(self.goal, today=self.D(2026, 12, 28))
+        self.assertEqual((oct_.debt_out, nov.debt_in, nov.surplus), (0, 0, 80000))
+
+    def test_current_value_follows_income_and_expenses(self):
+        from core.models import Expense
+        from core.savings import sync
+        with mock.patch("django.utils.timezone.localdate", return_value=self.D(2026, 11, 20)):
+            sync(self.goal)
+            self.goal.refresh_from_db()
+            self.assertEqual(self.goal.current_value, 300000)
+            Expense.objects.create(user=self.user, amount=50000, category="food", date=self.D(2026, 11, 21))
+            self.goal.refresh_from_db()
+            self.assertEqual(self.goal.current_value, 250000)  # updated by the signal
+            self.assertEqual(self.goal.target_date, self.D(2026, 11, 30))
+
+    def test_goal_pages_show_debt_first_and_history(self):
+        self.client.force_login(self.user)
+        with mock.patch("django.utils.timezone.localdate", return_value=self.D(2026, 11, 5)):
+            r = self.client.get("/goals/")
+            self.assertContains(r, "Pay back Oktoba 2026")
+            r = self.client.get(f"/goals/{self.goal.pk}/")
+            self.assertContains(r, "Month by month")
+            self.assertContains(r, "80,000 carried over")
+
+    def test_form_creates_a_monthly_goal_without_dates(self):
+        from core.models import Goal
+        self.client.force_login(self.user)
+        r = self.client.post("/goals/add/", {"title": "Akiba", "kind": "monthly_savings", "target_value": "200000",
+                                             "status": "active", "start_date": "2026-10-15", "category": "personal"})
+        self.assertEqual(r.status_code, 302)
+        g = Goal.objects.get(title="Akiba")
+        self.assertEqual((g.kind, g.category, g.start_date.day), ("monthly_savings", "finance", 1))
+        r = self.client.post("/goals/add/", {"title": "Bila tarehe", "kind": "manual", "target_value": "5",
+                                             "status": "active", "start_date": "2026-10-15", "category": "personal"})
+        self.assertEqual(r.status_code, 200)  # a manual goal still needs a target date
+
+    def test_brief_and_month_end_report(self):
+        from core.savings import brief_lines, run_watch
+        lines = "\n".join(brief_lines(self.user, today=self.D(2026, 11, 5)))
+        self.assertIn("Deni la mwezi uliopita", lines)
+        now = timezone.make_aware(timezone.datetime(2026, 11, 1, 7, 0))
+        with mock.patch("core.agent.channels.send_to_self") as send:
+            first = run_watch(now=now)
+            second = run_watch(now=now)
+        self.assertEqual((first["sent"], second["sent"]), (1, 0))  # once per month
+        self.assertIn("Mwezi umeisha hasi kwa TZS 80,000", send.call_args.args[1])
+
+    def test_overspend_warning_is_sent_once(self):
+        from core.models import Expense
+        from core.savings import run_watch
+        Expense.objects.create(user=self.user, amount=2000000, category="bills", date=self.D(2026, 12, 10))
+        now = timezone.make_aware(timezone.datetime(2026, 12, 12, 9, 0))
+        with mock.patch("core.agent.channels.send_to_self") as send:
+            run_watch(now=now)
+            run_watch(now=now)
+        warnings = [c for c in send.call_args_list if "uko hasi" in c.args[1]]
+        self.assertEqual(len(warnings), 1)
