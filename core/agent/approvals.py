@@ -96,6 +96,8 @@ def execute_approved(approval):
 
     if approval.tool == "publish_news":
         return _publish_news(approval)
+    if approval.tool == "jamiitek_task":
+        return _jamiitek_task(approval)
 
     try:
         message_id = send_to_other(approval.recipient_number, approval.body)
@@ -140,7 +142,7 @@ def approve(code, user=None):
     approval.save(update_fields=["status", "decided_at"])
 
     ok = execute_approved(approval)
-    if ok and approval.tool == "publish_news":
+    if ok and approval.tool in ("publish_news", "jamiitek_task"):
         return True, f"✅ {approval.result}"
     if ok:
         return True, f"✅ Imetumwa kwa {approval.recipient_name or approval.recipient_number}."
@@ -165,7 +167,25 @@ def reject(code, user=None):
         if batch:
             reject_batch(batch)
         return True, f"🗑️ Habari za rasimu {code} zimekataliwa."
+    if approval.tool == "jamiitek_task":
+        from core.agent.jamiitek_team import reject_remote
+        ok, _ = reject_remote(approval)
+        note = "" if ok else " (JamiiTek haikufikiwa — iache pia kwenye panel)"
+        return True, f"🗑️ Rasimu {code} imeachwa{note}."
     return True, f"🗑️ Rasimu {code} imefutwa."
+
+
+def _jamiitek_task(approval):
+    """Approved team draft: JamiiTek sends it, from JamiiTek's own email/WhatsApp."""
+    from core.agent.jamiitek_team import approve_remote
+
+    ok, message = approve_remote(approval)
+    approval.status = "sent" if ok else "failed"
+    approval.result = message[:500]
+    if ok:
+        approval.sent_at = timezone.now()
+    approval.save(update_fields=["status", "result", "sent_at"])
+    return ok
 
 
 def _publish_news(approval):

@@ -41,6 +41,7 @@ urlpatterns = [
     path('health/<int:pk>/delete/', views.health_delete, name='health_delete'),
     path('healthz/', views_agent.healthz, name='healthz'),
     path('agent/tick/', views_agent.agent_tick, name='agent_tick'),
+    path('agent/jamiitek/', views_agent.jamiitek_inbox, name='jamiitek_inbox'),
 
     path('schedule/', views.schedule_list, name='schedule_list'),
     path('schedule/add/', views.schedule_create, name='schedule_create'),

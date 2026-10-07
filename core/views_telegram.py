@@ -18,7 +18,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from core.agent import approvals
+from core.agent import approvals, jamiitek_team
 from core.agent.telegram import send_telegram
 
 log = logging.getLogger("core.agent")
@@ -67,6 +67,12 @@ def _handle(payload):
 
     decision, code = approvals.parse_reply(text)
     if not decision:
+        if jamiitek_team.is_team_command(text):
+            try:
+                send_telegram(chat_id, jamiitek_team.status_text())
+            except Exception as exc:
+                log.error("could not send team status: %s", exc)
+            return
         log.info("ignoring unrecognised telegram message")
         return
 

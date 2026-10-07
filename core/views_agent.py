@@ -10,6 +10,7 @@ Two endpoints, doing different jobs — do not confuse them:
                 cadence reminders actually need. Token protected.
 """
 
+import json
 import secrets
 
 from django.conf import settings
@@ -55,3 +56,26 @@ def agent_tick(request):
     dry_run = request.GET.get("dry_run") in ("1", "true", "yes")
     summary = run_tick(dry_run=dry_run)
     return JsonResponse(summary, status=200 if summary["ok"] else 207)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def jamiitek_inbox(request):
+    """
+    Messages from the JamiiTek AI team: William's reports, and drafts that
+    need the owner's OK. Auth: X-Workers-Token = JAMIITEK_TOKEN.
+    """
+    from core.agent import jamiitek_team
+
+    expected = jamiitek_team.token()
+    if not expected:
+        return JsonResponse({"ok": False, "error": "JAMIITEK_TOKEN is not configured"}, status=503)
+    provided = request.headers.get("X-Workers-Token", "")
+    if not secrets.compare_digest(str(provided), str(expected)):
+        return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+    try:
+        payload = json.loads(request.body or b"{}")
+    except ValueError:
+        return JsonResponse({"ok": False, "error": "invalid json"}, status=400)
+    status, body = jamiitek_team.receive(payload)
+    return JsonResponse(body, status=status)
