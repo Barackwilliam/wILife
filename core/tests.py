@@ -434,3 +434,101 @@ class MonthlySavingsTests(TestCase):
             run_watch(now=now)
         warnings = [c for c in send.call_args_list if "uko hasi" in c.args[1]]
         self.assertEqual(len(warnings), 1)
+
+
+@override_settings(JAMIITEK_URL="https://jamiitek.test", JAMIITEK_TOKEN="team-secret")
+class JamiiTekTeamTests(TestCase):
+    """The link to the JamiiTek AI team: reports in, drafts in, decisions out."""
+
+    H = {"HTTP_X_WORKERS_TOKEN": "team-secret"}
+
+    def setUp(self):
+        self.user = User.objects.create_user("william", "w@example.com", "x")
+
+    def post(self, payload, **headers):
+        return self.client.post("/agent/jamiitek/", data=json.dumps(payload),
+                                content_type="application/json", **(headers or self.H))
+
+    def remote(self, body, status=200):
+        response = mock.Mock(status_code=status)
+        response.json.return_value = body
+        return mock.patch("core.agent.jamiitek_team.requests.request", return_value=response)
+
+    def test_inbox_needs_token(self):
+        self.assertEqual(self.post({"kind": "report", "text": "x"}, HTTP_X_WORKERS_TOKEN="bad").status_code, 403)
+
+    def test_report_is_delivered_to_owner(self):
+        with mock.patch("core.agent.channels.send_to_self") as sent:
+            r = self.post({"kind": "report", "text": "👔 *William — Mpango wa leo*\n\nHabari"})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(sent.call_args[0][0], self.user)
+        self.assertIn("Mpango wa leo", sent.call_args[0][1])
+
+    def test_report_delivery_failure_tells_jamiitek(self):
+        with mock.patch("core.agent.channels.send_to_self", side_effect=channels.DeliveryError("down")):
+            r = self.post({"kind": "report", "text": "x"})
+        self.assertEqual(r.status_code, 502)
+
+    def approval(self):
+        with mock.patch("core.agent.approvals.send_to_self") as preview:
+            r = self.post({"kind": "approval", "task_id": 42, "worker": "diana",
+                           "title": "Invoice INV-1 imechelewa", "context": "Diana (Fedha na ofisi) · Email",
+                           "recipient_name": "Asha", "recipient": "asha@example.com",
+                           "subject": "Ukumbusho", "body": "Habari Asha, tafadhali lipa."})
+        self.assertEqual(r.status_code, 200)
+        return r.json()["code"], preview
+
+    def test_draft_becomes_approval_request_once(self):
+        code, preview = self.approval()
+        approval = ApprovalRequest.objects.get(code=code)
+        self.assertEqual(approval.tool, "jamiitek_task")
+        self.assertEqual(approval.external_ref, "42")
+        self.assertIn("Habari Asha", approval.body)
+        self.assertIn(f"OK {code}", preview.call_args[0][1])
+        again, _ = self.approval()
+        self.assertEqual(again, code)
+        self.assertEqual(ApprovalRequest.objects.count(), 1)
+
+    def test_ok_asks_jamiitek_to_send(self):
+        from core.agent import approvals
+        code, _ = self.approval()
+        with self.remote({"ok": True, "message": "Email imetumwa kwa asha@example.com."}) as call:
+            ok, reply = approvals.approve(code, user=self.user)
+        self.assertTrue(ok)
+        self.assertIn("Email imetumwa", reply)
+        method, url = call.call_args[0]
+        self.assertEqual((method, url), ("POST", "https://jamiitek.test/wafanyakazi/api/kazi/42/idhinisha/"))
+        self.assertEqual(call.call_args[1]["headers"]["X-Workers-Token"], "team-secret")
+        self.assertEqual(ApprovalRequest.objects.get(code=code).status, "sent")
+
+    def test_ok_when_jamiitek_is_down_points_to_panel(self):
+        import requests
+        from core.agent import approvals
+        code, _ = self.approval()
+        with mock.patch("core.agent.jamiitek_team.requests.request", side_effect=requests.ConnectionError()):
+            ok, reply = approvals.approve(code, user=self.user)
+        self.assertFalse(ok)
+        self.assertIn("/manage/wafanyakazi/", reply)
+        self.assertEqual(ApprovalRequest.objects.get(code=code).status, "failed")
+
+    def test_no_tells_jamiitek_to_drop_it(self):
+        from core.agent import approvals
+        code, _ = self.approval()
+        with self.remote({"ok": True, "message": "Kazi imeachwa."}) as call:
+            ok, reply = approvals.reject(code, user=self.user)
+        self.assertTrue(ok)
+        self.assertTrue(call.call_args[0][1].endswith("/wafanyakazi/api/kazi/42/kataa/"))
+        self.assertEqual(ApprovalRequest.objects.get(code=code).status, "rejected")
+
+    def test_team_command(self):
+        from core.agent import jamiitek_team
+        self.assertTrue(jamiitek_team.is_team_command(" Timu? "))
+        self.assertFalse(jamiitek_team.is_team_command("timu ya mpira ilishinda"))
+        status = {"ok": True, "team": [
+            {"slug": "william", "name": "William", "role": "Kiongozi mkuu", "open": 0, "awaiting": 0, "stale": 0},
+            {"slug": "diana", "name": "Diana", "role": "Fedha na ofisi", "open": 1, "awaiting": 2, "stale": 1}],
+            "awaiting": [{"worker_name": "Diana", "title": "Invoice INV-1", "wilife_code": "4821"}]}
+        with self.remote(status):
+            text = jamiitek_team.status_text()
+        self.assertIn("*Diana* (Fedha na ofisi): kazi wazi 1 · 2 zinasubiri idhini, 1 zimekwama", text)
+        self.assertIn("*OK 4821*", text)

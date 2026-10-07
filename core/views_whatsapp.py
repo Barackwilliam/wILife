@@ -31,7 +31,7 @@ from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from core.agent import approvals
+from core.agent import approvals, jamiitek_team
 from core.agent.whatsapp import normalise_number, send_whatsapp
 
 log = logging.getLogger("core.agent")
@@ -177,6 +177,8 @@ def _handle_message(from_number, text):
     """Act on an approval reply. Returns the confirmation text, or '' to stay silent."""
     decision, code = approvals.parse_reply(text)
     if not decision:
+        if jamiitek_team.is_team_command(text) and _authorised_user(from_number):
+            return jamiitek_team.status_text()
         log.info("ignoring unrecognised inbound message from %s", from_number)
         return ""
 

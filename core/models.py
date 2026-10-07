@@ -320,6 +320,8 @@ class ApprovalRequest(models.Model):
     recipient_number = models.CharField(max_length=32, blank=True, default="")
     body = models.TextField()
     context = models.CharField(max_length=255, blank=True, default="")
+    # Id of the thing this approves in another system (a JamiiTek team task).
+    external_ref = models.CharField(max_length=64, blank=True, default="")
     status = models.CharField(max_length=12, choices=STATUS_CHOICES, default="pending")
     result = models.CharField(max_length=500, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
