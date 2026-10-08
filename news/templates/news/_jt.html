@@ -2,6 +2,7 @@
   <div class="jt-l">
     <div><small>JamiiTek Digital Agency</small><h2>Teknolojia inayokuza biashara yako.</h2><p>Tovuti, mifumo, WhatsApp bots za AI na SEO — imejengwa Dar es Salaam kwa biashara za Kitanzania.</p></div>
     <div class="flex gap-1 wrap-f">
+      <a href="{% jamiitek_url '/' 'home-strip' %}" class="btn" target="_blank" rel="noopener">jamiitek.com {% icon "box-arrow-up-right" %}</a>
       <a href="{% url 'news:services' %}" class="btn">Huduma zote {% icon "arrow-right" %}</a>
       {% whatsapp_link "Habari JamiiTek! Nimeona huduma zenu kwenye wILife." as wa %}{% if wa %}<a href="{{ wa }}" class="btn" target="_blank" rel="noopener">{% icon "whatsapp" %} WhatsApp</a>{% endif %}
     </div>

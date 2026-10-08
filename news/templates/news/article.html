@@ -31,7 +31,7 @@
       <h1>{{ article.title }}</h1>
       <p class="dek">{{ article.excerpt }}</p>
       <div class="byline">
-        <div class="who">{% include 'partials/brand_mark.html' %}<div><strong>Dawati la Habari, wILife</strong><small>{% if article.published_at %}<time datetime="{{ article.published_at|date:'c' }}">{{ article.published_at|sw_date }}, {{ article.published_at|time:"H:i" }}</time> · {% endif %}{{ article.reading_minutes }} dk kusoma</small></div></div>
+        <div class="who">{% include 'partials/brand_mark.html' %}<div><strong>Dawati la Habari, wILife</strong><small>{% if article.published_at %}<time datetime="{{ article.published_at|date:'c' }}">{{ article.published_at|sw_date }}, {{ article.published_at|time:"H:i" }}</time> · {% endif %}{{ article.reading_minutes }} dk kusoma · <span class="vw" title="Imesomwa mara {{ views }}">{% icon "eye" %} {{ views|views_short }}</span></small></div></div>
         {% absolute article.get_absolute_url as share_url %}
         <div class="share">
           <a class="wa" href="https://wa.me/?text={{ article.title|urlencode }}%20{{ share_url|urlencode }}" target="_blank" rel="noopener" aria-label="Shiriki WhatsApp">{% icon "whatsapp" %}</a>
@@ -43,7 +43,7 @@
     </header>
     <div class="hero-img">{% include 'news/_img.html' with a=article big=True %}</div>
 
-    <div class="prose">{{ article.body|render_body }}</div>
+    <div class="prose">{% if jt_links %}{{ article.body|render_body:"jamiitek" }}{% else %}{{ article.body|render_body }}{% endif %}</div>
 
     {% if article.tag_list %}<div class="tagline tags">{% for name, slug in article.tag_list %}<a href="{% url 'news:topic' slug %}">{% icon "hash" %}{{ name }}</a>{% endfor %}</div>{% endif %}
 
@@ -51,7 +51,10 @@
     <aside class="cta-in">
       <span class="ic">{% icon service.icon %}</span>
       <div><small>Kutoka JamiiTek</small><b>{{ service.name }}</b><span>{{ service.tagline }}</span></div>
-      <a href="{{ service.get_absolute_url }}" class="btn btn-brand">Jifunze zaidi</a>
+      <div class="cta-btns">
+        <a href="{{ service|jamiitek_service_url }}" class="btn btn-brand" target="_blank" rel="noopener">Fungua kwenye JamiiTek {% icon "box-arrow-up-right" %}</a>
+        <a href="{{ service.get_absolute_url }}" class="btn btn-ghost">Jifunze zaidi</a>
+      </div>
     </aside>
     {% endif %}
 

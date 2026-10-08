@@ -454,3 +454,57 @@ class BrandAssetTests(TestCase):
     def test_generated_covers_carry_the_logo(self):
         from news import covers
         self.assertIsNotNone(covers._mark(52))
+
+
+@override_settings(JAMIITEK_SITE="https://www.jamiitek.com")
+class ViewsAndJamiiTekLinksTests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.bot = JamiiTekService.objects.get(slug="whatsapp-bots-na-ai")
+        self.art = Article.objects.create(
+            title="JamiiBot inavyosaidia maduka", category="jamiitek", excerpt="x", service=self.bot,
+            body="JamiiBot ni msaidizi wa WhatsApp wa JamiiTek.\n\nJamiiBot tena.\n\n"
+                 "## JamiiBot kichwa\n- Chagua templates za tovuti\n- Kagua domain yako",
+            status="published", published_at=timezone.now(), views=1499, cover_png=b"\x89PNG")
+        self.news = Article.objects.create(
+            title="Habari ya dunia", category="dunia", excerpt="x", body="Domain mpya za .africa.",
+            status="published", published_at=timezone.now(), views=7, cover_png=b"\x89PNG")
+
+    def test_views_are_shown(self):
+        r = self.client.get(self.art.get_absolute_url())
+        self.assertContains(r, "Imesomwa mara 1500")           # pamoja na usomaji huu
+        self.assertContains(r, "1.5K")
+        r = self.client.get("/habari/")
+        self.assertContains(r, "Imesomwa mara 7")
+
+    def test_jamiitek_article_links_each_product_once(self):
+        html = self.client.get(self.art.get_absolute_url()).content.decode()
+        self.assertEqual(html.count('class="jt-link" href="https://www.jamiitek.com/bot/?utm_source=wilife'), 1)
+        self.assertIn('href="https://www.jamiitek.com/bot/?utm_source=wilife&amp;utm_medium=referral'
+                      '&amp;utm_campaign=service-whatsapp-bots-na-ai"', html)          # kitufe cha huduma
+        self.assertIn('class="jt-link" href="https://www.jamiitek.com/templates/?utm_source=wilife', html)
+        self.assertIn('href="https://www.jamiitek.com/domain-check/?utm_source=wilife', html)
+        self.assertIn('href="https://www.jamiitek.com/?utm_source=wilife', html)
+        self.assertIn("<h2>JamiiBot kichwa</h2>", html)                 # vichwa havigeuzwi
+
+    def test_other_news_is_not_linked(self):
+        html = self.client.get(self.news.get_absolute_url()).content.decode()
+        self.assertNotIn('class="jt-link"', html)
+
+    def test_service_page_opens_the_real_jamiitek_page(self):
+        r = self.client.get(self.bot.get_absolute_url())
+        self.assertContains(r, 'href="https://www.jamiitek.com/bot/?utm_source=wilife&amp;utm_medium=referral'
+                               '&amp;utm_campaign=service-whatsapp-bots-na-ai"')
+        self.assertContains(r, "Fungua kwenye JamiiTek")
+
+    def test_views_short(self):
+        from news.templatetags.news_tags import views_short
+        self.assertEqual([views_short(n) for n in (0, 999, 1000, 1499, 12000, 2_300_000)],
+                         ["0", "999", "1K", "1.5K", "12K", "2.3M"])
+
+    def test_linker_escapes(self):
+        html = render_body("<b>JamiiBot</b> & JamiiTek", "jamiitek")
+        self.assertIn("&lt;b&gt;<a", html)
+        self.assertIn("&amp;", html)

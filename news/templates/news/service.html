@@ -12,14 +12,14 @@
   <h1>{{ service.name }}</h1>
   <p>{{ service.tagline }}</p>
   <div class="btns">
-    {% if service.cta_url %}<a href="{{ service.cta_url }}" class="btn btn-brand btn-lg">{{ service.cta_label }} {% icon "arrow-right" %}</a>
-    {% else %}{% whatsapp_link "Habari JamiiTek! Ningependa kujua zaidi kuhusu "|add:service.name as wa %}{% if wa %}<a href="{{ wa }}" class="btn btn-brand btn-lg" target="_blank" rel="noopener">{% icon "whatsapp" %} {{ service.cta_label }}</a>{% endif %}{% endif %}
+    <a href="{{ service|jamiitek_service_url }}" class="btn btn-brand btn-lg" target="_blank" rel="noopener">Fungua kwenye JamiiTek {% icon "box-arrow-up-right" %}</a>
+    {% whatsapp_link "Habari JamiiTek! Ningependa kujua zaidi kuhusu "|add:service.name as wa %}{% if wa %}<a href="{{ wa }}" class="btn btn-ghost btn-lg" target="_blank" rel="noopener">{% icon "whatsapp" %} {{ service.cta_label }}</a>{% endif %}
     <a href="{% url 'news:services' %}" class="btn btn-ghost btn-lg">Huduma nyingine</a>
   </div>
 </section>
 <div class="cols">
   <div>
-    <div class="prose mb-3"><p>{{ service.description }}</p></div>
+    <div class="prose mb-3">{{ service.description|render_body:"jamiitek" }}</div>
     <h2 class="ttl" style="font-size:1.9rem">Faida kuu</h2>
     <div class="ben">{% for b in service.benefit_list %}<div>{% icon "check2-circle" %}<span>{{ b }}</span></div>{% endfor %}</div>
     {% if service.opportunity_list %}<h2 class="ttl" style="font-size:1.9rem">Fursa zilizopo</h2>
