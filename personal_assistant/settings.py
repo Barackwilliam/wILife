@@ -295,6 +295,8 @@ NEWS_STOP_HOUR = int(env("NEWS_STOP_HOUR", "16"))     # keep retrying missing sl
 NEWS_MODEL = env("NEWS_MODEL", "")                  # defaults to GROQ_MODEL
 JAMIITEK_WHATSAPP = env("JAMIITEK_WHATSAPP", "")    # e.g. 255712345678 for "Wasiliana nasi" buttons
 JAMIITEK_EMAIL = env("JAMIITEK_EMAIL", "")
+# Public JamiiTek site: service pages and article links point here.
+JAMIITEK_SITE = (env("JAMIITEK_SITE", "") or JAMIITEK_URL or "https://www.jamiitek.com").rstrip("/")
 INDEXNOW_KEY = env("INDEXNOW_KEY", "")              # any 8–128 hex chars; served at /<key>.txt
 NEWS_CACHE_SECONDS = int(env("NEWS_CACHE_SECONDS", "300"))
 # Comma-separated official profiles (Facebook, X, Instagram, YouTube, LinkedIn) — used as schema.org sameAs

@@ -3,5 +3,5 @@
   <span class="kick">{{ a.get_category_display }}</span>
   <h3 class="ttl"><a href="{{ a.get_absolute_url }}">{{ a.title }}</a></h3>
   {% if not compact %}<p>{{ a.excerpt }}</p>{% endif %}
-  <span class="when">{{ a.published_at|sw_ago }}<span class="dot"></span>{{ a.reading_minutes }} dk</span>
+  <span class="when">{{ a.published_at|sw_ago }}<span class="dot"></span>{{ a.reading_minutes }} dk<span class="dot"></span><span class="vw" title="Imesomwa mara {{ a.views }}">{% icon "eye" %} {{ a.views|views_short }}</span></span>
 </article>

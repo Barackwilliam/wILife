@@ -3,5 +3,6 @@
   <div class="ic">{% icon service.icon %}</div>
   <h4>{{ service.name }}</h4>
   <p>{{ service.tagline }}</p>
-  <a href="{{ service.get_absolute_url }}" class="btn btn-sm">Jifunze zaidi {% icon "arrow-right" %}</a>
+  <a href="{{ service|jamiitek_service_url }}" class="btn btn-sm" target="_blank" rel="noopener">Fungua kwenye JamiiTek {% icon "box-arrow-up-right" %}</a>
+  <a href="{{ service.get_absolute_url }}" class="ad-more">Jifunze zaidi {% icon "arrow-right" %}</a>
 </div>{% endif %}

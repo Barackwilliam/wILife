@@ -6,7 +6,7 @@
       <div class="rv-lead-k"><span class="rv-badge">{% icon "lightning-charge-fill" %} Habari kuu</span><span class="rv-cat">{{ lead.get_category_display }}</span></div>
       <h2>{{ lead.title }}</h2>
       <p>{{ lead.excerpt }}</p>
-      <div class="rv-lead-f"><span>{{ lead.published_at|sw_ago }} · {{ lead.reading_minutes }} dk kusoma</span><span class="rv-go">Soma habari {% icon "arrow-right" %}</span></div>
+      <div class="rv-lead-f"><span>{{ lead.published_at|sw_ago }} · {{ lead.reading_minutes }} dk kusoma · <span class="vw" title="Imesomwa mara {{ lead.views }}">{% icon "eye" %} {{ lead.views|views_short }}</span></span><span class="rv-go">Soma habari {% icon "arrow-right" %}</span></div>
     </div>
   </a>{% endif %}
   <div class="rv-list" id="rv-list">{% include 'news/_river_rows.html' %}</div>

@@ -16,7 +16,7 @@
     <span class="kick box">{{ lead.get_category_display }}</span>
     <h2 class="ttl"><a href="{{ lead.get_absolute_url }}">{{ lead.title }}</a></h2>
     <p>{{ lead.excerpt }}</p>
-    <span class="when">{{ lead.published_at|sw_ago }}<span class="dot"></span>{{ lead.reading_minutes }} dk kusoma</span>
+    <span class="when">{{ lead.published_at|sw_ago }}<span class="dot"></span>{{ lead.reading_minutes }} dk kusoma<span class="dot"></span><span class="vw" title="Imesomwa mara {{ lead.views }}">{% icon "eye" %} {{ lead.views|views_short }}</span></span>
   </article>
 
   <div class="stack">
@@ -26,7 +26,7 @@
       <div>
         <span class="kick box">{{ a.get_category_display }}</span>
         <h3 class="ttl"><a href="{{ a.get_absolute_url }}">{{ a.title }}</a></h3>
-        <span class="when">{{ a.published_at|sw_ago }}<span class="dot"></span>{{ a.reading_minutes }} dk</span>
+        <span class="when">{{ a.published_at|sw_ago }}<span class="dot"></span>{{ a.reading_minutes }} dk<span class="dot"></span><span class="vw" title="Imesomwa mara {{ a.views }}">{% icon "eye" %} {{ a.views|views_short }}</span></span>
       </div>
       {% if not forloop.first %}<a href="{{ a.get_absolute_url }}" tabindex="-1" aria-hidden="true">{% include 'news/_img.html' with sq=True %}</a>{% endif %}
     </article>

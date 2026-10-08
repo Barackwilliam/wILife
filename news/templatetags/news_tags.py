@@ -12,9 +12,17 @@ register = template.Library()
 
 
 @register.filter
-def render_body(text):
-    """Paragraphs / '## ' subheadings / '- ' lists → safe HTML. Everything is escaped first."""
+def render_body(text, links=""):
+    """
+    Paragraphs / '## ' subheadings / '- ' lists → safe HTML. Everything is escaped first.
+
+    With `|render_body:"jamiitek"`, the first mention of each JamiiTek product
+    (JamiiBot, web builder, templates, domain, JamiiTek) links to its page on
+    jamiitek.com.
+    """
+    from news.jamiitek_links import Linker
     out, bullets = [], []
+    link = Linker() if links else escape
 
     def flush():
         if bullets:
@@ -27,7 +35,7 @@ def render_body(text):
             flush()
             continue
         if line.startswith(("- ", "• ", "* ")):
-            bullets.append(escape(line[2:].strip()))
+            bullets.append(link(line[2:].strip()))
             continue
         flush()
         if line.startswith("## "):
@@ -35,7 +43,7 @@ def render_body(text):
         elif line.startswith("# "):
             out.append(f"<h2>{escape(line[2:].strip())}</h2>")
         else:
-            out.append(f"<p>{escape(line)}</p>")
+            out.append(f"<p>{link(line)}</p>")
     flush()
     return mark_safe("\n".join(out))
 
@@ -222,3 +230,29 @@ def sw_daydate(value):
         return ""
     text = f"{day.day} {SWAHILI_MONTHS[day.month - 1]}"
     return text if day.year == timezone.localdate().year else f"{text} {day.year}"
+
+
+@register.filter
+def views_short(value):
+    """1234 → '1.2K' (kwa kadi); chini ya 1000 namba kamili."""
+    try:
+        n = int(value or 0)
+    except (TypeError, ValueError):
+        return "0"
+    for size, suffix in ((1_000_000, "M"), (1_000, "K")):
+        if n >= size:
+            short = f"{n / size:.1f}".rstrip("0").rstrip(".")
+            return f"{short}{suffix}"
+    return str(n)
+
+
+@register.simple_tag
+def jamiitek_url(path="/", campaign="site"):
+    from news.jamiitek_links import url
+    return url(path, campaign)
+
+
+@register.filter
+def jamiitek_service_url(service):
+    from news.jamiitek_links import service_url
+    return service_url(service)

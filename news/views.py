@@ -159,8 +159,10 @@ def topic(request, slug):
 def article(request, category, slug):
     qs = Article.objects.defer(*LIGHT) if request.user.is_staff else _published()
     item = get_object_or_404(qs, category=category, slug=slug)
+    views = item.views
     if item.status == "published" and not request.user.is_staff:
         Article.objects.filter(pk=item.pk).update(views=F("views") + 1)
+        views += 1
     related = list(_published().filter(category=item.category).exclude(pk=item.pk)[:4])
     service = item.service or JamiiTekService.objects.filter(active=True).order_by("?").first()
     response = render(request, "news/article.html", {
@@ -169,6 +171,9 @@ def article(request, category, slug):
         "latest": _published().exclude(pk=item.pk)[:6],
         "service": service,
         "is_draft": item.status != "published",
+        "views": views,
+        # Makala za JamiiTek (au zinazoitaja) — majina ya huduma yanakuwa viungo vya jamiitek.com
+        "jt_links": item.category == Category.JAMIITEK or "jamiitek" in item.body.lower(),
     })
     return gzip_page(lambda r: response)(request)
 
