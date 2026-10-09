@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{% block title %}wILife — Habari za Leo Tanzania, Afrika na Dunia kwa Kiswahili{% endblock %}</title>
-  <meta name="description" content="{% block description %}Habari za leo za Tanzania, Afrika na Dunia kwa Kiswahili — siasa, uchumi, biashara, teknolojia na jamii. Kwa ufupi, kwa uhakika.{% endblock %}">
+  <meta name="description" content="{% block description %}Habari za leo za Tanzania, Afrika na Dunia kwa Kiswahili — siasa, uchumi, biashara, teknolojia na jamii. Kwa ufupi, kwa uhakika.{% endblock %}{% if page.number > 1 %} Ukurasa {{ page.number }}.{% endif %}">
   {% block robots %}<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">{% endblock %}
-  <link rel="canonical" href="{% block canonical %}{% absolute request.path %}{% endblock %}">
+  <link rel="canonical" href="{% block canonical %}{% absolute request.path %}{% if page.number > 1 %}?page={{ page.number }}{% endif %}{% endblock %}">
   <link rel="alternate" hreflang="sw" href="{% absolute request.path %}">
   <link rel="alternate" hreflang="x-default" href="{% absolute request.path %}">
   <link rel="alternate" type="application/rss+xml" title="wILife — Habari" href="{% url 'news:rss' %}">

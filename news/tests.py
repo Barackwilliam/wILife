@@ -508,3 +508,40 @@ class ViewsAndJamiiTekLinksTests(TestCase):
         html = render_body("<b>JamiiBot</b> & JamiiTek", "jamiitek")
         self.assertIn("&lt;b&gt;<a", html)
         self.assertIn("&amp;", html)
+
+
+@override_settings(SITE_URL="https://www.wlife.online")
+class SeoAuditTests(TestCase):
+    def setUp(self):
+        self.a = Article.objects.create(
+            title="Serikali yatangaza mpango mpya wa kilimo cha umwagiliaji kwa wakulima wadogo nchini",
+            category="tanzania", excerpt="Muhtasari wa mpango", body="Aya.",
+            status="published", published_at=timezone.now())
+
+    def test_canonical_and_jsonld_use_official_domain(self):
+        body = self.client.get(self.a.get_absolute_url(), HTTP_HOST="wilife.onrender.com").content.decode()
+        self.assertIn(f'<link rel="canonical" href="https://www.wlife.online{self.a.get_absolute_url()}"', body)
+        self.assertNotIn("onrender.com", body)
+
+    def test_robots_and_sitemaps_use_official_domain(self):
+        for url in ("/robots.txt", "/sitemap.xml", "/news-sitemap.xml"):
+            body = self.client.get(url, HTTP_HOST="wilife.onrender.com").content.decode()
+            self.assertIn("https://www.wlife.online/", body, url)
+            self.assertNotIn("onrender.com", body, url)
+
+    def test_paginated_pages_are_self_canonical(self):
+        for i in range(30):
+            Article.objects.create(title=f"Habari {i}", category="dunia", excerpt=f"x{i}", body="y",
+                                   status="published", published_at=timezone.now())
+        r = self.client.get("/habari/?page=2")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, '<link rel="canonical" href="https://www.wlife.online/habari/?page=2"')
+
+    def test_long_article_title_has_no_brand_suffix(self):
+        self.assertContains(self.client.get(self.a.get_absolute_url()), f"<title>{self.a.title}</title>")
+
+    def test_private_pages_are_noindex(self):
+        r = self.client.get("/login/")
+        self.assertEqual(r["X-Robots-Tag"], "noindex, nofollow")
+        self.assertNotIn("X-Robots-Tag", self.client.get("/"))
+        self.assertNotIn("X-Robots-Tag", self.client.get(self.a.get_absolute_url()))

@@ -1,6 +1,6 @@
 {% extends 'news/base.html' %}
 {% load news_tags %}
-{% block title %}{{ article.title }} | wILife{% endblock %}
+{% block title %}{% if article.title|length > 52 %}{{ article.title }}{% else %}{{ article.title }} | wILife{% endif %}{% endblock %}
 {% block description %}{{ article.excerpt }}{% endblock %}
 {% block robots %}{% if is_draft %}<meta name="robots" content="noindex, nofollow">{% else %}<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">{% endif %}{% endblock %}
 {% block canonical %}{% absolute article.get_absolute_url %}{% endblock %}

@@ -72,6 +72,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'news.seo.PrivatePagesNoIndexMiddleware',
 ]
 
 ROOT_URLCONF = 'personal_assistant.urls'
