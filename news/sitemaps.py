@@ -1,7 +1,22 @@
-from django.contrib.sitemaps import Sitemap
+from urllib.parse import urlsplit
+
+from django.contrib.sitemaps import Sitemap as _Sitemap
 from django.urls import reverse
 
 from news.models import Article, Category, JamiiTekService
+from news.seo import site_root
+
+
+class Sitemap(_Sitemap):
+    """URL zote kwenye domain rasmi (SITE_URL), si host iliyotumika kusoma sitemap."""
+
+    def get_protocol(self, protocol=None):
+        root = site_root()
+        return urlsplit(root).scheme if root else super().get_protocol(protocol)
+
+    def get_domain(self, site=None):
+        root = site_root()
+        return urlsplit(root).netloc if root else super().get_domain(site)
 
 
 class ArticleSitemap(Sitemap):

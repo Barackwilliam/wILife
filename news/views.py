@@ -234,7 +234,8 @@ def about(request):
 
 
 def robots(request):
-    root = request.build_absolute_uri("/").rstrip("/")
+    from news.seo import site_root
+    root = site_root(request)
     body = "\n".join([
         "User-agent: *", "Allow: /",
         "Disallow: /admin/", "Disallow: /dashboard/", "Disallow: /agent/", "Disallow: /habari-admin/",

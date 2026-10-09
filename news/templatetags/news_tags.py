@@ -11,6 +11,11 @@ from news.pipeline import swahili_date
 register = template.Library()
 
 
+def _abs(request, path):
+    from news.seo import absolute
+    return absolute(request, path)
+
+
 @register.filter
 def render_body(text, links=""):
     """
@@ -62,27 +67,21 @@ def sw_date(value):
 
 @register.simple_tag(takes_context=True)
 def absolute(context, path):
-    request = context.get("request")
-    base = getattr(settings, "SITE_URL", "").rstrip("/")
-    if base:
-        return base + path
-    return request.build_absolute_uri(path) if request else path
+    from news.seo import absolute as _absolute
+    return _absolute(context.get("request"), path)
 
 
 @register.simple_tag(takes_context=True)
 def abs_url(context, url):
     """Absolute URL for a path or an already-absolute (bucket) URL."""
-    if not url or url.startswith(("http://", "https://")):
-        return url
-    request = context.get("request")
-    base = getattr(settings, "SITE_URL", "").rstrip("/")
-    return base + url if base else (request.build_absolute_uri(url) if request else url)
+    from news.seo import absolute as _absolute
+    return _absolute(context.get("request"), url)
 
 
 @register.simple_tag(takes_context=True)
 def article_jsonld(context, article):
     request = context["request"]
-    url = request.build_absolute_uri(article.get_absolute_url())
+    url = _abs(request, article.get_absolute_url())
     data = [{
         "@context": "https://schema.org",
         "@type": "NewsArticle",
@@ -98,18 +97,18 @@ def article_jsonld(context, article):
         "dateModified": article.updated_at.isoformat(),
         "articleSection": article.get_category_display(),
         "keywords": article.keywords,
-        "author": {"@type": "Organization", "name": "Dawati la Habari, wILife", "url": request.build_absolute_uri("/kuhusu/")},
+        "author": {"@type": "Organization", "name": "Dawati la Habari, wILife", "url": _abs(request, "/kuhusu/")},
         "publisher": {"@type": "Organization", "name": "wILife",
-                      "logo": {"@type": "ImageObject", "url": request.build_absolute_uri(static("news/brand/logo-600.png")),
+                      "logo": {"@type": "ImageObject", "url": _abs(request, static("news/brand/logo-600.png")),
                                "width": 600, "height": 466}},
         "isBasedOn": [s.get("url") for s in article.sources if s.get("url", "").startswith("http")] or None,
     }, {
         "@context": "https://schema.org",
         "@type": "BreadcrumbList",
         "itemListElement": [
-            {"@type": "ListItem", "position": 1, "name": "Mwanzo", "item": request.build_absolute_uri("/")},
+            {"@type": "ListItem", "position": 1, "name": "Mwanzo", "item": _abs(request, "/")},
             {"@type": "ListItem", "position": 2, "name": article.get_category_display(),
-             "item": request.build_absolute_uri(f"/habari/{article.category}/")},
+             "item": _abs(request, f"/habari/{article.category}/")},
             {"@type": "ListItem", "position": 3, "name": article.title, "item": url},
         ],
     }]
@@ -119,15 +118,15 @@ def article_jsonld(context, article):
 @register.simple_tag(takes_context=True)
 def site_jsonld(context):
     request = context["request"]
-    root = request.build_absolute_uri("/")
+    root = _abs(request, "/")
     data = [{
         "@context": "https://schema.org", "@type": "NewsMediaOrganization", "name": "wILife",
-        "url": root, "logo": {"@type": "ImageObject", "url": request.build_absolute_uri(static("news/brand/icon-512.png")),
+        "url": root, "logo": {"@type": "ImageObject", "url": _abs(request, static("news/brand/icon-512.png")),
                               "width": 512, "height": 512},
-        "image": request.build_absolute_uri(static("news/brand/og-default.jpg")),
+        "image": _abs(request, static("news/brand/og-default.jpg")),
         "parentOrganization": {"@type": "Organization", "name": "JamiiTek Digital Agency"},
         "sameAs": getattr(settings, "SOCIAL_LINKS", []) or None,
-        "publishingPrinciples": request.build_absolute_uri("/kuhusu/"),
+        "publishingPrinciples": _abs(request, "/kuhusu/"),
         "areaServed": "TZ", "knowsLanguage": "sw",
     }, {
         "@context": "https://schema.org", "@type": "WebSite", "name": "wILife", "url": root,
@@ -144,7 +143,7 @@ def service_jsonld(context, service):
     data = {
         "@context": "https://schema.org", "@type": "Service", "name": service.name,
         "description": service.tagline, "areaServed": "TZ",
-        "url": request.build_absolute_uri(service.get_absolute_url()),
+        "url": _abs(request, service.get_absolute_url()),
         "provider": {"@type": "Organization", "name": "JamiiTek Digital Agency"},
     }
     return _script(data)
