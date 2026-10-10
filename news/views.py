@@ -404,6 +404,12 @@ def commission(request):
                     req.save()
                     service.start(req)
                     messages.info(request, f"Ninatafuta vyanzo na kuandika: “{topic}”. Ukurasa utajisasisha.")
+        elif action == "retry":
+            req = NewsRequest.objects.filter(pk=request.POST.get("request"), status="failed").first()
+            if req and req.article_id is None:
+                NewsRequest.objects.filter(pk=req.pk).update(status="queued", error="", finished_at=None)
+                service.start(req)
+                messages.info(request, f"Ninajaribu tena: “{req.topic}”.")
         elif action == "cancel":
             n = NewsRequest.objects.filter(pk=request.POST.get("request"), status__in=("scheduled", "watching")) \
                 .update(status="failed", error="Imesitishwa na mhariri", next_try_at=None, finished_at=timezone.now())

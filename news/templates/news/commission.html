@@ -76,6 +76,9 @@
           {% if r.error and r.status != 'watching' %}<div class="cm-err">{{ r.error|truncatechars:300 }}</div>{% elif r.status == 'watching' %}<div class="cell-sub">Vyombo bado havijaripoti — inaangalia tena.</div>{% endif %}
           {% if r.approval and r.approval.status == 'pending' %}<div class="cell-sub">WhatsApp/Telegram: <span class="cm-code">OK {{ r.approval.code }}</span></div>{% endif %}
         </div>
+        {% if r.status == 'failed' and not r.article %}
+        <form method="post" class="m-0">{% csrf_token %}<input type="hidden" name="action" value="retry"><input type="hidden" name="request" value="{{ r.pk }}">
+          <button class="btn btn-ghost btn-sm" {% if not has_key %}disabled{% endif %}><i class="bi bi-arrow-clockwise"></i> Jaribu tena</button></form>{% endif %}
         {% if r.status == 'scheduled' or r.status == 'watching' %}
         <form method="post" class="m-0">{% csrf_token %}<input type="hidden" name="action" value="cancel"><input type="hidden" name="request" value="{{ r.pk }}">
           <button class="btn btn-ghost btn-sm" title="Sitisha">Sitisha</button></form>{% endif %}
