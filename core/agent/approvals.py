@@ -98,6 +98,8 @@ def execute_approved(approval):
         return _publish_news(approval)
     if approval.tool == "jamiitek_task":
         return _jamiitek_task(approval)
+    if approval.tool == "publish_article":
+        return _publish_article(approval)
 
     try:
         message_id = send_to_other(approval.recipient_number, approval.body)
@@ -142,7 +144,7 @@ def approve(code, user=None):
     approval.save(update_fields=["status", "decided_at"])
 
     ok = execute_approved(approval)
-    if ok and approval.tool in ("publish_news", "jamiitek_task"):
+    if ok and approval.tool in ("publish_news", "jamiitek_task", "publish_article"):
         return True, f"✅ {approval.result}"
     if ok:
         return True, f"✅ Imetumwa kwa {approval.recipient_name or approval.recipient_number}."
@@ -167,6 +169,11 @@ def reject(code, user=None):
         if batch:
             reject_batch(batch)
         return True, f"🗑️ Habari za rasimu {code} zimekataliwa."
+    if approval.tool == "publish_article":
+        from news.models import Article, NewsRequest
+        Article.objects.filter(pk=approval.external_ref or 0, status="draft").update(status="rejected")
+        NewsRequest.objects.filter(approval=approval).update(status="failed", error="Imekataliwa na mhariri")
+        return True, f"🗑️ Rasimu ya habari {code} imeachwa."
     if approval.tool == "jamiitek_task":
         from core.agent.jamiitek_team import reject_remote
         ok, _ = reject_remote(approval)
@@ -202,6 +209,28 @@ def _publish_news(approval):
     count = publish_batch(batch)
     approval.status = "sent"
     approval.result = f"Habari {count} zimechapishwa."
+    approval.sent_at = timezone.now()
+    approval.save(update_fields=["status", "result", "sent_at"])
+    return True
+
+
+def _publish_article(approval):
+    """Approved commissioned article: publish that one article."""
+    from news import indexnow
+    from news.models import Article, NewsRequest
+
+    article = Article.objects.filter(pk=approval.external_ref or 0).first()
+    if article is None:
+        approval.status = "failed"
+        approval.result = "article not found"
+        approval.save(update_fields=["status", "result"])
+        return False
+    if article.status != "published":
+        article.publish()
+        indexnow.submit([article.get_absolute_url()])
+    NewsRequest.objects.filter(approval=approval).update(status="published")
+    approval.status = "sent"
+    approval.result = f"Imechapishwa: {article.title}"[:500]
     approval.sent_at = timezone.now()
     approval.save(update_fields=["status", "result", "sent_at"])
     return True

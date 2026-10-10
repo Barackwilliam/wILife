@@ -28,5 +28,6 @@ urlpatterns = [
     path("news-sitemap.xml", views.news_sitemap, name="news_sitemap"),
     path("habari-admin/rasimu/", views.review, name="review"),
     path("habari-admin/rasimu/action/", views.review_action, name="review_action"),
+    path("habari-admin/agiza/", views.commission, name="commission"),
     path("<str:key>.txt", views.indexnow_key, name="indexnow_key"),
 ]

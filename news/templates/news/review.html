@@ -8,6 +8,7 @@
     <p class="page-sub">Kagua, hariri na uchapishe. Unaweza pia kujibu <b>OK &lt;code&gt;</b> kwenye WhatsApp/Telegram.</p></div>
   <div class="page-actions">
     <a href="{% url 'news:home' %}" class="btn btn-ghost" target="_blank"><i class="bi bi-box-arrow-up-right"></i> Fungua site</a>
+    <a href="{% url 'news:commission' %}" class="btn btn-ghost"><i class="bi bi-megaphone"></i> Agiza habari</a>
     <form method="post" action="{% url 'news:review_action' %}">{% csrf_token %}<input type="hidden" name="action" value="generate">
       <button class="btn btn-brand" {% if not has_key %}disabled title="Weka GROQ_API_KEY"{% endif %}><i class="bi bi-magic"></i> Andaa rasimu za leo</button></form>
   </div>

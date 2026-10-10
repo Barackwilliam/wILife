@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% load news_tags %}
+{% block title %}Agiza habari{% endblock %}
+{% block section %}Habari{% endblock %}{% block crumb %}Agiza habari{% endblock %}
+{% block content %}
+<style>
+  .cm-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:20px;align-items:start}
+  .cm-grid>*{min-width:0}
+  @media(max-width:992px){.cm-grid{grid-template-columns:minmax(0,1fr)}}
+  @media(max-width:576px){.cm-req{flex-wrap:wrap}.cm-req>.flex-grow-1{flex-basis:100%}}
+  .cm-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .cm-chips button{border:1px solid var(--line,#e5e7eb);background:transparent;border-radius:999px;padding:4px 11px;font-size:.78rem;cursor:pointer}
+  .cm-chips button:hover{border-color:var(--brand,#2563eb)}
+  .cm-req .cell-main{white-space:normal}
+  .cm-err{font-size:.8rem;color:var(--rose,#be123c);margin-top:3px}
+  .cm-code{font-family:ui-monospace,monospace;font-weight:700}
+  .cm-help code{font-size:.8rem}
+  .spin{display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:cmspin .8s linear infinite;vertical-align:-1px}
+  @keyframes cmspin{to{transform:rotate(360deg)}}
+</style>
+
+<div class="page-head">
+  <div><span class="eyebrow">Dawati la mhariri</span><h1 class="page-title">Agiza habari</h1>
+    <p class="page-sub">Mwambie mfumo uandike habari unayoitaka sasa hivi — unatafuta vyanzo vya saa 48 zilizopita (Google News Tanzania + feeds zetu), unaandika, kisha unakusubiri uidhinishe.</p></div>
+  <div class="page-actions"><a href="{% url 'news:review' %}" class="btn btn-ghost"><i class="bi bi-newspaper"></i> Rasimu za kila siku</a></div>
+</div>
+{% if not has_key %}<div class="tip mb-4" style="background:var(--sun-soft)"><span class="emo">ℹ️</span><span>GROQ_API_KEY haijawekwa — AI haiwezi kuandika.</span></div>{% endif %}
+
+<div class="cm-grid">
+  <div>
+    <section class="panel mb-4">
+      <div class="panel-head"><h2 class="panel-title">Habari mpya</h2></div>
+      <form method="post">{% csrf_token %}<input type="hidden" name="action" value="commission">
+        <label class="form-label">Mada / tukio</label>
+        <input class="form-control" name="topic" id="topic" maxlength="300" required placeholder="mf. Simba dhidi ya Yanga leo — matokeo ya mechi">
+        <div class="cm-chips">
+          <button type="button" onclick="document.getElementById('topic').value=this.textContent">Simba na Yanga leo</button>
+          <button type="button" onclick="document.getElementById('topic').value=this.textContent">Taifa Stars</button>
+          <button type="button" onclick="document.getElementById('topic').value=this.textContent">Ligi Kuu NBC</button>
+          <button type="button" onclick="document.getElementById('topic').value=this.textContent">Bunge leo</button>
+          <button type="button" onclick="document.getElementById('topic').value=this.textContent">Bei ya mafuta Tanzania</button>
+          <button type="button" onclick="document.getElementById('topic').value=this.textContent">TANESCO umeme</button>
+        </div>
+        <div class="row g-3 mt-1">
+          <div class="col-md-5"><label class="form-label">Kundi</label>
+            <select class="form-select" name="category"><option value="">Chagua lenyewe</option>
+              {% for v, l in categories %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></div>
+          <div class="col-md-7 d-flex align-items-end"><div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" name="publish_now" id="pn">
+            <label class="form-check-label" for="pn">Chapisha moja kwa moja (bila kuidhinisha)</label></div></div>
+        </div>
+        <div class="row g-3 mt-1">
+          <div class="col-md-7"><label class="form-label">AI ianze saa <span class="text-muted small">(hiari — tukio la baadaye)</span></label>
+            <input type="datetime-local" class="form-control" name="start_at" min="{{ now_local }}"></div>
+          <div class="col-md-5"><label class="form-label">Fuatilia kwa</label>
+            <select class="form-select" name="watch_hours">
+              <option value="2">Saa 2</option><option value="4">Saa 4</option><option value="6" selected>Saa 6</option><option value="12">Saa 12</option><option value="24">Saa 24</option></select></div>
+        </div>
+        <div class="small text-muted mt-1">Weka muda tukio linapotokea (kwa mechi: inapoisha). AI itaanza muda huo na kutumia ripoti zilizotoka karibu na tukio tu; vyombo visipokuwa vimeripoti, itaangalia tena kila dakika 15.</div>
+        <label class="form-label mt-3">Maelekezo kwa makala hii <span class="text-muted small">(hiari)</span></label>
+        <textarea class="form-control" name="instructions" rows="2" placeholder="mf. Taja matokeo, wafungaji na msimamo wa ligi; makala fupi"></textarea>
+        <button class="btn btn-brand mt-3" {% if not has_key %}disabled{% endif %}><i class="bi bi-magic"></i> Tafuta na uandike</button>
+      </form>
+      <p class="small text-muted mt-3 mb-0 cm-help">Kwa WhatsApp/Telegram tuma: <code>Andika habari kuhusu Simba na Yanga leo</code> — ongeza <code>#chapisha</code> mwishoni kuichapisha moja kwa moja. Kupanga muda: <code>Andika habari kuhusu Simba na Yanga saa 2 usiku</code> (au <code>20:30</code>, <code>kesho saa 4 asubuhi</code>). Utajibiwa na rasimu + <b>OK code</b>.</p>
+    </section>
+
+    <section class="panel mb-4">
+      <div class="panel-head"><h2 class="panel-title">Maagizo ya karibuni</h2>{% if busy %}<span class="small text-muted"><span class="spin"></span> inaandikwa…</span>{% endif %}</div>
+      {% for r in requests %}
+      <div class="list-row cm-req">
+        <div class="flex-grow-1" style="min-width:0">
+          <div class="cell-sub text-uppercase fw-bold" style="font-size:.68rem;letter-spacing:.12em">{{ r.get_category_display }} · {{ r.get_via_display }} · {{ r.created_at|sw_ago }}{% if r.found %} · vyanzo {{ r.found }}{% endif %}</div>
+          <div class="cell-main">{% if r.article %}{{ r.article.title }}{% else %}{{ r.topic }}{% endif %}</div>
+          {% if r.article %}<div class="cell-sub">Agizo: {{ r.topic|truncatechars:90 }}</div>{% endif %}
+          {% if r.start_at %}<div class="cell-sub"><i class="bi bi-alarm"></i> AI ianze {{ r.start_at|date:"d/m H:i" }} · fuatilia saa {{ r.watch_hours }}{% if r.attempts %} · majaribio {{ r.attempts }}{% endif %}{% if r.next_try_at %} · ijayo {{ r.next_try_at|date:"H:i" }}{% endif %}</div>{% endif %}
+          {% if r.error and r.status != 'watching' %}<div class="cm-err">{{ r.error|truncatechars:300 }}</div>{% elif r.status == 'watching' %}<div class="cell-sub">Vyombo bado havijaripoti — inaangalia tena.</div>{% endif %}
+          {% if r.approval and r.approval.status == 'pending' %}<div class="cell-sub">WhatsApp/Telegram: <span class="cm-code">OK {{ r.approval.code }}</span></div>{% endif %}
+        </div>
+        {% if r.status == 'scheduled' or r.status == 'watching' %}
+        <form method="post" class="m-0">{% csrf_token %}<input type="hidden" name="action" value="cancel"><input type="hidden" name="request" value="{{ r.pk }}">
+          <button class="btn btn-ghost btn-sm" title="Sitisha">Sitisha</button></form>{% endif %}
+        <span class="tag {% if r.status == 'published' %}t-leaf{% elif r.status == 'failed' %}t-rose{% elif r.status == 'drafted' %}t-brand{% elif r.status == 'scheduled' or r.status == 'watching' %}t-sun{% else %}t-ink{% endif %}">{% if r.status == 'scheduled' %}<i class="bi bi-alarm"></i> {% endif %}{% if r.status == 'queued' or r.status == 'working' %}<span class="spin"></span> {% endif %}{{ r.get_status_display }}</span>
+        {% if r.article %}
+          <a href="{{ r.article.get_absolute_url }}" class="btn btn-ghost btn-sm" target="_blank">Soma</a>
+          <a href="{% url 'admin:news_article_change' r.article.pk %}" class="btn btn-ghost btn-sm">Hariri</a>
+          {% if r.article.status == 'draft' %}
+          <form method="post" action="{% url 'news:review_action' %}" class="d-flex gap-1">{% csrf_token %}<input type="hidden" name="article" value="{{ r.article.pk }}"><input type="hidden" name="next" value="commission">
+            <button name="action" value="reject_one" class="btn btn-soft-danger btn-icon btn-sm" title="Kataa"><i class="bi bi-x-lg"></i></button>
+            <button name="action" value="publish_one" class="btn btn-soft btn-icon btn-sm" title="Chapisha"><i class="bi bi-check2"></i></button></form>
+          {% endif %}
+        {% endif %}
+      </div>
+      {% empty %}<p class="text-muted small mb-0">Bado hujaagiza habari.</p>{% endfor %}
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="panel-head"><h2 class="panel-title">Mwongozo wa mhariri</h2></div>
+    <p class="small text-muted">AI inautumia kwenye rasimu za kila siku na habari unazoagiza.</p>
+    <form method="post">{% csrf_token %}<input type="hidden" name="action" value="settings">
+      <label class="form-label">Mada za kipaumbele</label>
+      <textarea class="form-control" name="focus_topics" rows="3" placeholder="Simba, Yanga, Taifa Stars, Bunge">{{ cfg.focus_topics }}</textarea>
+      <div class="small text-muted mb-3">Habari zinazogusa mada hizi zinapewa uzito zaidi — pamoja na zile zinazoripotiwa na vyombo vingi kwa wakati mmoja.</div>
+      <label class="form-label">Mada za kuepuka</label>
+      <textarea class="form-control" name="avoid_topics" rows="2" placeholder="mf. uchawi, ajali za kutisha">{{ cfg.avoid_topics }}</textarea>
+      <div class="small text-muted mb-3">Habari zenye maneno haya haziandikwi kabisa.</div>
+      <label class="form-label">Maelekezo kwa AI</label>
+      <textarea class="form-control" name="editor_notes" rows="4" placeholder="mf. Kwenye michezo taja matokeo, wafungaji na msimamo wa ligi. Tumia lugha rahisi.">{{ cfg.editor_notes }}</textarea>
+      <div class="small text-muted mb-3">Hayawezi kuvunja sheria kuu: AI haibuni ukweli, nukuu wala takwimu.</div>
+      <div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" name="sports_slot" id="ss" {% if cfg.sports_slot %}checked{% endif %}>
+        <label class="form-check-label" for="ss">Habari moja ya michezo ya Tanzania kila siku (Simba, Yanga, Taifa Stars, Ligi Kuu…)</label></div>
+      <button class="btn btn-brand"><i class="bi bi-check2"></i> Hifadhi mwongozo</button>
+    </form>
+  </section>
+</div>
+{% if busy %}<script>setTimeout(function(){location.reload()},6000)</script>{% endif %}
+{% endblock %}

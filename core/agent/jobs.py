@@ -151,6 +151,11 @@ def run_news_drafts(now=None, deadline=None, dry_run=False):
     return run(now=now, deadline=deadline, dry_run=dry_run)
 
 
+def run_news_requests(now=None, deadline=None, dry_run=False):
+    from news.commission import run_due
+    return run_due(now=now, dry_run=dry_run)
+
+
 # Registry of jobs the tick runs, in order. Reminders come first: they are
 # time-critical, the rest are not.
 JOBS = {
@@ -161,6 +166,7 @@ JOBS = {
     "lead_watch": run_lead_watch,
     "weekly_review": run_weekly_review,
     "savings_watch": run_savings_watch,
+    "news_requests": run_news_requests,
     "news_drafts": run_news_drafts,
     "expire_approvals": run_expire_approvals,
 }

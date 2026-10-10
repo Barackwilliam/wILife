@@ -177,6 +177,13 @@ def _handle_message(from_number, text):
     """Act on an approval reply. Returns the confirmation text, or '' to stay silent."""
     decision, code = approvals.parse_reply(text)
     if not decision:
+        from news import commission
+        if commission.parse_command(text)[0]:
+            user = _authorised_user(from_number)
+            if user is None:
+                log.warning("news command from unauthorised number %s", from_number)
+                return ""
+            return commission.from_chat(text, user, "whatsapp") or ""
         if jamiitek_team.is_team_command(text) and _authorised_user(from_number):
             return jamiitek_team.status_text()
         log.info("ignoring unrecognised inbound message from %s", from_number)

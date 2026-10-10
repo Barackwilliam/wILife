@@ -6,7 +6,7 @@ The daily news batch.
        article, bounded by the tick's deadline):
           slots 1      Dunia
           slots 2–3    Afrika
-          slots 4–6    Tanzania
+          slots 4–6    Tanzania (slot 6 = michezo, from the sports feeds)
           slot  7      JamiiTek service   (Mon, Wed, Sat only)
     3. When complete, the owner gets one message listing the headlines with a
        code. "OK 1234" publishes the whole batch; drafts can also be edited,
@@ -37,6 +37,7 @@ PLAN = [
     (4, Category.TANZANIA), (5, Category.TANZANIA), (6, Category.TANZANIA),
 ]
 JAMIITEK_SLOT = 7
+SPORTS_SLOT = 6  # Tanzania — michezo (EditorSettings.sports_slot)
 JAMIITEK_WEEKDAYS = {0, 2, 5}  # Monday, Wednesday, Saturday
 SWAHILI_DAYS = ["Jumatatu", "Jumanne", "Jumatano", "Alhamisi", "Ijumaa", "Jumamosi", "Jumapili"]
 SWAHILI_MONTHS = ["Januari", "Februari", "Machi", "Aprili", "Mei", "Juni", "Julai",
@@ -93,20 +94,50 @@ def fill_slot(batch, slot, category):
         service.save(update_fields=["last_featured_at"])
         return article
 
+    from news.models import EditorSettings
+    cfg = EditorSettings.load()
     used = set(Article.objects.exclude(source_url=None).values_list("source_url", flat=True))
-    items, errors = feeds.collect(category, exclude_urls=used)
+    sports = (slot == SPORTS_SLOT and category == Category.TANZANIA and cfg.sports_slot)
+    if sports:
+        items, errors = feeds.collect(category, exclude_urls=used, urls=feeds.feeds_for("michezo"))
+        items = [i for i in items if not _used_story(i)]
+        if not items:  # hakuna habari mpya ya michezo — rudi kwenye habari za Tanzania
+            sports = False
+    if not sports:
+        items, errors = feeds.collect(category, exclude_urls=used)
+        items = [i for i in items if not _used_story(i)]
+    items = feeds.rank(items, focus=cfg.focus_topics, avoid=cfg.avoid_topics)
     if not items:
         raise writer.WriterError(f"no fresh {category} stories ({'; '.join(errors)[:300] or 'feeds empty'})")
     last_error = None
     for item in items[:3]:  # try the next story if the model fails on one
         try:
-            related = [i for i in items if i is not item][:2]
-            data = writer.write_news(Category(category).label, item, related)
+            data = writer.write_news(Category(category).label, item, same_story(item, items),
+                                     notes=cfg.editor_notes)
             return _save_article(batch, slot, category, data, [item.as_source()], source_url=item.url)
         except writer.WriterError as exc:
             last_error = exc
             log.warning("writer failed on %s: %s", item.url, exc)
     raise last_error or writer.WriterError("no article written")
+
+
+def same_story(item, items, limit=3):
+    """Vyanzo vingine vya habari HIYO HIYO (si habari nyingine zilizo karibu kwenye orodha)."""
+    mine = feeds.tokens(item.title)
+    out = []
+    for other in items:
+        if other is item or other.publisher == item.publisher:
+            continue
+        shared = mine & feeds.tokens(f"{other.title} {other.summary[:200]}")
+        if len(shared) >= 2 or (mine and len(shared) / len(mine) >= 0.5):
+            out.append(other)
+    return out[:limit]
+
+
+def _used_story(item):
+    """Habari hii (kwa kichwa) imeshaandikwa ndani ya siku 3? Google News hubadilisha link."""
+    since = timezone.now() - timedelta(days=3)
+    return Article.objects.filter(created_at__gte=since, sources__contains=[{"title": item.title}]).exists()
 
 
 def request_batch_approval(batch):

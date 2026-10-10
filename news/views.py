@@ -322,13 +322,100 @@ def review_action(request):
         if action == "publish_one":
             item.publish()
             indexnow.submit([item.get_absolute_url()])
+            _settle_request(item, "published")
             messages.success(request, f"Imechapishwa: {item.title}")
         else:
             item.status = "rejected"
             item.save(update_fields=["status", "updated_at"])
+            _settle_request(item, "failed", "Imekataliwa na mhariri")
             messages.info(request, f"Imekataliwa: {item.title}")
     elif action == "generate":
         import time
         result = pipeline.run(force=True, deadline=time.monotonic() + 45)
         messages.info(request, f"Rasimu {result['sent']} zimeandikwa. {result.get('detail', '')}")
+    if request.POST.get("next") == "commission":
+        return redirect("news:commission")
     return redirect("news:review")
+
+
+def _settle_request(article, status, error=""):
+    """Habari iliyoagizwa ikichapishwa/kukataliwa kwenye ukurasa, code yake ya WhatsApp inafungwa."""
+    from news.models import NewsRequest
+    for req in NewsRequest.objects.filter(article=article).select_related("approval"):
+        req.status = status
+        if error:
+            req.error = error
+        req.save(update_fields=["status", "error"])
+        if req.approval and req.approval.status == "pending":
+            req.approval.status = "sent" if status == "published" else "rejected"
+            req.approval.result = "Imeamuliwa kwenye ukurasa wa mhariri"
+            req.approval.save(update_fields=["status", "result"])
+
+
+def _local_datetime(raw):
+    """'2026-10-10T20:00' kutoka <input type=datetime-local> -> saa ya Dar es Salaam."""
+    from datetime import datetime
+    try:
+        naive = datetime.strptime((raw or "").strip(), "%Y-%m-%dT%H:%M")
+    except ValueError:
+        return None
+    return timezone.make_aware(naive, timezone.get_current_timezone())
+
+
+@staff_member_required
+def commission(request):
+    """Agiza habari + mwongozo wa mhariri kwa AI."""
+    from news import commission as service
+    from news.models import EditorSettings, NewsRequest
+
+    cfg = EditorSettings.load()
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "settings":
+            cfg.focus_topics = request.POST.get("focus_topics", "").strip()[:2000]
+            cfg.avoid_topics = request.POST.get("avoid_topics", "").strip()[:2000]
+            cfg.editor_notes = request.POST.get("editor_notes", "").strip()[:3000]
+            cfg.sports_slot = bool(request.POST.get("sports_slot"))
+            cfg.save()
+            messages.success(request, "Mwongozo wa mhariri umehifadhiwa.")
+        elif action == "commission":
+            topic = request.POST.get("topic", "").strip()[:300]
+            category = request.POST.get("category") or ""
+            if not topic:
+                messages.warning(request, "Andika mada ya habari.")
+            elif not getattr(settings, "GROQ_API_KEY", ""):
+                messages.warning(request, "GROQ_API_KEY haijawekwa — AI haiwezi kuandika.")
+            else:
+                req = NewsRequest(
+                    topic=topic, instructions=request.POST.get("instructions", "").strip()[:1500],
+                    category=category if category in Category.values else service.guess_category(topic),
+                    publish_now=bool(request.POST.get("publish_now")), via="web", requested_by=request.user)
+                when = _local_datetime(request.POST.get("start_at"))
+                try:
+                    req.watch_hours = max(1, min(24, int(request.POST.get("watch_hours") or 6)))
+                except ValueError:
+                    req.watch_hours = 6
+                if when and when > timezone.now() + timedelta(minutes=1):
+                    service.schedule(req, when).save()
+                    local = timezone.localtime(when)
+                    messages.success(request, f"⏰ “{topic}” — AI itaanza saa {local:%H:%M}, {local:%d/%m/%Y} "
+                                              f"na kufuatilia kwa saa {req.watch_hours}. Utapata rasimu WhatsApp/Telegram.")
+                else:
+                    req.save()
+                    service.start(req)
+                    messages.info(request, f"Ninatafuta vyanzo na kuandika: “{topic}”. Ukurasa utajisasisha.")
+        elif action == "cancel":
+            n = NewsRequest.objects.filter(pk=request.POST.get("request"), status__in=("scheduled", "watching")) \
+                .update(status="failed", error="Imesitishwa na mhariri", next_try_at=None, finished_at=timezone.now())
+            if n:
+                messages.info(request, "Habari iliyopangwa imesitishwa.")
+        return redirect("news:commission")
+
+    requests_ = list(NewsRequest.objects.select_related("article", "approval")[:20])
+    return render(request, "news/commission.html", {
+        "cfg": cfg, "requests": requests_,
+        "busy": any(r.status in ("queued", "working") for r in requests_),
+        "now_local": timezone.localtime().strftime("%Y-%m-%dT%H:%M"),
+        "categories": [c for c in Category.choices if c[0] != Category.JAMIITEK],
+        "has_key": bool(getattr(settings, "GROQ_API_KEY", "")),
+    })

@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from news.models import Article, JamiiTekService, NewsBatch
+from news.models import Article, JamiiTekService, NewsBatch, EditorSettings, NewsRequest
 
 
 @admin.register(Article)
@@ -47,3 +47,16 @@ class JamiiTekServiceAdmin(admin.ModelAdmin):
     list_display = ("name", "order", "active", "last_featured_at")
     list_editable = ("order", "active")
     prepopulated_fields = {"slug": ("name",)}
+
+
+@admin.register(NewsRequest)
+class NewsRequestAdmin(admin.ModelAdmin):
+    list_display = ("topic", "category", "status", "via", "found", "created_at")
+    list_filter = ("status", "via", "category")
+    search_fields = ("topic",)
+    raw_id_fields = ("article", "approval")
+
+
+@admin.register(EditorSettings)
+class EditorSettingsAdmin(admin.ModelAdmin):
+    list_display = ("__str__", "sports_slot", "updated_at")
