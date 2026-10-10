@@ -770,6 +770,10 @@ class ScheduledCommissionTests(TestCase):
         self.assertFalse(start.called)
         self.assertEqual((req.status, req.watch_hours), ("scheduled", 4))
         self.client.post("/habari-admin/agiza/", {"action": "cancel", "request": req.pk})
+        with mock.patch("news.commission.start"), self.settings(GROQ_API_KEY="k"):
+            self.client.post("/habari-admin/agiza/", {"action": "commission", "topic": "Uchaguzi",
+                                                      "start_at": when.strftime("%Y-%m-%dT%H:%M"), "watch_hours": "168"})
+        self.assertEqual(NewsRequest.objects.get(topic="Uchaguzi").watch_hours, 168)
         req.refresh_from_db()
         self.assertEqual(req.status, "failed")
 
@@ -806,3 +810,16 @@ class GroqJsonFallbackTests(TestCase):
         req.refresh_from_db()
         self.assertTrue(start.called)
         self.assertEqual((req.status, req.error), ("queued", ""))
+
+
+
+class LongWatchTests(TestCase):
+    def test_retry_slows_down_after_six_hours_and_labels(self):
+        from news import commission
+        from news.models import NewsRequest
+        start = timezone.now() - timedelta(hours=1)
+        req = NewsRequest(topic="x", start_at=start, watch_hours=168)
+        self.assertEqual(commission._retry_minutes(req), 15)
+        req.start_at = timezone.now() - timedelta(hours=8)
+        self.assertEqual(commission._retry_minutes(req), 60)
+        self.assertEqual((commission.watch_label(6), commission.watch_label(168)), ("saa 6", "siku 7"))

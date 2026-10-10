@@ -352,6 +352,11 @@ def _settle_request(article, status, error=""):
             req.approval.save(update_fields=["status", "result"])
 
 
+MAX_WATCH_HOURS = 7 * 24
+WATCH_CHOICES = [(2, "Saa 2"), (4, "Saa 4"), (6, "Saa 6"), (12, "Saa 12"), (24, "Siku 1"),
+                 (48, "Siku 2"), (72, "Siku 3"), (120, "Siku 5"), (168, "Siku 7")]
+
+
 def _local_datetime(raw):
     """'2026-10-10T20:00' kutoka <input type=datetime-local> -> saa ya Dar es Salaam."""
     from datetime import datetime
@@ -392,14 +397,15 @@ def commission(request):
                     publish_now=bool(request.POST.get("publish_now")), via="web", requested_by=request.user)
                 when = _local_datetime(request.POST.get("start_at"))
                 try:
-                    req.watch_hours = max(1, min(24, int(request.POST.get("watch_hours") or 6)))
+                    req.watch_hours = max(2, min(MAX_WATCH_HOURS, int(request.POST.get("watch_hours") or 6)))
                 except ValueError:
                     req.watch_hours = 6
                 if when and when > timezone.now() + timedelta(minutes=1):
                     service.schedule(req, when).save()
                     local = timezone.localtime(when)
                     messages.success(request, f"⏰ “{topic}” — AI itaanza saa {local:%H:%M}, {local:%d/%m/%Y} "
-                                              f"na kufuatilia kwa saa {req.watch_hours}. Utapata rasimu WhatsApp/Telegram.")
+                                              f"na kufuatilia kwa {service.watch_label(req.watch_hours)}. "
+                                              "Utapata rasimu WhatsApp/Telegram.")
                 else:
                     req.save()
                     service.start(req)
@@ -422,6 +428,7 @@ def commission(request):
         "cfg": cfg, "requests": requests_,
         "busy": any(r.status in ("queued", "working") for r in requests_),
         "now_local": timezone.localtime().strftime("%Y-%m-%dT%H:%M"),
+        "watch_choices": WATCH_CHOICES,
         "categories": [c for c in Category.choices if c[0] != Category.JAMIITEK],
         "has_key": bool(getattr(settings, "GROQ_API_KEY", "")),
     })

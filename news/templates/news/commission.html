@@ -54,9 +54,9 @@
             <input type="datetime-local" class="form-control" name="start_at" min="{{ now_local }}"></div>
           <div class="col-md-5"><label class="form-label">Fuatilia kwa</label>
             <select class="form-select" name="watch_hours">
-              <option value="2">Saa 2</option><option value="4">Saa 4</option><option value="6" selected>Saa 6</option><option value="12">Saa 12</option><option value="24">Saa 24</option></select></div>
+              {% for v, l in watch_choices %}<option value="{{ v }}"{% if v == 6 %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
         </div>
-        <div class="small text-muted mt-1">Weka muda tukio linapotokea (kwa mechi: inapoisha). AI itaanza muda huo na kutumia ripoti zilizotoka karibu na tukio tu; vyombo visipokuwa vimeripoti, itaangalia tena kila dakika 15.</div>
+        <div class="small text-muted mt-1">Weka muda tukio linapotokea (kwa mechi: inapoisha). AI itaanza muda huo na kutumia ripoti zilizotoka karibu na tukio tu; vyombo visipokuwa vimeripoti, itaangalia tena kila dakika 15 (baada ya saa 6, kila saa moja).</div>
         <label class="form-label mt-3">Maelekezo kwa makala hii <span class="text-muted small">(hiari)</span></label>
         <textarea class="form-control" name="instructions" rows="2" placeholder="mf. Taja matokeo, wafungaji na msimamo wa ligi; makala fupi"></textarea>
         <button class="btn btn-brand mt-3" {% if not has_key %}disabled{% endif %}><i class="bi bi-magic"></i> Tafuta na uandike</button>
@@ -72,7 +72,7 @@
           <div class="cell-sub text-uppercase fw-bold" style="font-size:.68rem;letter-spacing:.12em">{{ r.get_category_display }} · {{ r.get_via_display }} · {{ r.created_at|sw_ago }}{% if r.found %} · vyanzo {{ r.found }}{% endif %}</div>
           <div class="cell-main">{% if r.article %}{{ r.article.title }}{% else %}{{ r.topic }}{% endif %}</div>
           {% if r.article %}<div class="cell-sub">Agizo: {{ r.topic|truncatechars:90 }}</div>{% endif %}
-          {% if r.start_at %}<div class="cell-sub"><i class="bi bi-alarm"></i> AI ianze {{ r.start_at|date:"d/m H:i" }} · fuatilia saa {{ r.watch_hours }}{% if r.attempts %} · majaribio {{ r.attempts }}{% endif %}{% if r.next_try_at %} · ijayo {{ r.next_try_at|date:"H:i" }}{% endif %}</div>{% endif %}
+          {% if r.start_at %}<div class="cell-sub"><i class="bi bi-alarm"></i> AI ianze {{ r.start_at|date:"d/m H:i" }} · fuatilia {% if r.watch_hours >= 24 %}siku {% widthratio r.watch_hours 24 1 %}{% else %}saa {{ r.watch_hours }}{% endif %}{% if r.attempts %} · majaribio {{ r.attempts }}{% endif %}{% if r.next_try_at %} · ijayo {{ r.next_try_at|date:"H:i" }}{% endif %}</div>{% endif %}
           {% if r.error and r.status != 'watching' %}<div class="cm-err">{{ r.error|truncatechars:300 }}</div>{% elif r.status == 'watching' %}<div class="cell-sub">Vyombo bado havijaripoti — inaangalia tena.</div>{% endif %}
           {% if r.approval and r.approval.status == 'pending' %}<div class="cell-sub">WhatsApp/Telegram: <span class="cm-code">OK {{ r.approval.code }}</span></div>{% endif %}
         </div>
