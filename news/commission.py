@@ -34,6 +34,8 @@ COMMAND = re.compile(
     re.IGNORECASE | re.DOTALL)
 PUBLISH_FLAG = re.compile(r"\s*(?:#|\()?\s*(chapisha(?:\s+moja\s+kwa\s+moja)?|publish)\s*\)?\s*$", re.IGNORECASE)
 RETRY_MINUTES = 15
+SLOW_RETRY_MINUTES = 60      # baada ya saa FAST_HOURS za kwanza (ufuatiliaji wa siku kadhaa)
+FAST_HOURS = 6
 EARLIEST_SOURCE = timedelta(hours=2)   # ripoti za zamani kuliko (start_at - hii) ni za kabla ya tukio
 
 # "saa 2 usiku", "saa 10:30 jioni", "kesho saa 3 asubuhi", "20:30", "kesho 18:00"
@@ -190,19 +192,32 @@ def run(req):
         if req.start_at and not req.article and timezone.now() < _watch_until(req):
             # Vyombo bado havijaripoti — jaribu tena baadaye, kimya
             req.status = "watching"
-            req.next_try_at = timezone.now() + timedelta(minutes=RETRY_MINUTES)
+            req.next_try_at = timezone.now() + timedelta(minutes=_retry_minutes(req))
             req.save()
             return req
         req.status = "failed"
         msg = f"⚠️ Habari \"{req.topic[:80]}\" haikuandikwa: {req.error[:300]}"
         if req.start_at:
-            msg += f" (nimefuatilia kwa saa {req.watch_hours}, majaribio {req.attempts})"
+            msg += f" (nimefuatilia kwa {watch_label(req.watch_hours)}, majaribio {req.attempts})"
     req.finished_at = timezone.now()
     req.next_try_at = None
     req.save()
     if req.via != "web" or req.start_at:
         _notify(req, msg)
     return req
+
+
+def watch_label(hours):
+    """6 -> 'saa 6', 48 -> 'siku 2'."""
+    if hours >= 24 and hours % 24 == 0:
+        return f"siku {hours // 24}"
+    return f"saa {hours}"
+
+
+def _retry_minutes(req):
+    """Kila dakika 15 mwanzoni; kila saa moja baadaye (ufuatiliaji mrefu)."""
+    fast = req.start_at and timezone.now() < req.start_at + timedelta(hours=FAST_HOURS)
+    return RETRY_MINUTES if fast else SLOW_RETRY_MINUTES
 
 
 def _watch_until(req):
@@ -275,7 +290,7 @@ def from_chat(text, user, via):
         schedule(req, when).save()
         local = timezone.localtime(when)
         return (f"⏰ Sawa. Nitaanza kuandaa habari ya \"{topic}\" saa {local:%H:%M} ({local:%d/%m}). "
-                f"Vyombo visipokuwa vimeripoti bado, nitaendelea kuangalia kwa saa {req.watch_hours}.{tail}")
+                f"Vyombo visipokuwa vimeripoti bado, nitaendelea kuangalia kwa {watch_label(req.watch_hours)}.{tail}")
     req.save()
     start(req)
     return f"🔎 Ninatafuta na kuandika habari kuhusu \"{topic}\"…{tail}"
