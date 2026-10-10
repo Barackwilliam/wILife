@@ -59,6 +59,11 @@ def pick_model(ids, exclude=()):
     return usable[0] if usable else None
 
 
+def _json_rejected(response):
+    """Groq JSON mode kataa jibu (mf. model ilianza na ``` au maelezo) — HTTP 400 json_validate_failed."""
+    return response.status_code == 400 and "json_validate_failed" in response.text
+
+
 def _model_gone(response):
     return response.status_code == 404 and "model_not_found" in response.text
 
@@ -68,7 +73,7 @@ def chat(system, user_content, model=None, max_tokens=900, temperature=0.3, time
     wanted = model or getattr(settings, "GROQ_MODEL", "") or PREFERRED[0]
     current = _replacements.get(wanted, wanted)
 
-    def post(name):
+    def post(name, json_mode=json_mode, max_tokens=max_tokens):
         payload = {
             "model": name,
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user_content}],
@@ -86,6 +91,17 @@ def chat(system, user_content, model=None, max_tokens=900, temperature=0.3, time
             log.warning("groq model %s is unavailable; using %s (set GROQ_MODEL to choose)", current, replacement)
             _replacements[wanted] = replacement
             response = post(replacement)
+    if json_mode and _json_rejected(response):
+        # Jibu lililokataliwa mara nyingi ni JSON sahihi iliyozungukwa na ``` au
+        # maneno machache. Jaribu tena bila JSON mode; anayeita anatoa JSON yenyewe.
+        try:
+            partial = response.json().get("error", {}).get("failed_generation") or ""
+        except ValueError:
+            partial = ""
+        log.warning("groq rejected JSON output from %s (%d chars); retrying without JSON mode",
+                    _replacements.get(wanted, current), len(partial))
+        response = post(_replacements.get(wanted, current), json_mode=False,
+                        max_tokens=int(max_tokens * 1.5))
     if response.status_code != 200:
         raise GroqError(f"groq HTTP {response.status_code}: {response.text[:200]}")
-    return response.json()["choices"][0]["message"]["content"].strip()
+    return (response.json()["choices"][0]["message"]["content"] or "").strip()

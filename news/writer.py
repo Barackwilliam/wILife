@@ -77,13 +77,25 @@ def _call(system, user_content, max_tokens=1800, temperature=0.4, timeout=45):
         raise WriterError(str(exc)) from exc
 
 
-def _parse(raw):
-    text = raw.strip()
-    text = re.sub(r"^```(?:json)?|```$", "", text, flags=re.MULTILINE).strip()
+def _json(raw):
+    """JSON kutoka kwenye jibu la model — hata likiwa na ``` au maneno kabla/baada."""
+    text = re.sub(r"^```(?:json)?|```$", "", (raw or "").strip(), flags=re.MULTILINE).strip()
     try:
-        data = json.loads(text)
+        return json.loads(text)
     except json.JSONDecodeError as exc:
+        start, end = text.find("{"), text.rfind("}")
+        if start != -1 and end > start:
+            try:
+                return json.loads(text[start:end + 1])
+            except json.JSONDecodeError:
+                pass
         raise WriterError(f"model did not return JSON: {exc}") from exc
+
+
+def _parse(raw):
+    data = _json(raw)
+    if not isinstance(data, dict):
+        raise WriterError("model did not return a JSON object")
     out = {}
     for key, limit in (("title", 200), ("excerpt", 300), ("body", 20000), ("keywords", 300)):
         value = data.get(key)
@@ -137,10 +149,10 @@ def write_commissioned(category_label, topic, items, instructions="", notes=""):
         when = f" ({it.published:%Y-%m-%d %H:%M} UTC)" if it.published else ""
         lines.append(f"{n}. [{it.publisher}]{when} {it.title} — {it.summary[:400] or '(hakuna muhtasari)'}")
     lines += _notes(notes)
-    raw = _call(NEWS_SYSTEM + COMMISSION_RULES, "\n".join(lines))
+    raw = _call(NEWS_SYSTEM + COMMISSION_RULES, "\n".join(lines), max_tokens=2400)
     try:
-        data = json.loads(re.sub(r"^```(?:json)?|```$", "", raw.strip(), flags=re.MULTILINE).strip())
-    except json.JSONDecodeError:
+        data = _json(raw)
+    except WriterError:
         data = None
     if isinstance(data, dict) and data.get("skip"):
         raise WriterError(f"AI: {str(data['skip'])[:300]}")

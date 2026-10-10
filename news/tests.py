@@ -772,3 +772,37 @@ class ScheduledCommissionTests(TestCase):
         self.client.post("/habari-admin/agiza/", {"action": "cancel", "request": req.pk})
         req.refresh_from_db()
         self.assertEqual(req.status, "failed")
+
+
+
+class GroqJsonFallbackTests(TestCase):
+    def test_json_mode_rejection_retries_without_json_mode(self):
+        from core import groq
+        bad = mock.Mock(status_code=400, text='{"error":{"code":"json_validate_failed"}}')
+        bad.json.return_value = {"error": {"code": "json_validate_failed", "failed_generation": ""}}
+        good = mock.Mock(status_code=200, text="ok")
+        good.json.return_value = {"choices": [{"message": {"content": "```json\n{\"a\": 1}\n```"}}]}
+        with mock.patch("core.groq.requests.post", side_effect=[bad, good]) as post, \
+             self.settings(GROQ_API_KEY="k"):
+            out = groq.chat("s", "u", json_mode=True, max_tokens=1000)
+        self.assertIn('{"a": 1}', out)
+        second = post.call_args_list[1].kwargs["json"]
+        self.assertNotIn("response_format", second)
+        self.assertEqual(second["max_tokens"], 1500)
+
+    def test_writer_reads_json_wrapped_in_text(self):
+        raw = "Hii ndiyo makala:\n```json\n" + json.dumps(ARTICLE_JSON) + "\n```\nAsante."
+        with mock.patch("news.writer._call", return_value=raw):
+            data = writer.write_news("Tanzania", fake_item(1, "tanzania"))
+        self.assertEqual(data["title"], ARTICLE_JSON["title"])
+
+    def test_failed_request_can_be_retried(self):
+        from news.models import NewsRequest
+        owner = User.objects.create_superuser("owner", "o@x.com", "x")
+        req = NewsRequest.objects.create(topic="Simba", status="failed", error="groq HTTP 400", requested_by=owner)
+        self.client.force_login(owner)
+        with mock.patch("news.commission.start") as start:
+            self.client.post("/habari-admin/agiza/", {"action": "retry", "request": req.pk})
+        req.refresh_from_db()
+        self.assertTrue(start.called)
+        self.assertEqual((req.status, req.error), ("queued", ""))
