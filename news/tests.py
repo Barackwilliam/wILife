@@ -1,5 +1,5 @@
 import json
-from datetime import date, datetime, timezone as dt_tz
+from datetime import date, datetime, timedelta, timezone as dt_tz
 from unittest import mock
 
 from django.contrib.auth.models import User
@@ -545,3 +545,131 @@ class SeoAuditTests(TestCase):
         self.assertEqual(r["X-Robots-Tag"], "noindex, nofollow")
         self.assertNotIn("X-Robots-Tag", self.client.get("/"))
         self.assertNotIn("X-Robots-Tag", self.client.get(self.a.get_absolute_url()))
+
+
+GNEWS = b"""<?xml version="1.0"?><rss version="2.0"><channel><title>"Simba Yanga" - Google News</title>
+<item><title>Simba yaichapa Yanga 2-1 Kwa Mkapa - Mwanaspoti</title><link>https://news.google.com/rss/articles/abc</link>
+<description>&lt;a href="x"&gt;Simba yaichapa Yanga 2-1 Kwa Mkapa&lt;/a&gt;&amp;nbsp;&amp;nbsp;Mwanaspoti</description>
+<pubDate>Fri, 09 Oct 2026 18:00:00 GMT</pubDate><source url="https://www.mwanaspoti.co.tz">Mwanaspoti</source></item>
+</channel></rss>"""
+
+
+def item(title, publisher, hours_ago=1, summary=""):
+    return feeds.FeedItem(title=title, url=f"https://x.tz/{abs(hash((title, publisher)))}", summary=summary,
+                          publisher=publisher, published=timezone.now() - timedelta(hours=hours_ago))
+
+
+class TrendingAndSportsTests(TestCase):
+    def test_google_news_source_and_title(self):
+        it = feeds.parse(GNEWS, "https://news.google.com/rss/search?q=x")[0]
+        self.assertEqual(it.publisher, "Mwanaspoti")
+        self.assertEqual(it.title, "Simba yaichapa Yanga 2-1 Kwa Mkapa")
+
+    def test_story_covered_by_many_outlets_beats_newest_obscure_one(self):
+        items = [
+            item("Mtu mmoja aokota sarafu ya zamani Kigoma", "BlogA", hours_ago=0),
+            item("Simba yaichapa Yanga 2-1 Kwa Mkapa", "Mwanaspoti", hours_ago=2),
+            item("Yanga yapoteza dhidi ya Simba Kwa Mkapa", "Mwananchi", hours_ago=3),
+            item("Matokeo: Simba 2 Yanga 1 ligi kuu", "Citizen", hours_ago=3),
+        ]
+        ranked = feeds.rank(items, focus="")
+        self.assertNotEqual(ranked[0].publisher, "BlogA")
+        self.assertGreaterEqual(ranked[0].extra["coverage"], 2)
+
+    def test_focus_and_avoid_topics(self):
+        items = [item("Bei ya mchele yapanda sokoni", "A"), item("Taifa Stars yaitwa kambini", "B"),
+                 item("Tukio la uchawi kijijini", "C")]
+        ranked = feeds.rank(items, focus="Taifa Stars", avoid="uchawi")
+        self.assertEqual(ranked[0].title, "Taifa Stars yaitwa kambini")
+        self.assertNotIn("Tukio la uchawi kijijini", [i.title for i in ranked])
+
+    def test_sports_slot_reads_sports_feeds_and_editor_notes_reach_the_writer(self):
+        from news.models import EditorSettings
+        cfg = EditorSettings.load()
+        cfg.editor_notes = "Taja wafungaji"
+        cfg.save()
+        calls = []
+
+        def collect(category, exclude_urls=(), **kw):
+            calls.append(kw.get("urls"))
+            return [item("Simba yaichapa Yanga 2-1", "Mwanaspoti")], []
+        batch = NewsBatch.objects.create(date=date(2026, 10, 9))
+        with mock.patch("news.feeds.collect", side_effect=collect), \
+             mock.patch("news.writer._call", return_value=json.dumps(ARTICLE_JSON)) as call:
+            pipeline.fill_slot(batch, pipeline.SPORTS_SLOT, "tanzania")
+        self.assertEqual(calls[0], feeds.feeds_for("michezo"))
+        self.assertIn("Taja wafungaji", call.call_args[0][1])
+
+
+class CommissionTests(TestCase):
+    def setUp(self):
+        self.owner = User.objects.create_superuser("owner", "o@x.com", "x")
+
+    def test_parse_command(self):
+        from news.commission import parse_command
+        self.assertEqual(parse_command("Andika habari kuhusu Simba na Yanga leo"), ("Simba na Yanga leo", False))
+        self.assertEqual(parse_command("habari: Taifa Stars #chapisha"), ("Taifa Stars", True))
+        self.assertEqual(parse_command("OK 1234"), (None, False))
+
+    def _run(self, publish=False, sources=True, reply=None):
+        from news import commission
+        from news.models import NewsRequest
+        req = NewsRequest.objects.create(topic="Simba na Yanga leo", category="tanzania",
+                                         publish_now=publish, via="whatsapp", requested_by=self.owner)
+        found = [item("Simba yaichapa Yanga 2-1", "Mwanaspoti"), item("Yanga yapoteza kwa Simba", "Mwananchi")]
+        with mock.patch("news.feeds.collect", return_value=(found if sources else [], [])), \
+             mock.patch("news.writer._call", return_value=reply or json.dumps(ARTICLE_JSON)) as call, \
+             mock.patch("core.agent.channels.send_to_self") as send:
+            commission.run(req)
+        req.refresh_from_db()
+        return req, call, send
+
+    def test_draft_with_approval_code_then_ok_publishes(self):
+        req, call, send = self._run()
+        self.assertEqual(req.status, "drafted")
+        self.assertEqual(req.article.status, "draft")
+        self.assertIn("Mwanaspoti", call.call_args[0][1])
+        self.assertEqual(len(req.article.sources), 2)
+        self.assertIn(f"OK {req.approval.code}", send.call_args[0][1])
+        ok, reply = approvals.approve(req.approval.code, user=self.owner)
+        self.assertTrue(ok, reply)
+        req.refresh_from_db()
+        self.assertEqual((req.status, req.article.status), ("published", "published"))
+
+    def test_publish_now(self):
+        req, _, _ = self._run(publish=True)
+        self.assertEqual(req.article.status, "published")
+
+    def test_no_sources_means_no_article(self):
+        req, call, send = self._run(sources=False)
+        self.assertEqual(req.status, "failed")
+        self.assertFalse(call.called)
+        self.assertIn("Sitabuni", req.error)
+        self.assertFalse(Article.objects.exists())
+
+    def test_ai_can_refuse_when_sources_are_thin(self):
+        req, _, _ = self._run(reply='{"skip": "vyanzo havitaji matokeo"}')
+        self.assertEqual(req.status, "failed")
+        self.assertIn("vyanzo havitaji matokeo", req.error)
+
+    def test_whatsapp_command_from_owner_starts_a_request(self):
+        from core import views_whatsapp
+        from news.models import NewsRequest
+        with mock.patch("core.views_whatsapp._authorised_user", return_value=self.owner), \
+             mock.patch("news.commission.start") as start:
+            reply = views_whatsapp._handle_message("255700000000", "Andika habari kuhusu Taifa Stars")
+        self.assertIn("Taifa Stars", reply)
+        self.assertTrue(start.called)
+        self.assertEqual(NewsRequest.objects.get().via, "whatsapp")
+
+    def test_page_and_settings(self):
+        from news.models import EditorSettings
+        self.client.force_login(self.owner)
+        self.assertEqual(self.client.get("/habari-admin/agiza/").status_code, 200)
+        self.client.post("/habari-admin/agiza/", {"action": "settings", "focus_topics": "Simba, Yanga",
+                                                  "avoid_topics": "uchawi", "editor_notes": "Fupi"})
+        cfg = EditorSettings.load()
+        self.assertEqual((cfg.focus_topics, cfg.sports_slot), ("Simba, Yanga", False))
+        with mock.patch("news.commission.start") as start, self.settings(GROQ_API_KEY="k"):
+            self.client.post("/habari-admin/agiza/", {"action": "commission", "topic": "Bunge leo"})
+        self.assertTrue(start.called)

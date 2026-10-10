@@ -98,7 +98,12 @@ def _parse(raw):
     return out
 
 
-def write_news(category_label, item, related=()):
+def _notes(notes):
+    notes = (notes or "").strip()
+    return [f"MWONGOZO WA MHARIRI (fuata, bila kuvunja SHERIA KALI): {notes[:1200]}"] if notes else []
+
+
+def write_news(category_label, item, related=(), notes=""):
     lines = [
         f"Kundi: {category_label}",
         f"Chanzo kikuu: {item.publisher}",
@@ -107,9 +112,39 @@ def write_news(category_label, item, related=()):
     ]
     if item.published:
         lines.append(f"Tarehe ya chanzo: {item.published:%Y-%m-%d}")
-    for r in related[:2]:
-        lines.append(f"Taarifa inayohusiana ({r.publisher}): {r.title} — {r.summary[:300]}")
+    for r in related[:3]:
+        lines.append(f"Taarifa ya habari hiyo hiyo ({r.publisher}): {r.title} — {r.summary[:300]}")
+    lines += _notes(notes)
     return _parse(_call(NEWS_SYSTEM, "\n".join(lines)))
+
+
+COMMISSION_RULES = """
+
+KAZI MAALUM: mhariri ameagiza habari kuhusu MADA iliyotajwa. Andika makala moja kuhusu mada hiyo
+ukitumia taarifa za vyanzo vilivyotolewa PEKEE (unaweza kuunganisha vyanzo kadhaa vya tukio moja).
+Kama vyanzo HAVIHUSU mada hiyo, au havina ukweli wa kutosha kuandika bila kubuni, jibu JSON hii tu:
+{"skip": "sababu fupi kwa Kiswahili"}
+Kwa michezo: taja matokeo, wafungaji na dakika TU kama vimo kwenye vyanzo."""
+
+
+def write_commissioned(category_label, topic, items, instructions="", notes=""):
+    """Makala iliyoagizwa: mada + vyanzo kadhaa. Inarudisha dict au WriterError."""
+    lines = [f"Kundi: {category_label}", f"MADA ILIYOAGIZWA: {topic}"]
+    if instructions:
+        lines.append(f"Maelekezo ya mhariri kwa makala hii: {instructions[:800]}")
+    lines.append("VYANZO:")
+    for n, it in enumerate(items[:6], 1):
+        when = f" ({it.published:%Y-%m-%d %H:%M} UTC)" if it.published else ""
+        lines.append(f"{n}. [{it.publisher}]{when} {it.title} — {it.summary[:400] or '(hakuna muhtasari)'}")
+    lines += _notes(notes)
+    raw = _call(NEWS_SYSTEM + COMMISSION_RULES, "\n".join(lines))
+    try:
+        data = json.loads(re.sub(r"^```(?:json)?|```$", "", raw.strip(), flags=re.MULTILINE).strip())
+    except json.JSONDecodeError:
+        data = None
+    if isinstance(data, dict) and data.get("skip"):
+        raise WriterError(f"AI: {str(data['skip'])[:300]}")
+    return _parse(raw)
 
 
 def write_service(service):

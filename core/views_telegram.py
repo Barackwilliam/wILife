@@ -67,6 +67,16 @@ def _handle(payload):
 
     decision, code = approvals.parse_reply(text)
     if not decision:
+        from news import commission
+        from django.contrib.auth.models import User
+        owner = User.objects.filter(is_active=True, is_superuser=True).order_by("pk").first()
+        reply = commission.from_chat(text, owner, "telegram")
+        if reply:
+            try:
+                send_telegram(chat_id, reply)
+            except Exception as exc:
+                log.error("could not confirm news command: %s", exc)
+            return
         if jamiitek_team.is_team_command(text):
             try:
                 send_telegram(chat_id, jamiitek_team.status_text())

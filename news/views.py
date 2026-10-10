@@ -322,13 +322,72 @@ def review_action(request):
         if action == "publish_one":
             item.publish()
             indexnow.submit([item.get_absolute_url()])
+            _settle_request(item, "published")
             messages.success(request, f"Imechapishwa: {item.title}")
         else:
             item.status = "rejected"
             item.save(update_fields=["status", "updated_at"])
+            _settle_request(item, "failed", "Imekataliwa na mhariri")
             messages.info(request, f"Imekataliwa: {item.title}")
     elif action == "generate":
         import time
         result = pipeline.run(force=True, deadline=time.monotonic() + 45)
         messages.info(request, f"Rasimu {result['sent']} zimeandikwa. {result.get('detail', '')}")
+    if request.POST.get("next") == "commission":
+        return redirect("news:commission")
     return redirect("news:review")
+
+
+def _settle_request(article, status, error=""):
+    """Habari iliyoagizwa ikichapishwa/kukataliwa kwenye ukurasa, code yake ya WhatsApp inafungwa."""
+    from news.models import NewsRequest
+    for req in NewsRequest.objects.filter(article=article).select_related("approval"):
+        req.status = status
+        if error:
+            req.error = error
+        req.save(update_fields=["status", "error"])
+        if req.approval and req.approval.status == "pending":
+            req.approval.status = "sent" if status == "published" else "rejected"
+            req.approval.result = "Imeamuliwa kwenye ukurasa wa mhariri"
+            req.approval.save(update_fields=["status", "result"])
+
+
+@staff_member_required
+def commission(request):
+    """Agiza habari + mwongozo wa mhariri kwa AI."""
+    from news import commission as service
+    from news.models import EditorSettings, NewsRequest
+
+    cfg = EditorSettings.load()
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "settings":
+            cfg.focus_topics = request.POST.get("focus_topics", "").strip()[:2000]
+            cfg.avoid_topics = request.POST.get("avoid_topics", "").strip()[:2000]
+            cfg.editor_notes = request.POST.get("editor_notes", "").strip()[:3000]
+            cfg.sports_slot = bool(request.POST.get("sports_slot"))
+            cfg.save()
+            messages.success(request, "Mwongozo wa mhariri umehifadhiwa.")
+        elif action == "commission":
+            topic = request.POST.get("topic", "").strip()[:300]
+            category = request.POST.get("category") or ""
+            if not topic:
+                messages.warning(request, "Andika mada ya habari.")
+            elif not getattr(settings, "GROQ_API_KEY", ""):
+                messages.warning(request, "GROQ_API_KEY haijawekwa — AI haiwezi kuandika.")
+            else:
+                req = NewsRequest.objects.create(
+                    topic=topic, instructions=request.POST.get("instructions", "").strip()[:1500],
+                    category=category if category in Category.values else service.guess_category(topic),
+                    publish_now=bool(request.POST.get("publish_now")), via="web", requested_by=request.user)
+                service.start(req)
+                messages.info(request, f"Ninatafuta vyanzo na kuandika: “{topic}”. Ukurasa utajisasisha.")
+        return redirect("news:commission")
+
+    requests_ = list(NewsRequest.objects.select_related("article", "approval")[:20])
+    return render(request, "news/commission.html", {
+        "cfg": cfg, "requests": requests_,
+        "busy": any(r.status in ("queued", "working") for r in requests_),
+        "categories": [c for c in Category.choices if c[0] != Category.JAMIITEK],
+        "has_key": bool(getattr(settings, "GROQ_API_KEY", "")),
+    })

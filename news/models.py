@@ -198,3 +198,67 @@ class Article(models.Model):
         self.status = "published"
         self.published_at = when or timezone.now()
         self.save(update_fields=["status", "published_at", "updated_at"])
+
+
+class EditorSettings(models.Model):
+    """
+    Mwongozo wa mhariri kwa AI — mmoja tu (singleton). Unahaririwa kwenye
+    /habari-admin/agiza/ bila kugusa code.
+    """
+
+    focus_topics = models.TextField(
+        blank=True, default="Simba, Yanga, Taifa Stars, Azam FC, Bunge, Bajeti, TANESCO, Dar es Salaam",
+        help_text="Mada za kipaumbele — habari zinazozigusa zinapewa uzito zaidi (moja kwa mstari au kwa koma)")
+    avoid_topics = models.TextField(
+        blank=True, default="", help_text="Mada za kuepuka kabisa (moja kwa mstari au kwa koma)")
+    editor_notes = models.TextField(
+        blank=True, default="",
+        help_text="Maelekezo ya ziada kwa AI anapoandika (mf. 'kwenye michezo taja matokeo na wafungaji')")
+    sports_slot = models.BooleanField(
+        default=True, help_text="Habari moja ya michezo ya Tanzania kila siku (slot 6)")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Editor settings"
+        verbose_name_plural = "Editor settings"
+
+    def __str__(self):
+        return "Mwongozo wa mhariri"
+
+    @classmethod
+    def load(cls):
+        obj = cls.objects.order_by("pk").first()
+        return obj or cls.objects.create()
+
+
+class NewsRequest(models.Model):
+    """Habari iliyoagizwa na mhariri: 'Andika habari kuhusu Simba na Yanga leo'."""
+
+    STATUS = [
+        ("queued", "Inasubiri"),
+        ("working", "Inaandikwa"),
+        ("drafted", "Rasimu tayari"),
+        ("published", "Imechapishwa"),
+        ("failed", "Imeshindikana"),
+    ]
+    SOURCES = [("web", "Dashboard"), ("whatsapp", "WhatsApp"), ("telegram", "Telegram")]
+
+    topic = models.CharField(max_length=300)
+    instructions = models.TextField(blank=True, default="")
+    category = models.CharField(max_length=12, choices=Category.choices, default=Category.TANZANIA)
+    publish_now = models.BooleanField(default=False)
+    status = models.CharField(max_length=10, choices=STATUS, default="queued", db_index=True)
+    article = models.ForeignKey(Article, null=True, blank=True, on_delete=models.SET_NULL, related_name="requests")
+    approval = models.ForeignKey("core.ApprovalRequest", null=True, blank=True, on_delete=models.SET_NULL)
+    error = models.TextField(blank=True, default="")
+    found = models.PositiveSmallIntegerField(default=0, help_text="Vyanzo vilivyopatikana")
+    via = models.CharField(max_length=10, choices=SOURCES, default="web")
+    requested_by = models.ForeignKey("auth.User", null=True, blank=True, on_delete=models.SET_NULL)
+    created_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.topic[:60]} ({self.get_status_display()})"
