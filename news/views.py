@@ -352,6 +352,16 @@ def _settle_request(article, status, error=""):
             req.approval.save(update_fields=["status", "result"])
 
 
+def _local_datetime(raw):
+    """'2026-10-10T20:00' kutoka <input type=datetime-local> -> saa ya Dar es Salaam."""
+    from datetime import datetime
+    try:
+        naive = datetime.strptime((raw or "").strip(), "%Y-%m-%dT%H:%M")
+    except ValueError:
+        return None
+    return timezone.make_aware(naive, timezone.get_current_timezone())
+
+
 @staff_member_required
 def commission(request):
     """Agiza habari + mwongozo wa mhariri kwa AI."""
@@ -376,18 +386,36 @@ def commission(request):
             elif not getattr(settings, "GROQ_API_KEY", ""):
                 messages.warning(request, "GROQ_API_KEY haijawekwa — AI haiwezi kuandika.")
             else:
-                req = NewsRequest.objects.create(
+                req = NewsRequest(
                     topic=topic, instructions=request.POST.get("instructions", "").strip()[:1500],
                     category=category if category in Category.values else service.guess_category(topic),
                     publish_now=bool(request.POST.get("publish_now")), via="web", requested_by=request.user)
-                service.start(req)
-                messages.info(request, f"Ninatafuta vyanzo na kuandika: “{topic}”. Ukurasa utajisasisha.")
+                when = _local_datetime(request.POST.get("start_at"))
+                try:
+                    req.watch_hours = max(1, min(24, int(request.POST.get("watch_hours") or 6)))
+                except ValueError:
+                    req.watch_hours = 6
+                if when and when > timezone.now() + timedelta(minutes=1):
+                    service.schedule(req, when).save()
+                    local = timezone.localtime(when)
+                    messages.success(request, f"⏰ “{topic}” — AI itaanza saa {local:%H:%M}, {local:%d/%m/%Y} "
+                                              f"na kufuatilia kwa saa {req.watch_hours}. Utapata rasimu WhatsApp/Telegram.")
+                else:
+                    req.save()
+                    service.start(req)
+                    messages.info(request, f"Ninatafuta vyanzo na kuandika: “{topic}”. Ukurasa utajisasisha.")
+        elif action == "cancel":
+            n = NewsRequest.objects.filter(pk=request.POST.get("request"), status__in=("scheduled", "watching")) \
+                .update(status="failed", error="Imesitishwa na mhariri", next_try_at=None, finished_at=timezone.now())
+            if n:
+                messages.info(request, "Habari iliyopangwa imesitishwa.")
         return redirect("news:commission")
 
     requests_ = list(NewsRequest.objects.select_related("article", "approval")[:20])
     return render(request, "news/commission.html", {
         "cfg": cfg, "requests": requests_,
         "busy": any(r.status in ("queued", "working") for r in requests_),
+        "now_local": timezone.localtime().strftime("%Y-%m-%dT%H:%M"),
         "categories": [c for c in Category.choices if c[0] != Category.JAMIITEK],
         "has_key": bool(getattr(settings, "GROQ_API_KEY", "")),
     })

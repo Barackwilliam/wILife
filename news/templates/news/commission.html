@@ -49,11 +49,19 @@
             <input class="form-check-input" type="checkbox" name="publish_now" id="pn">
             <label class="form-check-label" for="pn">Chapisha moja kwa moja (bila kuidhinisha)</label></div></div>
         </div>
+        <div class="row g-3 mt-1">
+          <div class="col-md-7"><label class="form-label">AI ianze saa <span class="text-muted small">(hiari — tukio la baadaye)</span></label>
+            <input type="datetime-local" class="form-control" name="start_at" min="{{ now_local }}"></div>
+          <div class="col-md-5"><label class="form-label">Fuatilia kwa</label>
+            <select class="form-select" name="watch_hours">
+              <option value="2">Saa 2</option><option value="4">Saa 4</option><option value="6" selected>Saa 6</option><option value="12">Saa 12</option><option value="24">Saa 24</option></select></div>
+        </div>
+        <div class="small text-muted mt-1">Weka muda tukio linapotokea (kwa mechi: inapoisha). AI itaanza muda huo na kutumia ripoti zilizotoka karibu na tukio tu; vyombo visipokuwa vimeripoti, itaangalia tena kila dakika 15.</div>
         <label class="form-label mt-3">Maelekezo kwa makala hii <span class="text-muted small">(hiari)</span></label>
         <textarea class="form-control" name="instructions" rows="2" placeholder="mf. Taja matokeo, wafungaji na msimamo wa ligi; makala fupi"></textarea>
         <button class="btn btn-brand mt-3" {% if not has_key %}disabled{% endif %}><i class="bi bi-magic"></i> Tafuta na uandike</button>
       </form>
-      <p class="small text-muted mt-3 mb-0 cm-help">Kwa WhatsApp/Telegram tuma: <code>Andika habari kuhusu Simba na Yanga leo</code> — ongeza <code>#chapisha</code> mwishoni kuichapisha moja kwa moja. Utajibiwa na rasimu + <b>OK code</b>.</p>
+      <p class="small text-muted mt-3 mb-0 cm-help">Kwa WhatsApp/Telegram tuma: <code>Andika habari kuhusu Simba na Yanga leo</code> — ongeza <code>#chapisha</code> mwishoni kuichapisha moja kwa moja. Kupanga muda: <code>Andika habari kuhusu Simba na Yanga saa 2 usiku</code> (au <code>20:30</code>, <code>kesho saa 4 asubuhi</code>). Utajibiwa na rasimu + <b>OK code</b>.</p>
     </section>
 
     <section class="panel mb-4">
@@ -64,10 +72,14 @@
           <div class="cell-sub text-uppercase fw-bold" style="font-size:.68rem;letter-spacing:.12em">{{ r.get_category_display }} · {{ r.get_via_display }} · {{ r.created_at|sw_ago }}{% if r.found %} · vyanzo {{ r.found }}{% endif %}</div>
           <div class="cell-main">{% if r.article %}{{ r.article.title }}{% else %}{{ r.topic }}{% endif %}</div>
           {% if r.article %}<div class="cell-sub">Agizo: {{ r.topic|truncatechars:90 }}</div>{% endif %}
-          {% if r.error %}<div class="cm-err">{{ r.error|truncatechars:300 }}</div>{% endif %}
+          {% if r.start_at %}<div class="cell-sub"><i class="bi bi-alarm"></i> AI ianze {{ r.start_at|date:"d/m H:i" }} · fuatilia saa {{ r.watch_hours }}{% if r.attempts %} · majaribio {{ r.attempts }}{% endif %}{% if r.next_try_at %} · ijayo {{ r.next_try_at|date:"H:i" }}{% endif %}</div>{% endif %}
+          {% if r.error and r.status != 'watching' %}<div class="cm-err">{{ r.error|truncatechars:300 }}</div>{% elif r.status == 'watching' %}<div class="cell-sub">Vyombo bado havijaripoti — inaangalia tena.</div>{% endif %}
           {% if r.approval and r.approval.status == 'pending' %}<div class="cell-sub">WhatsApp/Telegram: <span class="cm-code">OK {{ r.approval.code }}</span></div>{% endif %}
         </div>
-        <span class="tag {% if r.status == 'published' %}t-leaf{% elif r.status == 'failed' %}t-rose{% elif r.status == 'drafted' %}t-brand{% else %}t-ink{% endif %}">{% if r.status == 'queued' or r.status == 'working' %}<span class="spin"></span> {% endif %}{{ r.get_status_display }}</span>
+        {% if r.status == 'scheduled' or r.status == 'watching' %}
+        <form method="post" class="m-0">{% csrf_token %}<input type="hidden" name="action" value="cancel"><input type="hidden" name="request" value="{{ r.pk }}">
+          <button class="btn btn-ghost btn-sm" title="Sitisha">Sitisha</button></form>{% endif %}
+        <span class="tag {% if r.status == 'published' %}t-leaf{% elif r.status == 'failed' %}t-rose{% elif r.status == 'drafted' %}t-brand{% elif r.status == 'scheduled' or r.status == 'watching' %}t-sun{% else %}t-ink{% endif %}">{% if r.status == 'scheduled' %}<i class="bi bi-alarm"></i> {% endif %}{% if r.status == 'queued' or r.status == 'working' %}<span class="spin"></span> {% endif %}{{ r.get_status_display }}</span>
         {% if r.article %}
           <a href="{{ r.article.get_absolute_url }}" class="btn btn-ghost btn-sm" target="_blank">Soma</a>
           <a href="{% url 'admin:news_article_change' r.article.pk %}" class="btn btn-ghost btn-sm">Hariri</a>

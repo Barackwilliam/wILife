@@ -8,12 +8,17 @@ Habari iliyoagizwa — "Andika habari kuhusu Simba na Yanga leo".
     4. Rasimu inasubiri "OK <code>" (au inachapishwa mara moja ukichagua hivyo).
 
 Inaendeshwa kwenye thread ili ukurasa / webhook usisubiri AI.
+
+Habari iliyopangwa ("Simba na Yanga saa 2 usiku"): AI inaanza saa iliyotajwa,
+inatumia ripoti zilizotoka karibu na tukio tu (si makala za kabla ya mechi), na
+vyombo visipokuwa vimeripoti bado inajaribu tena kila RETRY_MINUTES kwa saa
+`watch_hours`.
 """
 
 import logging
 import re
 import threading
-from datetime import timedelta
+from datetime import datetime, time as dtime, timedelta
 
 from django.db import connection
 from django.urls import reverse
@@ -28,8 +33,51 @@ COMMAND = re.compile(
     r"^\s*(?:andika\s+habari|agiza\s+habari|habari\s*:)\s*(?:ya|za|kuhusu|juu\s+ya)?\s*[:\-]?\s*(?P<topic>.+)$",
     re.IGNORECASE | re.DOTALL)
 PUBLISH_FLAG = re.compile(r"\s*(?:#|\()?\s*(chapisha(?:\s+moja\s+kwa\s+moja)?|publish)\s*\)?\s*$", re.IGNORECASE)
+RETRY_MINUTES = 15
+EARLIEST_SOURCE = timedelta(hours=2)   # ripoti za zamani kuliko (start_at - hii) ni za kabla ya tukio
+
+# "saa 2 usiku", "saa 10:30 jioni", "kesho saa 3 asubuhi", "20:30", "kesho 18:00"
+SW_TIME = re.compile(
+    r"\s*(?P<kesho>kesho\s+)?(?:saa\s*(?P<h>\d{1,2})(?:[:.](?P<m>\d{2}))?\s*"
+    r"(?P<p>asubuhi|alfajiri|mchana|jioni|usiku)|(?P<H>[01]?\d|2[0-3]):(?P<M>[0-5]\d))\b",
+    re.IGNORECASE)
 SPORTS_WORDS = ("simba", "yanga", "taifa stars", "azam", "mpira", "ligi", "mechi", "goli", "michezo",
                 "twiga stars", "singida", "nbc premier")
+
+
+def swahili_hour(h, period):
+    """Saa za Kiswahili -> saa 24. 'saa 2 usiku' = 20, 'saa 1 asubuhi' = 7, 'saa 6 mchana' = 12."""
+    base = (h + 6) % 12
+    period = period.lower()
+    if period in ("asubuhi", "alfajiri"):
+        return base
+    if period in ("mchana", "jioni"):
+        return base + 12
+    # usiku: saa 1–5 ni 19–23; saa 6 ni 0; saa 7–11 ni 1–5 alfajiri
+    return base + 12 if 1 <= h <= 5 else base
+
+
+def parse_time(text, now=None):
+    """Toa muda wa tukio kwenye amri. Inarudisha (datetime au None, maandishi bila muda)."""
+    m = SW_TIME.search(text or "")
+    if not m:
+        return None, text
+    now = timezone.localtime(now or timezone.now())
+    if m.group("h"):
+        h = int(m.group("h"))
+        if not 1 <= h <= 12:
+            return None, text
+        hour, minute = swahili_hour(h, m.group("p")), int(m.group("m") or 0)
+    else:
+        hour, minute = int(m.group("H")), int(m.group("M"))
+    if minute > 59:
+        return None, text
+    day = now.date() + timedelta(days=1 if m.group("kesho") else 0)
+    when = timezone.make_aware(datetime.combine(day, dtime(hour, minute)), now.tzinfo)
+    if when < now - timedelta(minutes=30) and not m.group("kesho"):
+        when += timedelta(days=1)   # "saa 2 usiku" ikiwa imeshapita leo = kesho
+    cleaned = (text[:m.start()] + " " + text[m.end():]).strip()
+    return when, re.sub(r"\s{2,}", " ", cleaned)
 
 
 def parse_command(text):
@@ -105,7 +153,12 @@ def run(req):
     cfg = EditorSettings.load()
     try:
         items, errors = find_sources(req.topic, req.category, focus=feeds._terms(cfg.focus_topics))
+        if req.start_at:
+            # Makala za kabla ya tukio (mf. "Simba vs Yanga leo: kikosi") si habari ya tukio
+            cutoff = req.start_at - EARLIEST_SOURCE
+            items = [i for i in items if not i.published or i.published >= cutoff]
         req.found = len(items)
+        req.attempts += 1
         if not items:
             raise writer.WriterError(
                 f"Sikupata habari za \"{req.topic}\" kwenye vyanzo (saa 48 zilizopita). "
@@ -133,13 +186,51 @@ def run(req):
                    f"{article.excerpt}\n\nSoma: {_site(article.get_absolute_url())}{code}")
     except Exception as exc:  # WriterError, network, anything — the request records it
         log.warning("commission %s failed: %s", req.pk, exc)
-        req.status = "failed"
         req.error = str(exc)[:1000]
+        if req.start_at and not req.article and timezone.now() < _watch_until(req):
+            # Vyombo bado havijaripoti — jaribu tena baadaye, kimya
+            req.status = "watching"
+            req.next_try_at = timezone.now() + timedelta(minutes=RETRY_MINUTES)
+            req.save()
+            return req
+        req.status = "failed"
         msg = f"⚠️ Habari \"{req.topic[:80]}\" haikuandikwa: {req.error[:300]}"
+        if req.start_at:
+            msg += f" (nimefuatilia kwa saa {req.watch_hours}, majaribio {req.attempts})"
     req.finished_at = timezone.now()
+    req.next_try_at = None
     req.save()
-    if req.via != "web":
+    if req.via != "web" or req.start_at:
         _notify(req, msg)
+    return req
+
+
+def _watch_until(req):
+    return req.start_at + timedelta(hours=req.watch_hours)
+
+
+def run_due(now=None, dry_run=False):
+    """Tick: anzisha habari zilizopangwa ambazo muda wake umefika."""
+    now = now or timezone.now()
+    due = list(NewsRequest.objects.filter(status__in=("scheduled", "watching"),
+                                          next_try_at__lte=now).order_by("next_try_at")[:5])
+    started = 0
+    for req in due:
+        if dry_run:
+            continue
+        # Dai ombi kwanza ili tick mbili zisilianzishe mara mbili
+        if NewsRequest.objects.filter(pk=req.pk, status=req.status).update(status="queued", next_try_at=None):
+            start(req)
+            started += 1
+    waiting = NewsRequest.objects.filter(status__in=("scheduled", "watching")).count()
+    return {"job": "news_requests", "sent": started, "failed": 0,
+            "detail": f"started {started}, waiting {waiting - started}" if (started or waiting) else "none"}
+
+
+def schedule(req, when):
+    req.start_at = when
+    req.next_try_at = when
+    req.status = "scheduled"
     return req
 
 
@@ -175,8 +266,16 @@ def from_chat(text, user, via):
     topic, publish = parse_command(text)
     if not topic:
         return None
-    req = NewsRequest.objects.create(topic=topic, category=guess_category(topic), publish_now=publish,
-                                     via=via, requested_by=user)
+    when, topic = parse_time(topic)
+    topic = topic.strip(" ,.-") or "habari"
+    req = NewsRequest(topic=topic, category=guess_category(topic), publish_now=publish,
+                      via=via, requested_by=user)
+    tail = " Itachapishwa moja kwa moja." if publish else " Nitakutumia rasimu na code ya kuidhinisha."
+    if when and when > timezone.now():
+        schedule(req, when).save()
+        local = timezone.localtime(when)
+        return (f"⏰ Sawa. Nitaanza kuandaa habari ya \"{topic}\" saa {local:%H:%M} ({local:%d/%m}). "
+                f"Vyombo visipokuwa vimeripoti bado, nitaendelea kuangalia kwa saa {req.watch_hours}.{tail}")
+    req.save()
     start(req)
-    return (f"🔎 Ninatafuta na kuandika habari kuhusu \"{topic}\"…"
-            + (" Itachapishwa moja kwa moja." if publish else " Nitakutumia rasimu na code ya kuidhinisha."))
+    return f"🔎 Ninatafuta na kuandika habari kuhusu \"{topic}\"…{tail}"

@@ -235,6 +235,8 @@ class NewsRequest(models.Model):
     """Habari iliyoagizwa na mhariri: 'Andika habari kuhusu Simba na Yanga leo'."""
 
     STATUS = [
+        ("scheduled", "Imepangwa"),
+        ("watching", "Inafuatilia"),
         ("queued", "Inasubiri"),
         ("working", "Inaandikwa"),
         ("drafted", "Rasimu tayari"),
@@ -248,6 +250,12 @@ class NewsRequest(models.Model):
     category = models.CharField(max_length=12, choices=Category.choices, default=Category.TANZANIA)
     publish_now = models.BooleanField(default=False)
     status = models.CharField(max_length=10, choices=STATUS, default="queued", db_index=True)
+    # Habari iliyopangwa: AI inaanza saa `start_at`; vyombo visipokuwa vimeripoti,
+    # inajaribu tena kila RETRY_MINUTES hadi saa `watch_hours` ziishe.
+    start_at = models.DateTimeField(null=True, blank=True, help_text="AI ianze saa hii (tukio linapotokea)")
+    next_try_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    watch_hours = models.PositiveSmallIntegerField(default=6)
+    attempts = models.PositiveSmallIntegerField(default=0)
     article = models.ForeignKey(Article, null=True, blank=True, on_delete=models.SET_NULL, related_name="requests")
     approval = models.ForeignKey("core.ApprovalRequest", null=True, blank=True, on_delete=models.SET_NULL)
     error = models.TextField(blank=True, default="")

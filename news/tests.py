@@ -673,3 +673,102 @@ class CommissionTests(TestCase):
         with mock.patch("news.commission.start") as start, self.settings(GROQ_API_KEY="k"):
             self.client.post("/habari-admin/agiza/", {"action": "commission", "topic": "Bunge leo"})
         self.assertTrue(start.called)
+
+
+class ScheduledCommissionTests(TestCase):
+    def setUp(self):
+        self.owner = User.objects.create_superuser("owner", "o@x.com", "x")
+        # Ijumaa 9 Okt 2026, saa 4 asubuhi (10:00) Dar es Salaam
+        self.now = timezone.make_aware(datetime(2026, 10, 9, 10, 0))
+
+    def test_swahili_time(self):
+        from news.commission import parse_time
+        cases = {
+            "Simba na Yanga saa 2 usiku": (9, 20, 0, "Simba na Yanga"),
+            "Bunge saa 4:30 asubuhi": (9, 10, 30, "Bunge"),
+            "Taifa Stars kesho saa 10 jioni": (10, 16, 0, "Taifa Stars"),
+            "Mechi 18:45": (9, 18, 45, "Mechi"),
+            "Bajeti saa 6 mchana": (9, 12, 0, "Bajeti"),
+            "Habari saa 1 asubuhi": (10, 7, 0, "Habari"),   # imeshapita leo -> kesho
+        }
+        for text, (day, hour, minute, topic) in cases.items():
+            when, rest = parse_time(text, now=self.now)
+            local = timezone.localtime(when)
+            self.assertEqual((local.day, local.hour, local.minute, rest), (day, hour, minute, topic), text)
+        self.assertEqual(parse_time("Simba na Yanga leo", now=self.now), (None, "Simba na Yanga leo"))
+
+    def test_chat_command_with_time_is_scheduled(self):
+        from news import commission
+        from news.models import NewsRequest
+        with mock.patch("news.commission.start") as start, \
+             mock.patch("django.utils.timezone.now", return_value=self.now):
+            reply = commission.from_chat("Andika habari kuhusu Simba na Yanga saa 2 usiku", self.owner, "whatsapp")
+        req = NewsRequest.objects.get()
+        self.assertFalse(start.called)
+        self.assertEqual((req.status, req.topic), ("scheduled", "Simba na Yanga"))
+        self.assertEqual(timezone.localtime(req.start_at).hour, 20)
+        self.assertIn("20:00", reply)
+
+    def _scheduled(self, start_at, **kw):
+        from news import commission
+        from news.models import NewsRequest
+        req = NewsRequest(topic="Simba na Yanga", category="tanzania", via="whatsapp", requested_by=self.owner, **kw)
+        commission.schedule(req, start_at).save()
+        return req
+
+    def test_tick_starts_only_due_requests(self):
+        from news import commission
+        due = self._scheduled(self.now - timedelta(minutes=1))
+        later = self._scheduled(self.now + timedelta(hours=3))
+        with mock.patch("news.commission.start") as start:
+            result = commission.run_due(now=self.now)
+        self.assertEqual(result["sent"], 1)
+        self.assertEqual(start.call_args[0][0].pk, due.pk)
+        later.refresh_from_db()
+        self.assertEqual(later.status, "scheduled")
+
+    def _run(self, req, found, now):
+        from news import commission
+        with mock.patch("news.feeds.collect", return_value=(found, [])), \
+             mock.patch("news.writer._call", return_value=json.dumps(ARTICLE_JSON)), \
+             mock.patch("core.agent.channels.send_to_self") as send, \
+             mock.patch("django.utils.timezone.now", return_value=now):
+            commission.run(req)
+        req.refresh_from_db()
+        return send
+
+    def test_no_reports_yet_keeps_watching_quietly_then_gives_up(self):
+        start = self.now
+        req = self._scheduled(start, watch_hours=2)
+        old = feeds.FeedItem(title="Simba na Yanga leo: vikosi", url="https://x.tz/preview", summary="",
+                             publisher="Mwananchi", published=start - timedelta(hours=5))
+        send = self._run(req, [old], start)          # makala ya kabla ya mechi haihesabiki
+        self.assertEqual(req.status, "watching")
+        self.assertEqual(req.next_try_at, start + timedelta(minutes=15))
+        self.assertFalse(send.called)
+        send = self._run(req, [], start + timedelta(hours=3))
+        self.assertEqual(req.status, "failed")
+        self.assertTrue(send.called)
+
+    def test_reports_after_the_event_become_a_draft(self):
+        start = self.now
+        req = self._scheduled(start)
+        fresh = feeds.FeedItem(title="Simba yaichapa Yanga 2-1", url="https://x.tz/res", summary="",
+                               publisher="Mwanaspoti", published=start + timedelta(minutes=20))
+        send = self._run(req, [fresh], start + timedelta(minutes=30))
+        self.assertEqual(req.status, "drafted")
+        self.assertIn("OK", send.call_args[0][1])
+
+    def test_web_form_schedules(self):
+        from news.models import NewsRequest
+        self.client.force_login(self.owner)
+        when = timezone.localtime() + timedelta(hours=2)
+        with mock.patch("news.commission.start") as start, self.settings(GROQ_API_KEY="k"):
+            self.client.post("/habari-admin/agiza/", {"action": "commission", "topic": "Simba na Yanga",
+                                                      "start_at": when.strftime("%Y-%m-%dT%H:%M"), "watch_hours": "4"})
+        req = NewsRequest.objects.get()
+        self.assertFalse(start.called)
+        self.assertEqual((req.status, req.watch_hours), ("scheduled", 4))
+        self.client.post("/habari-admin/agiza/", {"action": "cancel", "request": req.pk})
+        req.refresh_from_db()
+        self.assertEqual(req.status, "failed")
