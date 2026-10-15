@@ -18,7 +18,7 @@
   {% for name, slug in article.tag_list %}<meta property="article:tag" content="{{ name }}">{% endfor %}
   <meta name="twitter:title" content="{{ article.title }}"><meta name="twitter:description" content="{{ article.excerpt }}">
 {% endblock %}
-{% block preload %}<link rel="preload" as="image" href="{{ article.art_url }}" fetchpriority="high">{% endblock %}
+{% block preload %}<link rel="preload" as="image" href="{{ article.art_url }}"{% if article.srcset %} imagesrcset="{{ article.srcset }}" imagesizes="(max-width: 900px) 100vw, 860px"{% endif %} fetchpriority="high">{% endblock %}
 {% block jsonld %}{% article_jsonld article %}{% endblock %}
 
 {% block content %}

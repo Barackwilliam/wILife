@@ -1,7 +1,7 @@
 {% load news_tags %}{% if lead or rows %}
 <div class="rv">
   {% if lead %}<a href="{{ lead.get_absolute_url }}" class="rv-lead c-{{ lead.category }}">
-    <div class="rv-lead-img"><img src="{{ lead.art_url }}" fetchpriority="high" decoding="async" width="1200" height="630" alt="{{ lead.title }}"></div>
+    <div class="rv-lead-img"><img src="{{ lead.art_url }}"{% if lead.srcset %} srcset="{{ lead.srcset }}" sizes="(max-width: 900px) 100vw, 1100px"{% endif %} fetchpriority="high" decoding="async" width="1200" height="630" alt="{{ lead.title }}"></div>
     <div class="rv-lead-tx">
       <div class="rv-lead-k"><span class="rv-badge">{% icon "lightning-charge-fill" %} Habari kuu</span><span class="rv-cat">{{ lead.get_category_display }}</span></div>
       <h2>{{ lead.title }}</h2>

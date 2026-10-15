@@ -823,3 +823,121 @@ class LongWatchTests(TestCase):
         req.start_at = timezone.now() - timedelta(hours=8)
         self.assertEqual(commission._retry_minutes(req), 60)
         self.assertEqual((commission.watch_label(6), commission.watch_label(168)), ("saa 6", "siku 7"))
+
+
+import shutil
+import tempfile
+
+_MEDIA = tempfile.mkdtemp(prefix="wilife-media-")
+
+
+def _photo(w, h, fmt="JPEG", exif_rotate=False):
+    from io import BytesIO
+    from PIL import Image
+    img = Image.new("RGB", (w, h), (30, 120, 200))
+    for x in range(0, w, 40):
+        img.paste((240, 200, 40), (x, 0, x + 8, h))
+    buf = BytesIO()
+    if exif_rotate:
+        exif = Image.Exif()
+        exif[0x0112] = 6   # simu: zungusha 90°
+        img.save(buf, fmt, exif=exif)
+    else:
+        img.save(buf, fmt)
+    return buf.getvalue()
+
+
+@override_settings(MEDIA_ROOT=_MEDIA, USE_SUPABASE_STORAGE=False)
+class UploadedPhotoTests(TestCase):
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        shutil.rmtree(_MEDIA, ignore_errors=True)
+
+    def _article(self, data, name="picha-yangu.jpg"):
+        from django.core.files.base import ContentFile
+        a = Article.objects.create(title="Simba yaichapa Yanga", category="tanzania", excerpt="x", body="y",
+                                   status="published", published_at=timezone.now())
+        a.cover_art.save(name, ContentFile(data), save=True)
+        return a
+
+    def _size(self, f):
+        from PIL import Image
+        f.open("rb")
+        try:
+            return Image.open(f).size
+        finally:
+            f.close()
+
+    def test_big_upload_gets_hd_mobile_and_share_versions(self):
+        from news import photos
+        a = self._article(_photo(3000, 2000))
+        self.assertEqual(photos.process(a, field="cover_art"), "hd")
+        a.save()
+        self.assertEqual(self._size(a.cover_art), (1200, 800))
+        self.assertEqual(self._size(a.cover_hd), (2400, 1600))
+        self.assertEqual(self._size(a.cover_image), (1200, 630))
+        self.assertEqual(self._size(a.cover_original), (3000, 2000))
+        self.assertIn("2400w", a.srcset)
+        r = self.client.get(a.get_absolute_url())
+        self.assertContains(r, "2400w")
+        self.assertContains(r, a.cover_image.url)   # og:image ni picha yako
+
+    def test_small_upload_is_flagged_and_has_no_hd(self):
+        from news import photos
+        a = self._article(_photo(640, 480))
+        self.assertEqual(photos.process(a, field="cover_art"), "low")
+        self.assertFalse(a.cover_hd)
+        self.assertEqual(a.srcset, "")
+        self.assertEqual(self._size(a.cover_art)[0], 1200)
+
+    def test_phone_photo_is_rotated(self):
+        from news import photos
+        a = self._article(_photo(2000, 1500, exif_rotate=True))
+        photos.process(a, field="cover_art")
+        self.assertEqual(a.photo_size, "1500×2000")
+
+    def test_tick_checks_pending_and_skips_generated(self):
+        from news import photos
+        up = self._article(_photo(2000, 1200))
+        gen = Article.objects.create(title="Habari ya mfumo", category="dunia", excerpt="x", body="y")
+        from django.core.files.base import ContentFile
+        gen.cover_art.save(f"{gen.slug}-{gen.pk}.webp", ContentFile(_photo(1200, 630, "WEBP")), save=True)
+        result = photos.check_pending(limit=10)
+        up.refresh_from_db()
+        gen.refresh_from_db()
+        self.assertEqual((up.photo_quality, gen.photo_quality), ("hd", "generated"))
+        self.assertEqual(result["sent"], 2)
+        self.assertEqual(photos.check_pending()["detail"], "none")
+
+    def test_admin_save_processes_new_upload(self):
+        from django.contrib.admin.sites import site
+        from news.admin import ArticleAdmin
+        a = self._article(_photo(1300, 900))
+        admin = ArticleAdmin(Article, site)
+        request = mock.Mock()
+        admin.message_user = mock.Mock()
+        admin.save_model(request, a, mock.Mock(changed_data=["cover_art"]), True)
+        a.refresh_from_db()
+        self.assertEqual(a.photo_quality, "sd")
+        self.assertTrue(a.cover_original)
+        # Rasimu ya mfumo haifuniki picha yako
+        a.render_cover()
+        self.assertTrue(a.cover_art.name.endswith("-p.webp"))
+
+
+@override_settings(MEDIA_ROOT=_MEDIA, USE_SUPABASE_STORAGE=False)
+class PhotoAdminPageTests(TestCase):
+    def test_admin_pages_show_photo_quality(self):
+        from django.core.files.base import ContentFile
+        from news import photos
+        owner = User.objects.create_superuser("owner", "o@x.com", "x")
+        a = Article.objects.create(title="Taifa Stars", category="tanzania", excerpt="x", body="y")
+        a.cover_art.save("stars.jpg", ContentFile(_photo(700, 500)), save=True)
+        photos.process(a, field="cover_art")
+        a.save()
+        self.client.force_login(owner)
+        r = self.client.get(f"/admin/news/article/{a.pk}/change/")
+        self.assertContains(r, "Ndogo")
+        self.assertContains(r, "1800px")
+        self.assertContains(self.client.get("/admin/news/article/"), "Ndogo")
