@@ -151,6 +151,11 @@ def run_news_drafts(now=None, deadline=None, dry_run=False):
     return run(now=now, deadline=deadline, dry_run=dry_run)
 
 
+def run_news_photos(now=None, deadline=None, dry_run=False):
+    from news.photos import check_pending
+    return check_pending(limit=5, dry_run=dry_run)
+
+
 def run_news_requests(now=None, deadline=None, dry_run=False):
     from news.commission import run_due
     return run_due(now=now, dry_run=dry_run)
@@ -167,6 +172,7 @@ JOBS = {
     "weekly_review": run_weekly_review,
     "savings_watch": run_savings_watch,
     "news_requests": run_news_requests,
+    "news_photos": run_news_photos,
     "news_drafts": run_news_drafts,
     "expire_approvals": run_expire_approvals,
 }

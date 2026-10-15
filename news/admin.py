@@ -6,12 +6,69 @@ from news.models import Article, JamiiTekService, NewsBatch, EditorSettings, New
 
 @admin.register(Article)
 class ArticleAdmin(admin.ModelAdmin):
-    list_display = ("title", "category", "status", "published_at", "views", "view_link")
+    list_display = ("title", "category", "status", "published_at", "views", "photo_badge", "view_link")
     list_filter = ("status", "category")
     search_fields = ("title", "excerpt", "keywords")
     prepopulated_fields = {"slug": ("title",)}
-    readonly_fields = ("views", "created_at", "updated_at", "batch", "slot")
-    actions = ["publish_selected"]
+    readonly_fields = ("photo_info", "views", "created_at", "updated_at", "batch", "slot")
+    actions = ["publish_selected", "reprocess_photos"]
+
+    BADGE = {"hd": ("#15803d", "HD"), "sd": ("#2563eb", "Kawaida"), "low": ("#b45309", "Ndogo"),
+             "generated": ("#6b7280", "Ya mfumo"), "error": ("#b91c1c", "Imeshindikana")}
+
+    @admin.display(description="Picha")
+    def photo_badge(self, obj):
+        color, label = self.BADGE.get(obj.photo_quality, ("#9ca3af", "Haijakaguliwa"))
+        return format_html('<span style="color:#fff;background:{};padding:2px 8px;border-radius:9px;'
+                           'font-size:11px;font-weight:600">{}</span>', color, label)
+
+    @admin.display(description="Ubora wa picha")
+    def photo_info(self, obj):
+        if not obj.pk:
+            return "Pakia picha kwenye 'Cover art' — itachakatwa ukihifadhi."
+        from news.photos import HD_MIN
+        color, label = self.BADGE.get(obj.photo_quality, ("#9ca3af", "Haijakaguliwa"))
+        note = {
+            "hd": f"Picha asili {obj.photo_size} — toleo la HD ({obj.photo_hd_width}px) linatumika kwenye skrini kubwa.",
+            "sd": f"Picha asili {obj.photo_size} — nzuri kwa simu, lakini si HD. Pakia ya angalau {HD_MIN}px upana kwa HD.",
+            "low": f"Picha asili {obj.photo_size} ni ndogo — imekuzwa na kunolewa, lakini haiwezi kuwa HD. "
+                   f"Pakia picha ya angalau {HD_MIN}px upana.",
+            "generated": "Picha ya mfumo — pakia picha yako kwenye 'Cover art'.",
+            "error": "Picha haikuweza kusomwa — pakia upya (JPG/PNG/WebP).",
+        }.get(obj.photo_quality, "Itakaguliwa hivi karibuni.")
+        preview = (format_html('<br><img src="{}" style="max-width:360px;border-radius:8px;margin-top:8px">',
+                               obj.art_url) if obj.cover_art else "")
+        return format_html('<span style="color:#fff;background:{};padding:2px 8px;border-radius:9px;'
+                           'font-weight:600">{}</span> {}{}', color, label, note, preview)
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        changed = [f for f in ("cover_art", "cover_image") if f in form.changed_data and getattr(obj, f)]
+        if changed:
+            from news import photos
+            try:
+                quality = photos.process(obj, field=changed[0])
+                obj.save(update_fields=photos.FIELDS)
+                if quality == "low":
+                    self.message_user(request, f"Picha ni ndogo ({obj.photo_size}) — haitaonekana HD. "
+                                               f"Pakia ya angalau {photos.HD_MIN}px upana.", level="warning")
+                else:
+                    self.message_user(request, f"Picha imechakatwa ({photos.QUALITY_LABELS[quality]}, {obj.photo_size}).")
+            except Exception as exc:
+                self.message_user(request, f"Picha haikuchakatwa: {exc}", level="error")
+
+    @admin.action(description="Chakata picha upya (HD)")
+    def reprocess_photos(self, request, queryset):
+        from news import photos
+        done = 0
+        for a in queryset:
+            try:
+                photos.process(a)
+                a.save(update_fields=photos.FIELDS)
+                done += 1
+            except Exception as exc:
+                self.message_user(request, f"{a.title[:40]}: {exc}", level="error")
+        self.message_user(request, f"Picha {done} zimechakatwa.")
 
     @admin.display(description="Open")
     def view_link(self, obj):

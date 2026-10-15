@@ -111,9 +111,18 @@ class Article(models.Model):
     slot = models.PositiveSmallIntegerField(default=0, help_text="Position within the day's batch")
     status = models.CharField(max_length=10, choices=STATUS, default="draft", db_index=True)
     cover_image = models.FileField(upload_to=cover_path, blank=True, max_length=300,
-                                   help_text="1200x630 PNG with headline (Open Graph / Discover) — in the bucket")
+                                   help_text="Picha ya kushirikisha (WhatsApp/Facebook/Google). Ukipakia picha yako hapa au "
+                                             "kwenye 'Cover art', hii inatengenezwa yenyewe (1200×630).")
     cover_art = models.FileField(upload_to=cover_path, blank=True, max_length=300,
-                                 help_text="Text-free 1200px WebP for on-site images — in the bucket")
+                                 help_text="PAKIA PICHA YA HABARI HAPA — angalau 1800px upana kwa HD. Inachakatwa yenyewe: "
+                                           "toleo la simu, la HD na la kushirikisha.")
+    # Picha iliyopakiwa na mhariri (news/photos.py): asili + toleo la HD kwa srcset
+    cover_original = models.FileField(upload_to=cover_path, blank=True, max_length=300, editable=False)
+    cover_hd = models.FileField(upload_to=cover_path, blank=True, null=True, max_length=300, editable=False)
+    photo_hd_width = models.PositiveSmallIntegerField(default=0, editable=False)
+    photo_quality = models.CharField(max_length=10, blank=True, default="", editable=False)
+    photo_size = models.CharField(max_length=20, blank=True, default="", editable=False)
+    photo_checked_at = models.DateTimeField(null=True, blank=True, editable=False, db_index=True)
     # Database fallback, used only when no storage bucket is configured.
     cover_png = models.BinaryField(null=True, blank=True, editable=False)
     cover_thumb = models.BinaryField(null=True, blank=True, editable=False, help_text="Text-free 1200px WebP for on-site images")
@@ -167,6 +176,8 @@ class Article(models.Model):
         when = self.published_at or self.created_at or timezone.now()
         day = swahili_date(timezone.localtime(when).date())
         seed = self.pk or 0
+        if self.cover_original:   # mhariri amepakia picha yake — usiifunike
+            return
         png = covers.render(self.title, self.category, day, seed=seed)
         art = covers.thumbnail(covers.render(self.title, self.category, day, seed=seed, with_title=False))
         self.store_cover(png, art)
@@ -186,6 +197,13 @@ class Article(models.Model):
         if self.cover_art:
             return self.cover_art.url
         return reverse("news:cover_thumb", args=[self.pk])
+
+    @property
+    def srcset(self):
+        """'url 1200w, url-hd 2400w' — tupu kama hakuna toleo la HD."""
+        if self.cover_hd and self.photo_hd_width:
+            return f"{self.art_url} 1200w, {self.cover_hd.url} {self.photo_hd_width}w"
+        return ""
 
     @property
     def og_url(self):

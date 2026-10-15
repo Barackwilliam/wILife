@@ -9,6 +9,6 @@
       <p class="rv-x">{{ a.excerpt }}</p>
       <span class="rv-f">{% icon "clock" %} {{ a.reading_minutes }} dk kusoma<span class="vw" title="Imesomwa mara {{ a.views }}">{% icon "eye" %} {{ a.views|views_short }}</span></span>
     </div>
-    <div class="rv-img"><img src="{{ a.art_url }}" loading="lazy" decoding="async" width="1200" height="630" alt=""></div>
+    <div class="rv-img"><img src="{{ a.art_url }}"{% if a.srcset %} srcset="{{ a.srcset }}" sizes="(max-width: 700px) 40vw, 360px"{% endif %} loading="lazy" decoding="async" width="1200" height="630" alt=""></div>
   </article>{% endfor %}
 </section>{% endfor %}{% if page.has_next %}<a hidden data-next href="?{% if q %}q={{ q|urlencode }}&amp;{% endif %}page={{ page.next_page_number }}"></a>{% endif %}
