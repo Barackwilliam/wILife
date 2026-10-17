@@ -941,3 +941,144 @@ class PhotoAdminPageTests(TestCase):
         self.assertContains(r, "Ndogo")
         self.assertContains(r, "1800px")
         self.assertContains(self.client.get("/admin/news/article/"), "Ndogo")
+
+
+PROMO_JSON = {"title": "Duka la Mama Neema lazindua ofa ya vitenge", "excerpt": "Ofa ya vitenge Kariakoo.",
+              "body": "Duka la Mama Neema lililopo Kariakoo limezindua ofa ya vitenge kwa bei ya TZS 25,000. "
+                      "Wateja wanaweza kupiga 0712 345 678 kwa maelezo zaidi kuhusu ofa hii ya wiki hii.",
+              "keywords": "vitenge, Kariakoo, ofa"}
+CAPTION = ("OFA KUBWA! Vitenge vipya TZS 25,000 tu 🔥🔥 Kariakoo. Piga 0712 345 678 #vitenge #kariakoo "
+           "@mamaneema_store https://www.instagram.com/p/ABC123/")
+
+
+@override_settings(MEDIA_ROOT=_MEDIA, USE_SUPABASE_STORAGE=False)
+class InstagramPromoTests(TestCase):
+    def setUp(self):
+        self.owner = User.objects.create_superuser("owner", "o@x.com", "x")
+
+    def test_parse_caption(self):
+        from news.promo import parse_caption
+        text, link, account = parse_caption(CAPTION)
+        self.assertEqual(link, "https://www.instagram.com/p/ABC123/")
+        self.assertEqual(account, "@mamaneema_store")
+        self.assertNotIn("instagram.com", text)
+
+    def test_draft_with_photo_and_ai(self):
+        from news import promo
+        with mock.patch("news.writer._call", return_value=json.dumps(PROMO_JSON)) as call, \
+             self.settings(GROQ_API_KEY="k"):
+            a, note = promo.create_draft(_photo(2000, 2000), "post.jpg", CAPTION,
+                                         link="https://www.instagram.com/p/ABC123/", account="mamaneema_store")
+        self.assertIn("0712 345 678", call.call_args[0][1])
+        self.assertEqual((a.status, a.origin, a.photo_quality), ("draft", "instagram", "hd"))
+        self.assertEqual(a.sources[0]["publisher"], "Instagram @mamaneema_store")
+        self.assertEqual(a.source_url, "https://www.instagram.com/p/ABC123/")
+        self.assertEqual(note, "")
+
+    def test_without_ai_the_caption_is_kept(self):
+        from news import promo
+        a, note = promo.create_draft(_photo(600, 600), "p.jpg", "Ofa ya vitenge\nBei TZS 25,000", rewrite=False)
+        self.assertIn("TZS 25,000", a.body)
+        self.assertEqual(a.title, "Ofa ya vitenge")
+        self.assertIn("ndogo", note)
+
+    def test_ai_failure_falls_back_to_caption(self):
+        from news import promo
+        with mock.patch("news.writer._call", return_value="si JSON"), self.settings(GROQ_API_KEY="k"):
+            a, note = promo.create_draft(None, "", "Ofa ya vitenge\nBei TZS 25,000")
+        self.assertIn("TZS 25,000", a.body)
+        self.assertIn("AI haikupanga", note)
+
+    def test_page_upload(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        self.client.force_login(self.owner)
+        self.assertEqual(self.client.get("/habari-admin/weka-habari/").status_code, 200)
+        r = self.client.post("/habari-admin/weka-habari/", {
+            "caption": CAPTION, "category": "tanzania",
+            "image": SimpleUploadedFile("post.jpg", _photo(1500, 1500), content_type="image/jpeg")})
+        self.assertEqual(r.status_code, 302)
+        a = Article.objects.get(origin="instagram")
+        self.assertEqual(a.sources[0]["url"], "https://www.instagram.com/p/ABC123/")
+        self.assertContains(self.client.get("/habari-admin/weka-habari/"), a.title)
+
+    def test_telegram_photo_from_owner_becomes_draft(self):
+        from core import views_telegram
+
+        class Now:
+            def __init__(self, target, **kw):
+                self.target = target
+
+            def start(self):
+                self.target()
+        msg = {"chat": {"id": 42}, "caption": CAPTION,
+               "photo": [{"file_id": "small"}, {"file_id": "big"}]}
+        with self.settings(AGENT_TELEGRAM_CHAT_ID="42"), \
+             mock.patch("threading.Thread", Now), \
+             mock.patch("core.agent.telegram.download_file", return_value=(_photo(1600, 1200), "f.jpg")) as dl, \
+             mock.patch("core.views_telegram.send_telegram") as send, \
+             mock.patch("django.db.connection.close"):
+            views_telegram._handle({"message": msg})
+        dl.assert_called_with("big")
+        a = Article.objects.get(origin="instagram")
+        self.assertIn("OK", send.call_args[0][1])
+        self.assertEqual(a.sources[0]["publisher"], "Instagram @mamaneema_store")
+
+    def test_telegram_photo_from_stranger_is_ignored(self):
+        from core import views_telegram
+        with self.settings(AGENT_TELEGRAM_CHAT_ID="42"), mock.patch("core.views_telegram._start_promo") as start:
+            views_telegram._handle({"message": {"chat": {"id": 7}, "photo": [{"file_id": "x"}]}})
+        self.assertFalse(start.called)
+
+
+class PromoFallbackTitleTests(TestCase):
+    def test_title_is_first_sentences_without_tags(self):
+        from news.promo import _fallback
+        d = _fallback(CAPTION, "@mamaneema_store")
+        self.assertEqual(d["title"], "OFA KUBWA! Vitenge vipya TZS 25,000 tu 🔥🔥 Kariakoo.")
+        self.assertNotIn("@", d["title"])
+
+
+FB_CAPTION = ("Tamasha la Muziki Dodoma litafanyika Jumamosi tarehe 25 Oktoba, Uwanja wa Jamhuri. "
+              "Tiketi TZS 10,000. https://www.facebook.com/DodomaEvents/posts/12345")
+
+
+@override_settings(MEDIA_ROOT=_MEDIA, USE_SUPABASE_STORAGE=False)
+class FacebookPostTests(TestCase):
+    def test_facebook_link_is_detected(self):
+        from news.promo import parse_caption, platform_of
+        text, link, _ = parse_caption(FB_CAPTION)
+        self.assertEqual(link, "https://www.facebook.com/DodomaEvents/posts/12345")
+        self.assertEqual(platform_of(link), "facebook")
+        self.assertEqual(platform_of("https://fb.watch/abc/"), "facebook")
+        self.assertNotIn("facebook.com", text)
+
+    def test_facebook_draft_keeps_page_name(self):
+        from news import promo
+        with mock.patch("news.writer._call", return_value=json.dumps(PROMO_JSON)) as call, \
+             self.settings(GROQ_API_KEY="k"):
+            a, _ = promo.create_draft(_photo(1900, 1000), "fb.jpg", FB_CAPTION,
+                                      link="https://www.facebook.com/DodomaEvents/posts/12345",
+                                      account="Dodoma Events")
+        self.assertIn("Mtandao: Facebook", call.call_args[0][1])
+        self.assertEqual((a.origin, a.sources[0]["publisher"]), ("facebook", "Facebook Dodoma Events"))
+
+    def test_page_lists_both_platforms(self):
+        from news import promo
+        owner = User.objects.create_superuser("owner", "o@x.com", "x")
+        promo.create_draft(None, "", "Habari ya Instagram\nmaelezo", link="https://www.instagram.com/p/A1/", rewrite=False)
+        promo.create_draft(None, "", "Habari ya Facebook\nmaelezo", link="https://www.facebook.com/x/posts/1", rewrite=False)
+        self.client.force_login(owner)
+        r = self.client.get("/habari-admin/weka-habari/")
+        self.assertContains(r, "Habari ya Instagram")
+        self.assertContains(r, "Habari ya Facebook")
+        self.assertContains(r, "Weka habari")
+
+
+class PlatformChoiceTests(TestCase):
+    def test_link_wins_over_radio_choice(self):
+        from news import promo
+        a, _ = promo.create_draft(None, "", "Habari\nmaelezo", link="https://www.facebook.com/x/posts/9",
+                                  platform="instagram", rewrite=False)
+        self.assertEqual(a.origin, "facebook")
+        b, _ = promo.create_draft(None, "", "Habari nyingine\nmaelezo", platform="facebook", rewrite=False)
+        self.assertEqual(b.origin, "facebook")

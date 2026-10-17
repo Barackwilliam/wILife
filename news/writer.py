@@ -92,7 +92,7 @@ def _json(raw):
         raise WriterError(f"model did not return JSON: {exc}") from exc
 
 
-def _parse(raw):
+def _parse(raw, min_words=80):
     data = _json(raw)
     if not isinstance(data, dict):
         raise WriterError("model did not return a JSON object")
@@ -105,7 +105,7 @@ def _parse(raw):
             else:
                 raise WriterError(f"missing field: {key}")
         out[key] = value.strip()[:limit]
-    if len(out["body"].split()) < 80:
+    if len(out["body"].split()) < min_words:
         raise WriterError("body too short")
     return out
 
@@ -168,3 +168,23 @@ def write_service(service):
         "Fursa / inafaa kwa:", *[f"- {o}" for o in service.opportunity_list()],
     ]
     return _parse(_call(SERVICE_SYSTEM, "\n".join(lines)))
+
+
+PROMO_SYSTEM = """Wewe ni mhariri wa wILife (Kiswahili, Tanzania). Mhariri amekuletea CHAPISHO kutoka mitandao
+ya kijamii (Instagram au Facebook) — maelezo yake (caption). Liandike upya kama habari safi ya Kiswahili kwa tovuti.
+
+SHERIA KALI:
+1. Tumia taarifa zilizomo kwenye maelezo PEKEE. Usibuni bei, tarehe, mahali, majina, namba za simu, nukuu wala ahadi.
+2. Kama maelezo yana bei, tarehe, mahali, majina au mawasiliano — yahifadhi SAWASAWA kama yalivyo.
+3. Ondoa hashtag nyingi, emoji za kujirudia na maneno ya "link in bio" / "bonyeza link".
+4. Lugha safi, wazi na isiyotia chumvi. Maneno 60–300 kwa body.
+
+Jibu kwa JSON PEKEE: {"title": "kichwa herufi 40–80", "excerpt": "≤ 155 herufi", "body": "aya zilizotenganishwa na mstari mtupu", "keywords": "maneno 3–6 kwa koma"}"""
+
+
+def write_promo(caption, account="", notes="", platform="Instagram"):
+    """Chapisho la Instagram/Facebook -> makala fupi. Inarudisha dict au WriterError."""
+    lines = [f"Mtandao: {platform}", f"Akaunti / ukurasa: {account or '(haijatajwa)'}",
+             "MAELEZO YA CHAPISHO:", caption[:3000]]
+    lines += _notes(notes)
+    return _parse(_call(PROMO_SYSTEM, "\n".join(lines), max_tokens=1400), min_words=30)
