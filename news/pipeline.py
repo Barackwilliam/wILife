@@ -229,7 +229,7 @@ def run(now=None, deadline=None, dry_run=False, force=False):
     if not force and local.hour < getattr(settings, "NEWS_DRAFT_HOUR", 5):
         return {"job": "news_drafts", "sent": 0, "failed": 0, "detail": "too early"}
     if not writer.enabled():
-        return {"job": "news_drafts", "sent": 0, "failed": 0, "detail": "GROQ_API_KEY not set"}
+        return {"job": "news_drafts", "sent": 0, "failed": 0, "detail": "no AI key (GEMINI_API_KEY / GROQ_API_KEY)"}
     if dry_run:
         return {"job": "news_drafts", "sent": 0, "failed": 0, "detail": "dry run"}
 

@@ -1082,3 +1082,98 @@ class PlatformChoiceTests(TestCase):
         self.assertEqual(a.origin, "facebook")
         b, _ = promo.create_draft(None, "", "Habari nyingine\nmaelezo", platform="facebook", rewrite=False)
         self.assertEqual(b.origin, "facebook")
+
+
+def _http(status, body):
+    r = mock.Mock(status_code=status, text=json.dumps(body))
+    r.json.return_value = body
+    return r
+
+
+GEMINI_OK = {"candidates": [{"content": {"parts": [{"text": "Habari njema kwa Kiswahili."}]},
+                             "finishReason": "STOP"}]}
+
+
+@override_settings(GEMINI_API_KEY="g-key", GROQ_API_KEY="q-key")
+class GeminiAndModelChoiceTests(TestCase):
+    def setUp(self):
+        from core import gemini
+        gemini._replacements.clear()
+
+    def test_gemini_request_and_reply(self):
+        from core import gemini
+        with mock.patch("core.gemini.requests.post", return_value=_http(200, GEMINI_OK)) as post:
+            out = gemini.chat("mfumo", "swali", model="gemini-2.5-flash", json_mode=True, max_tokens=500)
+        self.assertEqual(out, "Habari njema kwa Kiswahili.")
+        body = post.call_args.kwargs["json"]
+        self.assertEqual(body["systemInstruction"]["parts"][0]["text"], "mfumo")
+        self.assertEqual(body["generationConfig"]["responseMimeType"], "application/json")
+        self.assertEqual(body["generationConfig"]["thinkingConfig"], {"thinkingBudget": 0})
+        self.assertIn("gemini-2.5-flash:generateContent", post.call_args.args[0])
+
+    def test_retired_gemini_model_is_replaced(self):
+        from core import gemini
+        models = _http(200, {"models": [{"name": "models/gemini-2.0-flash",
+                                         "supportedGenerationMethods": ["generateContent"]}]})
+        with mock.patch("core.gemini.requests.post", side_effect=[_http(404, {}), _http(200, GEMINI_OK)]) as post, \
+             mock.patch("core.gemini.requests.get", return_value=models):
+            gemini.chat("s", "u", model="gemini-9-flash")
+        self.assertIn("gemini-2.0-flash:generateContent", post.call_args.args[0])
+
+    def test_writer_uses_the_selected_model(self):
+        from core import llm
+        from news.models import EditorSettings
+        cfg = EditorSettings.load()
+        cfg.ai_model = "gemini:gemini-2.5-pro"
+        cfg.save()
+        with mock.patch("core.gemini.chat", return_value=json.dumps(ARTICLE_JSON)) as g, \
+             mock.patch("core.groq.chat") as q:
+            writer.write_news("Tanzania", fake_item(1, "tanzania"))
+        self.assertEqual(g.call_args.kwargs["model"], "gemini-2.5-pro")
+        self.assertFalse(q.called)
+        self.assertEqual(llm.selected(), "gemini:gemini-2.5-pro")
+
+    def test_gemini_limit_falls_back_to_groq(self):
+        from core import gemini, llm
+        with mock.patch("core.gemini.chat", side_effect=gemini.GeminiError("gemini HTTP 429")), \
+             mock.patch("core.groq.chat", return_value="jibu la groq") as q:
+            self.assertEqual(llm.chat("s", "u", choice="gemini:gemini-2.5-flash"), "jibu la groq")
+        self.assertIsNone(q.call_args.kwargs["model"])   # model ya kawaida ya Groq
+
+    def test_groq_choice_passes_its_model(self):
+        from core import llm
+        with mock.patch("core.groq.chat", return_value="ok") as q:
+            llm.chat("s", "u", choice="groq:openai/gpt-oss-120b")
+        self.assertEqual(q.call_args.kwargs["model"], "openai/gpt-oss-120b")
+
+    def test_page_buttons_switch_and_test(self):
+        from news.models import EditorSettings
+        owner = User.objects.create_superuser("owner", "o@x.com", "x")
+        self.client.force_login(owner)
+        r = self.client.get("/habari-admin/agiza/")
+        self.assertContains(r, "Gemini 2.5 Flash")
+        self.assertContains(r, "Tumia hii")
+        self.client.post("/habari-admin/agiza/", {"action": "ai_model", "ai_model": "groq:openai/gpt-oss-120b"})
+        self.assertEqual(EditorSettings.load().ai_model, "groq:openai/gpt-oss-120b")
+        self.client.post("/habari-admin/agiza/", {"action": "ai_model", "ai_model": "evil:model"})
+        self.assertEqual(EditorSettings.load().ai_model, "groq:openai/gpt-oss-120b")
+        with mock.patch("core.gemini.chat", return_value="Habari sahihi ni msingi wa jamii."):
+            r = self.client.post("/habari-admin/agiza/", {"action": "ai_test", "ai_model": "gemini:gemini-2.5-flash"},
+                                 follow=True)
+        self.assertContains(r, "Habari sahihi ni msingi wa jamii.")
+
+    def test_admin_list_can_change_model(self):
+        from news.models import EditorSettings
+        EditorSettings.load()
+        owner = User.objects.create_superuser("owner", "o@x.com", "x")
+        self.client.force_login(owner)
+        self.assertContains(self.client.get("/admin/news/editorsettings/"), "Gemini 2.5 Flash")
+
+
+class NoAiKeyTests(TestCase):
+    @override_settings(GEMINI_API_KEY="", GROQ_API_KEY="")
+    def test_no_keys(self):
+        from core import llm
+        self.assertFalse(llm.enabled())
+        with self.assertRaises(llm.LLMError):
+            llm.chat("s", "u")

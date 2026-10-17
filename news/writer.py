@@ -18,7 +18,7 @@ import re
 import requests
 from django.conf import settings
 
-from core import groq
+from core import llm
 
 log = logging.getLogger("news")
 
@@ -64,16 +64,16 @@ Jibu kwa JSON PEKEE, muundo:
 
 
 def enabled():
-    return bool(getattr(settings, "GROQ_API_KEY", ""))
+    return llm.enabled()
 
 
 def _call(system, user_content, max_tokens=1800, temperature=0.4, timeout=45):
     if not enabled():
-        raise WriterError("GROQ_API_KEY is not set")
+        raise WriterError("Hakuna AI iliyowekwa (GEMINI_API_KEY au GROQ_API_KEY)")
     try:
-        return groq.chat(system, user_content, model=getattr(settings, "NEWS_MODEL", "") or None,
-                         max_tokens=max_tokens, temperature=temperature, timeout=timeout, json_mode=True)
-    except (groq.GroqError, requests.RequestException) as exc:
+        return llm.chat(system, user_content, max_tokens=max_tokens, temperature=temperature,
+                        timeout=timeout, json_mode=True)
+    except (llm.LLMError, requests.RequestException) as exc:
         raise WriterError(str(exc)) from exc
 
 

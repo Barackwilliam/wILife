@@ -10,11 +10,11 @@
     <a href="{% url 'news:home' %}" class="btn btn-ghost" target="_blank"><i class="bi bi-box-arrow-up-right"></i> Fungua site</a>
     <a href="{% url 'news:commission' %}" class="btn btn-ghost"><i class="bi bi-megaphone"></i> Agiza habari</a>
     <form method="post" action="{% url 'news:review_action' %}">{% csrf_token %}<input type="hidden" name="action" value="generate">
-      <button class="btn btn-brand" {% if not has_key %}disabled title="Weka GROQ_API_KEY"{% endif %}><i class="bi bi-magic"></i> Andaa rasimu za leo</button></form>
+      <button class="btn btn-brand" {% if not has_key %}disabled title="Weka GEMINI_API_KEY au GROQ_API_KEY"{% endif %}><i class="bi bi-magic"></i> Andaa rasimu za leo</button></form>
   </div>
 </div>
 {% if not enabled or not has_key or not services %}<div class="tip mb-4" style="background:var(--sun-soft)"><span class="emo">ℹ️</span><span>
-  {% if not has_key %}GROQ_API_KEY haijawekwa. {% endif %}{% if not enabled %}NEWS_ENABLED=false — rasimu haziandaliwi zenyewe kila asubuhi. {% endif %}{% if not services %}Hakuna huduma za JamiiTek.{% endif %}</span></div>{% endif %}
+  {% if not has_key %}Hakuna AI iliyowekwa (GEMINI_API_KEY au GROQ_API_KEY). {% endif %}{% if not enabled %}NEWS_ENABLED=false — rasimu haziandaliwi zenyewe kila asubuhi. {% endif %}{% if not services %}Hakuna huduma za JamiiTek.{% endif %}</span></div>{% endif %}
 
 {% for b in batches %}
 <section class="panel mb-4">

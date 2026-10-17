@@ -15,6 +15,9 @@
   .cm-err{font-size:.8rem;color:var(--rose,#be123c);margin-top:3px}
   .cm-code{font-family:ui-monospace,monospace;font-weight:700}
   .cm-help code{font-size:.8rem}
+  .ai-card{display:flex;gap:12px;align-items:center;border:1px solid var(--line,#e5e7eb);border-radius:12px;padding:11px 13px;margin-bottom:8px}
+  .ai-card.on{border-color:var(--brand,#e8643c);box-shadow:0 0 0 1px var(--brand,#e8643c) inset}
+  @media(max-width:576px){.ai-card{flex-wrap:wrap}}
   .spin{display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:cmspin .8s linear infinite;vertical-align:-1px}
   @keyframes cmspin{to{transform:rotate(360deg)}}
 </style>
@@ -24,7 +27,7 @@
     <p class="page-sub">Mwambie mfumo uandike habari unayoitaka sasa hivi — unatafuta vyanzo vya saa 48 zilizopita (Google News Tanzania + feeds zetu), unaandika, kisha unakusubiri uidhinishe.</p></div>
   <div class="page-actions"><a href="{% url 'news:review' %}" class="btn btn-ghost"><i class="bi bi-newspaper"></i> Rasimu za kila siku</a></div>
 </div>
-{% if not has_key %}<div class="tip mb-4" style="background:var(--sun-soft)"><span class="emo">ℹ️</span><span>GROQ_API_KEY haijawekwa — AI haiwezi kuandika.</span></div>{% endif %}
+{% if not has_key %}<div class="tip mb-4" style="background:var(--sun-soft)"><span class="emo">ℹ️</span><span>Hakuna AI iliyowekwa (GEMINI_API_KEY au GROQ_API_KEY) — AI haiwezi kuandika.</span></div>{% endif %}
 
 <div class="cm-grid">
   <div>
@@ -97,6 +100,27 @@
     </section>
   </div>
 
+  <div>
+  <section class="panel mb-4">
+    <div class="panel-head"><h2 class="panel-title">AI inayoandika</h2></div>
+    <p class="small text-muted">Inatumika kwenye rasimu zote: habari za kila siku, Agiza habari na Weka habari. Ikishindwa (kikomo cha bure, mtandao), mfumo unatumia mtoa huduma mwingine wenye key.</p>
+    {% for m in ai_models %}
+    <div class="ai-card{% if m.on %} on{% endif %}">
+      <div class="flex-grow-1" style="min-width:0">
+        <div class="fw-bold">{{ m.name }}{% if m.on %} <span class="tag t-leaf ms-1">Inatumika</span>{% endif %}</div>
+        <div class="small text-muted">{{ m.note }}</div>
+        {% if not m.ready %}<div class="small" style="color:#b45309"><i class="bi bi-key"></i> Weka {{ m.key }} kwenye Render → Environment</div>{% endif %}
+      </div>
+      <div class="d-flex gap-1 flex-shrink-0">
+        <form method="post" class="m-0">{% csrf_token %}<input type="hidden" name="action" value="ai_test"><input type="hidden" name="ai_model" value="{{ m.value }}">
+          <button class="btn btn-ghost btn-sm" title="Tuma swali fupi la Kiswahili uone jibu"{% if not m.ready %} disabled{% endif %}>Jaribu</button></form>
+        {% if not m.on %}<form method="post" class="m-0">{% csrf_token %}<input type="hidden" name="action" value="ai_model"><input type="hidden" name="ai_model" value="{{ m.value }}">
+          <button class="btn btn-brand btn-sm">Tumia hii</button></form>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </section>
+
   <section class="panel">
     <div class="panel-head"><h2 class="panel-title">Mwongozo wa mhariri</h2></div>
     <p class="small text-muted">AI inautumia kwenye rasimu za kila siku na habari unazoagiza.</p>
@@ -115,6 +139,7 @@
       <button class="btn btn-brand"><i class="bi bi-check2"></i> Hifadhi mwongozo</button>
     </form>
   </section>
+  </div>
 </div>
 {% if busy %}<script>setTimeout(function(){location.reload()},6000)</script>{% endif %}
 {% endblock %}

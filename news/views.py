@@ -18,6 +18,7 @@ from django.views.decorators.gzip import gzip_page
 from django.views.decorators.http import require_POST
 
 from news import indexnow, pipeline
+from news.writer import enabled as writer_enabled
 from news.models import CATEGORY_BLURBS, Article, Category, JamiiTekService, NewsBatch
 
 LIGHT = ("cover_png", "cover_thumb")
@@ -291,7 +292,7 @@ def review(request):
     return render(request, "news/review.html", {
         "batches": NewsBatch.objects.prefetch_related("articles")[:10],
         "enabled": getattr(settings, "NEWS_ENABLED", False),
-        "has_key": bool(getattr(settings, "GROQ_API_KEY", "")),
+        "has_key": writer_enabled(),
         "services": JamiiTekService.objects.count(),
     })
 
@@ -352,6 +353,14 @@ def _settle_request(article, status, error=""):
             req.approval.save(update_fields=["status", "result"])
 
 
+def _ai_models(cfg):
+    from core import llm
+    return [{"value": v, "name": n, "note": note, "on": v == cfg.ai_model,
+             "ready": llm.provider_ready(v.split(":", 1)[0]),
+             "key": "GEMINI_API_KEY" if v.startswith("gemini") else "GROQ_API_KEY"}
+            for v, n, note in llm.MODELS]
+
+
 MAX_WATCH_HOURS = 7 * 24
 WATCH_CHOICES = [(2, "Saa 2"), (4, "Saa 4"), (6, "Saa 6"), (12, "Saa 12"), (24, "Siku 1"),
                  (48, "Siku 2"), (72, "Siku 3"), (120, "Siku 5"), (168, "Siku 7")]
@@ -383,13 +392,32 @@ def commission(request):
             cfg.sports_slot = bool(request.POST.get("sports_slot"))
             cfg.save()
             messages.success(request, "Mwongozo wa mhariri umehifadhiwa.")
+        elif action == "ai_model":
+            from core import llm
+            choice = request.POST.get("ai_model", "")
+            if choice in {m[0] for m in llm.MODELS}:
+                cfg.ai_model = choice
+                cfg.save(update_fields=["ai_model", "updated_at"])
+                provider = choice.split(":", 1)[0]
+                if llm.provider_ready(provider):
+                    messages.success(request, f"AI sasa ni {llm.label(choice)}.")
+                else:
+                    key = "GEMINI_API_KEY" if provider == "gemini" else "GROQ_API_KEY"
+                    messages.warning(request, f"{llm.label(choice)} imechaguliwa, lakini {key} haijawekwa — "
+                                              "mfumo utatumia mtoa huduma mwingine mpaka uiweke.")
+        elif action == "ai_test":
+            from core import llm
+            choice = request.POST.get("ai_model") or cfg.ai_model
+            ok, text, secs = llm.test(choice)
+            (messages.success if ok else messages.error)(
+                request, f"{llm.label(choice)} ({secs}s): {text}")
         elif action == "commission":
             topic = request.POST.get("topic", "").strip()[:300]
             category = request.POST.get("category") or ""
             if not topic:
                 messages.warning(request, "Andika mada ya habari.")
-            elif not getattr(settings, "GROQ_API_KEY", ""):
-                messages.warning(request, "GROQ_API_KEY haijawekwa — AI haiwezi kuandika.")
+            elif not writer_enabled():
+                messages.warning(request, "Hakuna AI iliyowekwa (GEMINI_API_KEY au GROQ_API_KEY).")
             else:
                 req = NewsRequest(
                     topic=topic, instructions=request.POST.get("instructions", "").strip()[:1500],
@@ -429,8 +457,9 @@ def commission(request):
         "busy": any(r.status in ("queued", "working") for r in requests_),
         "now_local": timezone.localtime().strftime("%Y-%m-%dT%H:%M"),
         "watch_choices": WATCH_CHOICES,
+        "ai_models": _ai_models(cfg),
         "categories": [c for c in Category.choices if c[0] != Category.JAMIITEK],
-        "has_key": bool(getattr(settings, "GROQ_API_KEY", "")),
+        "has_key": writer_enabled(),
     })
 
 
@@ -464,5 +493,5 @@ def promo(request):
         "drafts": Article.objects.filter(origin__in=list(service.PLATFORMS)).defer(*LIGHT).order_by("-created_at")[:20],
         "platforms": service.PLATFORMS.items(),
         "categories": [c for c in Category.choices if c[0] != Category.JAMIITEK],
-        "has_key": bool(getattr(settings, "GROQ_API_KEY", "")),
+        "has_key": writer_enabled(),
     })
