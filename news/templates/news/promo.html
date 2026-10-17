@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load news_tags %}
-{% block title %}Leta tangazo{% endblock %}
-{% block section %}Habari{% endblock %}{% block crumb %}Leta tangazo{% endblock %}
+{% block title %}Weka habari{% endblock %}
+{% block section %}Habari{% endblock %}{% block crumb %}Weka habari{% endblock %}
 {% block content %}
 <style>
   .pr-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:20px;align-items:start}
@@ -19,41 +19,43 @@
   .pr-row .cell-main{white-space:normal}
 </style>
 <div class="page-head">
-  <div><span class="eyebrow">Dawati la mhariri</span><h1 class="page-title">Leta tangazo</h1>
-    <p class="page-sub">Tangazo ulilolipenda Instagram → rasimu ya wILife. Pakia picha, bandika maelezo ya chapisho — mfumo unachakata picha (HD) na AI inapanga maandishi bila kubuni bei wala mawasiliano. Kisha unahariri na kuchapisha.</p></div>
+  <div><span class="eyebrow">Dawati la mhariri</span><h1 class="page-title">Weka habari</h1>
+    <p class="page-sub">Chapisho la Instagram au Facebook → rasimu ya wILife. Pakia picha, bandika maelezo ya chapisho — mfumo unachakata picha (HD) na AI inapanga maandishi bila kubuni bei, tarehe wala mawasiliano. Kisha unahariri na kuchapisha.</p></div>
   <div class="page-actions"><a href="{% url 'news:commission' %}" class="btn btn-ghost"><i class="bi bi-megaphone"></i> Agiza habari</a></div>
 </div>
 
 <div class="pr-grid">
   <section class="panel">
-    <div class="panel-head"><h2 class="panel-title">Tangazo jipya</h2></div>
+    <div class="panel-head"><h2 class="panel-title">Habari mpya kutoka mitandaoni</h2></div>
     <form method="post" enctype="multipart/form-data">{% csrf_token %}
-      <label class="form-label">Picha ya tangazo</label>
+      <label class="form-label">Mtandao</label>
+      <div class="d-flex gap-3 mb-3">{% for v, l in platforms %}<div class="form-check"><input class="form-check-input" type="radio" name="platform" id="pf-{{ v }}" value="{{ v }}"{% if forloop.first %} checked{% endif %}><label class="form-check-label" for="pf-{{ v }}"><i class="bi bi-{{ v }}"></i> {{ l }}</label></div>{% endfor %}</div>
+      <label class="form-label">Picha ya chapisho</label>
       <label class="pr-drop" id="drop"><input type="file" name="image" accept="image/*" id="img">
         <span class="pr-hint"><i class="bi bi-image"></i>Bonyeza kuchagua picha<br><small class="text-muted">Pakua picha asili ya chapisho (si screenshot) kwa ubora bora</small></span>
         <img id="prev" alt=""></label>
       <label class="form-label mt-3">Maelezo ya chapisho (caption)</label>
-      <textarea class="form-control" name="caption" rows="6" placeholder="Bandika maelezo yote ya chapisho la Instagram hapa…"></textarea>
+      <textarea class="form-control" name="caption" rows="6" placeholder="Bandika maelezo yote ya chapisho hapa…"></textarea>
       <div class="row g-3 mt-1">
         <div class="col-md-7"><label class="form-label">Link ya chapisho</label>
-          <input class="form-control" name="link" placeholder="https://www.instagram.com/p/…"></div>
-        <div class="col-md-5"><label class="form-label">Akaunti</label>
-          <input class="form-control" name="account" placeholder="@duka_letu"></div>
+          <input class="form-control" name="link" placeholder="https://www.instagram.com/p/… au https://www.facebook.com/…"></div>
+        <div class="col-md-5"><label class="form-label">Akaunti / ukurasa</label>
+          <input class="form-control" name="account" placeholder="@akaunti au jina la ukurasa"></div>
       </div>
       <div class="row g-3 mt-1">
         <div class="col-md-5"><label class="form-label">Kundi</label>
           <select class="form-select" name="category">{% for v, l in categories %}<option value="{{ v }}"{% if v == 'tanzania' %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
         <div class="col-md-7 d-flex align-items-end"><div class="form-check form-switch">
           <input class="form-check-input" type="checkbox" name="rewrite" id="rw" {% if has_key %}checked{% else %}disabled{% endif %}>
-          <label class="form-check-label" for="rw">AI ipange maandishi kuwa tangazo safi{% if not has_key %} (GROQ_API_KEY haijawekwa){% endif %}</label></div></div>
+          <label class="form-check-label" for="rw">AI ipange maandishi kuwa habari safi{% if not has_key %} (GROQ_API_KEY haijawekwa){% endif %}</label></div></div>
       </div>
       <button class="btn btn-brand mt-3"><i class="bi bi-plus-lg"></i> Unda rasimu</button>
-      <p class="small text-muted mt-3 mb-0">Kwa Telegram: mtumie bot <b>picha</b> yenye maelezo (caption) — weka link ya Instagram na @akaunti ndani ya maelezo. Utajibiwa na rasimu + <b>OK code</b>.</p>
+      <p class="small text-muted mt-3 mb-0">Kwa Telegram: mtumie bot <b>picha</b> yenye maelezo (caption) — weka link ya chapisho (Instagram au Facebook) ndani ya maelezo; mtandao unatambuliwa kutoka link. Utajibiwa na rasimu + <b>OK code</b>.</p>
     </form>
   </section>
 
   <section class="panel">
-    <div class="panel-head"><h2 class="panel-title">Matangazo yaliyoletwa</h2></div>
+    <div class="panel-head"><h2 class="panel-title">Habari zilizowekwa</h2></div>
     {% for a in drafts %}
     <div class="list-row pr-row">
       <img src="{{ a.art_url }}" alt="" loading="lazy">
@@ -71,7 +73,7 @@
       {% endif %}
       </div>
     </div>
-    {% empty %}<p class="text-muted small mb-0">Bado hujaleta tangazo.</p>{% endfor %}
+    {% empty %}<p class="text-muted small mb-0">Bado hujaweka habari kutoka mitandaoni.</p>{% endfor %}
   </section>
 </div>
 <script>

@@ -436,7 +436,7 @@ def commission(request):
 
 @staff_member_required
 def promo(request):
-    """Leta tangazo kutoka Instagram -> rasimu ya kuhariri."""
+    """Weka habari: chapisho la Instagram/Facebook -> rasimu ya kuhariri."""
     from news import promo as service
 
     if request.method == "POST":
@@ -451,7 +451,7 @@ def promo(request):
             article, note = service.create_draft(
                 upload.read() if upload else None, upload.name if upload else "",
                 caption, link=link, account=account, category=request.POST.get("category", ""),
-                rewrite=bool(request.POST.get("rewrite")))
+                rewrite=bool(request.POST.get("rewrite")), platform=request.POST.get("platform", ""))
         except ValueError as exc:
             messages.warning(request, str(exc))
             return redirect("news:promo")
@@ -461,7 +461,8 @@ def promo(request):
         return redirect("news:promo")
 
     return render(request, "news/promo.html", {
-        "drafts": Article.objects.filter(origin="instagram").defer(*LIGHT).order_by("-created_at")[:20],
+        "drafts": Article.objects.filter(origin__in=list(service.PLATFORMS)).defer(*LIGHT).order_by("-created_at")[:20],
+        "platforms": service.PLATFORMS.items(),
         "categories": [c for c in Category.choices if c[0] != Category.JAMIITEK],
         "has_key": bool(getattr(settings, "GROQ_API_KEY", "")),
     })

@@ -992,14 +992,14 @@ class InstagramPromoTests(TestCase):
     def test_page_upload(self):
         from django.core.files.uploadedfile import SimpleUploadedFile
         self.client.force_login(self.owner)
-        self.assertEqual(self.client.get("/habari-admin/tangazo/").status_code, 200)
-        r = self.client.post("/habari-admin/tangazo/", {
+        self.assertEqual(self.client.get("/habari-admin/weka-habari/").status_code, 200)
+        r = self.client.post("/habari-admin/weka-habari/", {
             "caption": CAPTION, "category": "tanzania",
             "image": SimpleUploadedFile("post.jpg", _photo(1500, 1500), content_type="image/jpeg")})
         self.assertEqual(r.status_code, 302)
         a = Article.objects.get(origin="instagram")
         self.assertEqual(a.sources[0]["url"], "https://www.instagram.com/p/ABC123/")
-        self.assertContains(self.client.get("/habari-admin/tangazo/"), a.title)
+        self.assertContains(self.client.get("/habari-admin/weka-habari/"), a.title)
 
     def test_telegram_photo_from_owner_becomes_draft(self):
         from core import views_telegram
@@ -1036,3 +1036,49 @@ class PromoFallbackTitleTests(TestCase):
         d = _fallback(CAPTION, "@mamaneema_store")
         self.assertEqual(d["title"], "OFA KUBWA! Vitenge vipya TZS 25,000 tu 🔥🔥 Kariakoo.")
         self.assertNotIn("@", d["title"])
+
+
+FB_CAPTION = ("Tamasha la Muziki Dodoma litafanyika Jumamosi tarehe 25 Oktoba, Uwanja wa Jamhuri. "
+              "Tiketi TZS 10,000. https://www.facebook.com/DodomaEvents/posts/12345")
+
+
+@override_settings(MEDIA_ROOT=_MEDIA, USE_SUPABASE_STORAGE=False)
+class FacebookPostTests(TestCase):
+    def test_facebook_link_is_detected(self):
+        from news.promo import parse_caption, platform_of
+        text, link, _ = parse_caption(FB_CAPTION)
+        self.assertEqual(link, "https://www.facebook.com/DodomaEvents/posts/12345")
+        self.assertEqual(platform_of(link), "facebook")
+        self.assertEqual(platform_of("https://fb.watch/abc/"), "facebook")
+        self.assertNotIn("facebook.com", text)
+
+    def test_facebook_draft_keeps_page_name(self):
+        from news import promo
+        with mock.patch("news.writer._call", return_value=json.dumps(PROMO_JSON)) as call, \
+             self.settings(GROQ_API_KEY="k"):
+            a, _ = promo.create_draft(_photo(1900, 1000), "fb.jpg", FB_CAPTION,
+                                      link="https://www.facebook.com/DodomaEvents/posts/12345",
+                                      account="Dodoma Events")
+        self.assertIn("Mtandao: Facebook", call.call_args[0][1])
+        self.assertEqual((a.origin, a.sources[0]["publisher"]), ("facebook", "Facebook Dodoma Events"))
+
+    def test_page_lists_both_platforms(self):
+        from news import promo
+        owner = User.objects.create_superuser("owner", "o@x.com", "x")
+        promo.create_draft(None, "", "Habari ya Instagram\nmaelezo", link="https://www.instagram.com/p/A1/", rewrite=False)
+        promo.create_draft(None, "", "Habari ya Facebook\nmaelezo", link="https://www.facebook.com/x/posts/1", rewrite=False)
+        self.client.force_login(owner)
+        r = self.client.get("/habari-admin/weka-habari/")
+        self.assertContains(r, "Habari ya Instagram")
+        self.assertContains(r, "Habari ya Facebook")
+        self.assertContains(r, "Weka habari")
+
+
+class PlatformChoiceTests(TestCase):
+    def test_link_wins_over_radio_choice(self):
+        from news import promo
+        a, _ = promo.create_draft(None, "", "Habari\nmaelezo", link="https://www.facebook.com/x/posts/9",
+                                  platform="instagram", rewrite=False)
+        self.assertEqual(a.origin, "facebook")
+        b, _ = promo.create_draft(None, "", "Habari nyingine\nmaelezo", platform="facebook", rewrite=False)
+        self.assertEqual(b.origin, "facebook")

@@ -1,11 +1,11 @@
 """
-Matangazo kutoka Instagram -> rasimu ya wILife.
+"Weka habari" — chapisho la Instagram au Facebook -> rasimu ya wILife.
 
-Mhariri analeta tangazo mwenyewe (dashboard au picha kwa Telegram):
-picha + maelezo ya chapisho (caption) + link + @akaunti. Mfumo:
+Mhariri analeta chapisho mwenyewe (dashboard au picha kwa Telegram):
+picha + maelezo ya chapisho (caption) + link + akaunti/ukurasa. Mfumo:
 
   1. unaunda rasimu (haichapishwi) yenye picha iliyochakatwa HD (news/photos.py)
-  2. AI inapanga maelezo kuwa tangazo safi la Kiswahili — bila kubuni bei,
+  2. AI inapanga maelezo kuwa habari safi ya Kiswahili — bila kubuni bei,
      tarehe wala mawasiliano; AI ikishindwa, maelezo asili yanatumika
   3. chanzo (akaunti + link ya chapisho) kinahifadhiwa kwenye makala
 
@@ -22,16 +22,28 @@ from news.models import Article, Category, EditorSettings
 
 log = logging.getLogger("news")
 
-IG_LINK = re.compile(r"https?://(?:www\.)?instagram\.com/[^\s]+", re.IGNORECASE)
+PLATFORMS = {"instagram": "Instagram", "facebook": "Facebook"}
+POST_LINK = re.compile(
+    r"https?://(?:(?:www|m|web|business)\.)?(?:instagram\.com|instagr\.am|facebook\.com|fb\.com|fb\.watch)/[^\s]+",
+    re.IGNORECASE)
 HANDLE = re.compile(r"(?<![\w.])@([A-Za-z0-9_.]{2,30})")
 MAX_IMAGE = 20 * 1024 * 1024
+
+
+def platform_of(link, default="instagram"):
+    host = (link or "").lower()
+    if "facebook.com" in host or "fb.com" in host or "fb.watch" in host:
+        return "facebook"
+    if "instagram.com" in host or "instagr.am" in host:
+        return "instagram"
+    return default
 
 
 def parse_caption(text):
     """'Ofa! ... @duka_letu https://instagram.com/p/X' -> (caption, link, '@duka_letu')."""
     text = (text or "").strip()
     link = ""
-    m = IG_LINK.search(text)
+    m = POST_LINK.search(text)
     if m:
         link = m.group(0).rstrip(").,")
         text = (text[:m.start()] + text[m.end():]).strip()
@@ -55,50 +67,56 @@ def _fallback(caption, account):
             break
     if len(title) > 90:
         title = title[:87].rsplit(" ", 1)[0] + "…"
-    title = title or "Tangazo"
+    title = title or "Habari"
     lines = [l.strip() for l in caption.splitlines() if l.strip()]
     body = "\n\n".join(lines) or caption
     return {"title": title, "excerpt": re.sub(r"\s+", " ", clean)[:155], "body": body,
             "keywords": ", ".join(t.lstrip("#") for t in re.findall(r"#\w+", caption)[:5])}
 
 
-def create_draft(image, filename, caption, link="", account="", category=Category.TANZANIA, rewrite=True):
+def create_draft(image, filename, caption, link="", account="", category=Category.TANZANIA, rewrite=True,
+                 platform=""):
     """
-    Unda rasimu ya tangazo. `image` ni bytes (au None). Inarudisha (Article, maelezo).
+    Unda rasimu ya habari kutoka chapisho la Instagram/Facebook. `image` ni bytes (au None).
+    Inarudisha (Article, maelezo).
     """
     caption = (caption or "").strip()
     if not caption and not image:
-        raise ValueError("Weka picha au maelezo ya tangazo")
+        raise ValueError("Weka picha au maelezo ya chapisho")
     if image and len(image) > MAX_IMAGE:
         raise ValueError("Picha ni kubwa mno (zaidi ya MB 20)")
+    # Link ndiyo ushahidi: ikionyesha mtandao, inashinda chaguo la fomu
+    platform = platform_of(link, default=platform if platform in PLATFORMS else "instagram")
     account = account.strip()
-    if account and not account.startswith("@"):
+    # Instagram: @jina. Facebook: jina la ukurasa kama lilivyo (lina nafasi mara nyingi)
+    if account and platform == "instagram" and not account.startswith("@"):
         account = f"@{account}"
+    label = f"{PLATFORMS[platform]} {account}".strip()
 
     note = ""
     data = None
     if rewrite and caption and writer.enabled():
         try:
-            data = writer.write_promo(caption, account, notes=EditorSettings.load().editor_notes)
+            data = writer.write_promo(caption, account, notes=EditorSettings.load().editor_notes,
+                                      platform=PLATFORMS[platform])
         except writer.WriterError as exc:
             note = f"AI haikupanga maandishi ({exc}) — maelezo asili yametumika."
             log.warning("promo rewrite failed: %s", exc)
     if data is None:
-        data = _fallback(caption or "Tangazo", account)
+        data = _fallback(caption or "Habari", account)
 
     taken = bool(link) and Article.objects.filter(source_url=link).exists()
     article = Article(
         title=data["title"], excerpt=data["excerpt"], body=data["body"], keywords=data.get("keywords", ""),
         category=category if category in Category.values else Category.TANZANIA,
-        sources=[{"title": f"Instagram {account}".strip(), "url": link or "https://www.instagram.com/",
-                  "publisher": f"Instagram {account}".strip()}],
+        sources=[{"title": label, "url": link or f"https://www.{platform}.com/", "publisher": label}],
         source_url=None if (taken or not link) else link,
-        status="draft", origin="instagram",
+        status="draft", origin=platform,
     )
     article.save()
     if image:
         try:
-            article.cover_art.save(filename or "tangazo.jpg", ContentFile(image), save=False)
+            article.cover_art.save(filename or "habari.jpg", ContentFile(image), save=False)
             quality = photos.process(article, field="cover_art")
             article.save()
             if quality == "low":

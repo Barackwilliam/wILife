@@ -170,20 +170,21 @@ def write_service(service):
     return _parse(_call(SERVICE_SYSTEM, "\n".join(lines)))
 
 
-PROMO_SYSTEM = """Wewe ni mhariri wa wILife (Kiswahili, Tanzania). Mhariri amekuletea TANGAZO kutoka Instagram
-(maelezo ya chapisho). Liandike upya kama tangazo safi la Kiswahili kwa tovuti.
+PROMO_SYSTEM = """Wewe ni mhariri wa wILife (Kiswahili, Tanzania). Mhariri amekuletea CHAPISHO kutoka mitandao
+ya kijamii (Instagram au Facebook) — maelezo yake (caption). Liandike upya kama habari safi ya Kiswahili kwa tovuti.
 
 SHERIA KALI:
-1. Tumia taarifa zilizomo kwenye maelezo PEKEE. Usibuni bei, tarehe, mahali, namba za simu, ofa wala ahadi.
-2. Kama maelezo yana bei, tarehe, mahali au mawasiliano — yahifadhi SAWASAWA kama yalivyo.
-3. Ondoa hashtag nyingi, emoji za kujirudia na maneno ya "link in bio".
-4. Lugha safi, fupi, ya kuvutia lakini isiyotia chumvi. Maneno 60–250 kwa body.
+1. Tumia taarifa zilizomo kwenye maelezo PEKEE. Usibuni bei, tarehe, mahali, majina, namba za simu, nukuu wala ahadi.
+2. Kama maelezo yana bei, tarehe, mahali, majina au mawasiliano — yahifadhi SAWASAWA kama yalivyo.
+3. Ondoa hashtag nyingi, emoji za kujirudia na maneno ya "link in bio" / "bonyeza link".
+4. Lugha safi, wazi na isiyotia chumvi. Maneno 60–300 kwa body.
 
 Jibu kwa JSON PEKEE: {"title": "kichwa herufi 40–80", "excerpt": "≤ 155 herufi", "body": "aya zilizotenganishwa na mstari mtupu", "keywords": "maneno 3–6 kwa koma"}"""
 
 
-def write_promo(caption, account="", notes=""):
-    """Tangazo la Instagram -> makala fupi. Inarudisha dict au WriterError."""
-    lines = [f"Akaunti ya Instagram: {account or '(haijatajwa)'}", "MAELEZO YA CHAPISHO:", caption[:3000]]
+def write_promo(caption, account="", notes="", platform="Instagram"):
+    """Chapisho la Instagram/Facebook -> makala fupi. Inarudisha dict au WriterError."""
+    lines = [f"Mtandao: {platform}", f"Akaunti / ukurasa: {account or '(haijatajwa)'}",
+             "MAELEZO YA CHAPISHO:", caption[:3000]]
     lines += _notes(notes)
     return _parse(_call(PROMO_SYSTEM, "\n".join(lines), max_tokens=1400), min_words=30)

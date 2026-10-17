@@ -108,7 +108,7 @@ class Article(models.Model):
                                  help_text="Main source item — prevents writing the same story twice")
     service = models.ForeignKey(JamiiTekService, null=True, blank=True, on_delete=models.SET_NULL)
     origin = models.CharField(max_length=12, blank=True, default="", db_index=True,
-                              help_text="Ilikotoka: '' (mfumo), 'instagram' (tangazo lililoletwa na mhariri)")
+                              help_text="Ilikotoka: '' (mfumo), 'instagram' / 'facebook' (chapisho lililowekwa na mhariri)")
     batch = models.ForeignKey(NewsBatch, null=True, blank=True, on_delete=models.SET_NULL, related_name="articles")
     slot = models.PositiveSmallIntegerField(default=0, help_text="Position within the day's batch")
     status = models.CharField(max_length=10, choices=STATUS, default="draft", db_index=True)

@@ -116,7 +116,7 @@ def _image_document(message):
 
 
 def _start_promo(chat_id, message):
-    """Picha + caption kutoka kwa mhariri -> rasimu ya tangazo (kwenye thread)."""
+    """Picha + caption (Instagram/Facebook) kutoka kwa mhariri -> rasimu ya habari (kwenye thread)."""
     import threading
 
     from django.db import connection
@@ -125,7 +125,7 @@ def _start_promo(chat_id, message):
     file_id = doc["file_id"] if doc else message["photo"][-1]["file_id"]   # [-1] = ukubwa mkubwa zaidi
     caption = message.get("caption", "")
     try:
-        send_telegram(chat_id, "📸 Nimepokea tangazo — ninaandaa rasimu…")
+        send_telegram(chat_id, "📸 Nimepokea chapisho — ninaandaa rasimu ya habari…")
     except Exception as exc:
         log.error("could not ack promo: %s", exc)
 
@@ -141,7 +141,7 @@ def _start_promo(chat_id, message):
             article, note = promo.create_draft(image, name, text, link=link, account=account)
             owner = User.objects.filter(is_active=True, is_superuser=True).order_by("pk").first()
             approval = _approval(article, owner)
-            reply = (f"📝 Rasimu ya tangazo iko tayari:\n*{article.title}*\n"
+            reply = (f"📝 Rasimu ya habari iko tayari:\n*{article.title}*\n"
                      f"Hariri: {_site(f'/admin/news/article/{article.pk}/change/')}\n"
                      f"Soma: {_site(article.get_absolute_url())}")
             if approval:
@@ -150,7 +150,7 @@ def _start_promo(chat_id, message):
                 reply += f"\n⚠️ {note}"
         except Exception as exc:
             log.exception("telegram promo failed")
-            reply = f"⚠️ Tangazo halikuweza kuandaliwa: {str(exc)[:200]}"
+            reply = f"⚠️ Habari haikuweza kuandaliwa: {str(exc)[:200]}"
         finally:
             connection.close()
         try:
