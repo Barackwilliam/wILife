@@ -56,6 +56,14 @@ def _handle(payload):
     chat_id = str((message.get("chat") or {}).get("id", ""))
     text = message.get("text", "")
 
+    if chat_id and (message.get("photo") or _image_document(message)):
+        expected = str(getattr(settings, "AGENT_TELEGRAM_CHAT_ID", ""))
+        if expected and chat_id == expected:
+            _start_promo(chat_id, message)
+        else:
+            log.warning("ignoring telegram photo from unknown chat %s", chat_id)
+        return
+
     if not chat_id or not text:
         return
 
@@ -99,3 +107,55 @@ def _handle(payload):
         send_telegram(chat_id, reply)
     except Exception as exc:
         log.error("could not confirm telegram decision: %s", exc)
+
+
+def _image_document(message):
+    """Picha iliyotumwa kama 'faili' (ubora kamili, haibanwi na Telegram)."""
+    doc = message.get("document") or {}
+    return doc if str(doc.get("mime_type", "")).startswith("image/") else None
+
+
+def _start_promo(chat_id, message):
+    """Picha + caption kutoka kwa mhariri -> rasimu ya tangazo (kwenye thread)."""
+    import threading
+
+    from django.db import connection
+
+    doc = _image_document(message)
+    file_id = doc["file_id"] if doc else message["photo"][-1]["file_id"]   # [-1] = ukubwa mkubwa zaidi
+    caption = message.get("caption", "")
+    try:
+        send_telegram(chat_id, "📸 Nimepokea tangazo — ninaandaa rasimu…")
+    except Exception as exc:
+        log.error("could not ack promo: %s", exc)
+
+    def work():
+        from django.contrib.auth.models import User
+
+        from core.agent.telegram import download_file
+        from news import promo
+        from news.commission import _approval, _site
+        try:
+            image, name = download_file(file_id)
+            text, link, account = promo.parse_caption(caption)
+            article, note = promo.create_draft(image, name, text, link=link, account=account)
+            owner = User.objects.filter(is_active=True, is_superuser=True).order_by("pk").first()
+            approval = _approval(article, owner)
+            reply = (f"📝 Rasimu ya tangazo iko tayari:\n*{article.title}*\n"
+                     f"Hariri: {_site(f'/admin/news/article/{article.pk}/change/')}\n"
+                     f"Soma: {_site(article.get_absolute_url())}")
+            if approval:
+                reply += f"\nJibu *OK {approval.code}* kuichapisha bila kuhariri."
+            if note:
+                reply += f"\n⚠️ {note}"
+        except Exception as exc:
+            log.exception("telegram promo failed")
+            reply = f"⚠️ Tangazo halikuweza kuandaliwa: {str(exc)[:200]}"
+        finally:
+            connection.close()
+        try:
+            send_telegram(chat_id, reply)
+        except Exception as exc:
+            log.error("could not send promo result: %s", exc)
+
+    threading.Thread(target=work, name="telegram-promo", daemon=True).start()

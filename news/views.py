@@ -333,8 +333,8 @@ def review_action(request):
         import time
         result = pipeline.run(force=True, deadline=time.monotonic() + 45)
         messages.info(request, f"Rasimu {result['sent']} zimeandikwa. {result.get('detail', '')}")
-    if request.POST.get("next") == "commission":
-        return redirect("news:commission")
+    if request.POST.get("next") in ("commission", "promo"):
+        return redirect(f"news:{request.POST['next']}")
     return redirect("news:review")
 
 
@@ -429,6 +429,39 @@ def commission(request):
         "busy": any(r.status in ("queued", "working") for r in requests_),
         "now_local": timezone.localtime().strftime("%Y-%m-%dT%H:%M"),
         "watch_choices": WATCH_CHOICES,
+        "categories": [c for c in Category.choices if c[0] != Category.JAMIITEK],
+        "has_key": bool(getattr(settings, "GROQ_API_KEY", "")),
+    })
+
+
+@staff_member_required
+def promo(request):
+    """Leta tangazo kutoka Instagram -> rasimu ya kuhariri."""
+    from news import promo as service
+
+    if request.method == "POST":
+        caption = request.POST.get("caption", "").strip()[:5000]
+        link = request.POST.get("link", "").strip()[:500]
+        account = request.POST.get("account", "").strip()[:40]
+        upload = request.FILES.get("image")
+        if caption and not (link and account):
+            parsed, found_link, found_handle = service.parse_caption(caption)
+            link, account = link or found_link, account or found_handle
+        try:
+            article, note = service.create_draft(
+                upload.read() if upload else None, upload.name if upload else "",
+                caption, link=link, account=account, category=request.POST.get("category", ""),
+                rewrite=bool(request.POST.get("rewrite")))
+        except ValueError as exc:
+            messages.warning(request, str(exc))
+            return redirect("news:promo")
+        messages.success(request, f"Rasimu imeundwa: “{article.title}”. Ihariri kisha uichapishe.")
+        if note:
+            messages.warning(request, note)
+        return redirect("news:promo")
+
+    return render(request, "news/promo.html", {
+        "drafts": Article.objects.filter(origin="instagram").defer(*LIGHT).order_by("-created_at")[:20],
         "categories": [c for c in Category.choices if c[0] != Category.JAMIITEK],
         "has_key": bool(getattr(settings, "GROQ_API_KEY", "")),
     })

@@ -123,3 +123,20 @@ def set_webhook(url, secret):
     if response.status_code != 200:
         raise TelegramError(f"HTTP {response.status_code}: {response.text[:200]}")
     return response.json()
+
+
+def download_file(file_id, max_bytes=20 * 1024 * 1024, timeout=20):
+    """Pakua faili (mf. picha) iliyotumwa kwa bot. Inarudisha (bytes, jina)."""
+    if not getattr(settings, "TELEGRAM_BOT_TOKEN", ""):
+        raise TelegramError("TELEGRAM_BOT_TOKEN not set")
+    response = _post("getFile", {"file_id": file_id}, timeout=10)
+    if response.status_code != 200:
+        raise TelegramError(f"getFile HTTP {response.status_code}")
+    path = response.json().get("result", {}).get("file_path", "")
+    if not path:
+        raise TelegramError("getFile: no file_path")
+    url = f"https://api.telegram.org/file/bot{settings.TELEGRAM_BOT_TOKEN}/{path}"
+    data = requests.get(url, timeout=timeout)
+    if data.status_code != 200 or len(data.content) > max_bytes:
+        raise TelegramError(f"download failed ({data.status_code}, {len(data.content)} bytes)")
+    return data.content, path.rsplit("/", 1)[-1]
