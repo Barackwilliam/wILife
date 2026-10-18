@@ -6,6 +6,7 @@ Google (HTTP 404), tunauliza orodha ya model zilizopo na kuchagua "flash" bora.
 """
 
 import logging
+import re
 
 import requests
 from django.conf import settings
@@ -39,6 +40,34 @@ def available_models(timeout=10):
             if "generateContent" in m.get("supportedGenerationMethods", [])]
 
 
+def _version(name):
+    m = re.search(r"gemini-(\d+(?:\.\d+)?)", name)
+    return float(m.group(1)) if m else 0.0
+
+
+def replacement_models(current, error_text=""):
+    """
+    Model za kujaribu badala ya iliyoondolewa: kwanza ile Google inayoipendekeza
+    kwenye ujumbe wa 404 ("... use models/gemini-3.8-flash"), kisha za familia
+    ileile (flash/pro) kutoka orodha ya Google, mpya zaidi kwanza.
+    """
+    out = []
+    m = re.search(r"use (?:models/)?(gemini-[\w.\-]+)", error_text or "")
+    if m:
+        out.append(m.group(1).rstrip("."))
+    try:
+        ids = available_models()
+    except (GeminiError, requests.RequestException):
+        ids = []
+    family = "pro" if "pro" in current else "flash"
+    special = ("tts", "image", "audio", "live", "embedding", "thinking", "exp", "lite")
+    same = [n for n in ids if family in n and not any(x in n for x in special)]
+    same.sort(key=lambda n: ("preview" not in n, _version(n)), reverse=True)
+    out += same + [n for n in PREFERRED if n in ids]
+    seen = set()
+    return [n for n in out if not (n in seen or seen.add(n)) and n != current]
+
+
 def chat(system, user_content, model=None, max_tokens=900, temperature=0.3, timeout=30, json_mode=False):
     """Rudisha jibu la maandishi. GeminiError kwa kosa lolote."""
     if not enabled():
@@ -60,14 +89,18 @@ def chat(system, user_content, model=None, max_tokens=900, temperature=0.3, time
         return requests.post(f"{BASE}/models/{name}:generateContent", params=_key(), json=body, timeout=timeout)
 
     r = post(current)
-    if r.status_code == 404:
-        ids = available_models()
-        replacement = next((n for n in PREFERRED if n in ids and n != current), None) or \
-            next((n for n in ids if "flash" in n), None)
-        if replacement:
-            log.warning("gemini model %s is unavailable; using %s", current, replacement)
+    tried = {current}
+    for _ in range(3):   # model imeondolewa (404) -> jaribu iliyopendekezwa na Google / mpya zaidi
+        if r.status_code != 404:
+            break
+        replacement = next((n for n in replacement_models(current, r.text) if n not in tried), None)
+        if not replacement:
+            break
+        log.warning("gemini model %s is unavailable; trying %s", current, replacement)
+        tried.add(replacement)
+        r = post(replacement)
+        if r.status_code == 200:
             _replacements[wanted] = replacement
-            r = post(replacement)
     if r.status_code != 200:
         raise GeminiError(f"gemini HTTP {r.status_code}: {r.text[:300]}")
     data = r.json()
