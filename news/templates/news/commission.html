@@ -27,7 +27,7 @@
     <p class="page-sub">Mwambie mfumo uandike habari unayoitaka sasa hivi — unatafuta vyanzo vya saa 48 zilizopita (Google News Tanzania + feeds zetu), unaandika, kisha unakusubiri uidhinishe.</p></div>
   <div class="page-actions"><a href="{% url 'news:review' %}" class="btn btn-ghost"><i class="bi bi-newspaper"></i> Rasimu za kila siku</a></div>
 </div>
-{% if not has_key %}<div class="tip mb-4" style="background:var(--sun-soft)"><span class="emo">ℹ️</span><span>Hakuna AI iliyowekwa (GEMINI_API_KEY au GROQ_API_KEY) — AI haiwezi kuandika.</span></div>{% endif %}
+{% include 'partials/ai_health.html' %}
 
 <div class="cm-grid">
   <div>
@@ -101,7 +101,7 @@
   </div>
 
   <div>
-  <section class="panel mb-4">
+  <section class="panel mb-4" id="ai">
     <div class="panel-head"><h2 class="panel-title">AI inayoandika</h2></div>
     <p class="small text-muted">Inatumika kwenye rasimu zote: habari za kila siku, Agiza habari na Weka habari. Ikishindwa (kikomo cha bure, mtandao), mfumo unatumia mtoa huduma mwingine wenye key.</p>
     {% for m in ai_models %}

@@ -242,6 +242,14 @@ class EditorSettings(models.Model):
                  ("groq:openai/gpt-oss-120b", "Groq · GPT-OSS 120B"),
                  ("groq:llama-3.3-70b-versatile", "Groq · Llama 3.3 70B")],
         help_text="AI inayoandika habari. Ikishindwa (kikomo/key), mfumo unatumia mtoa huduma mwingine.")
+    # Hali ya AI (inajazwa na core.llm) — onyo kwenye dashboard AI kuu ikishindwa
+    ai_fail_at = models.DateTimeField(null=True, blank=True, editable=False)
+    ai_fail_reason = models.CharField(max_length=300, blank=True, default="", editable=False)
+    ai_fail_used = models.CharField(max_length=20, blank=True, default="", editable=False,
+                                    help_text="Mtoa huduma aliyeandika badala yake ('' = zote zilishindwa)")
+    ai_fail_day = models.DateField(null=True, blank=True, editable=False)
+    ai_fail_count = models.PositiveIntegerField(default=0, editable=False)
+    ai_ok_at = models.DateTimeField(null=True, blank=True, editable=False)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

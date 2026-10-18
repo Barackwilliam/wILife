@@ -89,6 +89,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'core.context_processors.current_year',
                 'core.context_processors.unread_notifications',
+                'core.context_processors.ai_health',
                 'news.context_processors.news',
             ],
         },

@@ -1,0 +1,10 @@
+{% with h=ai_health %}{% if h %}
+<div class="tip mb-4" role="status" style="background:{% if h.level == 'down' %}var(--rose-soft,#ffe4e6){% else %}var(--sun-soft,#fef3c7){% endif %}">
+  <span class="emo">{% if h.level == 'down' %}⛔{% else %}⚠️{% endif %}</span>
+  <span style="min-width:0">
+    <strong>{{ h.title }}</strong>
+    <span class="d-block small">{{ h.reason }}{% if h.at %} · mara ya mwisho {{ h.at|date:"H:i, d/m" }}{% endif %}{% if h.count > 1 %} · mara {{ h.count }} leo{% endif %}</span>
+    <a class="small" href="{% url 'news:commission' %}#ai">Badili au jaribu AI →</a>
+  </span>
+</div>
+{% endif %}{% endwith %}
