@@ -116,4 +116,5 @@ class NewsRequestAdmin(admin.ModelAdmin):
 
 @admin.register(EditorSettings)
 class EditorSettingsAdmin(admin.ModelAdmin):
-    list_display = ("__str__", "sports_slot", "updated_at")
+    list_display = ("__str__", "ai_model", "sports_slot", "updated_at")
+    list_editable = ("ai_model",)

@@ -142,6 +142,10 @@ AGENT_APPROVAL_TTL_HOURS = int(env("AGENT_APPROVAL_TTL_HOURS", "24"))
 AGENT_BRAIN_ENABLED = env_bool("AGENT_BRAIN_ENABLED", False)
 GROQ_API_KEY = env("GROQ_API_KEY", "")
 GROQ_MODEL = env("GROQ_MODEL", "llama-3.3-70b-versatile")
+# Google Gemini (aistudio.google.com → Get API key). Model inachaguliwa kwenye
+# ukurasa wa "Agiza habari"; GEMINI_MODEL ni ya kawaida tu ikikosekana.
+GEMINI_API_KEY = env("GEMINI_API_KEY", "")
+GEMINI_MODEL = env("GEMINI_MODEL", "gemini-2.5-flash")
 
 # JamiiTek connector
 JAMIITEK_DB_DSN = env("JAMIITEK_DB_DSN", "")

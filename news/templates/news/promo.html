@@ -47,7 +47,7 @@
           <select class="form-select" name="category">{% for v, l in categories %}<option value="{{ v }}"{% if v == 'tanzania' %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
         <div class="col-md-7 d-flex align-items-end"><div class="form-check form-switch">
           <input class="form-check-input" type="checkbox" name="rewrite" id="rw" {% if has_key %}checked{% else %}disabled{% endif %}>
-          <label class="form-check-label" for="rw">AI ipange maandishi kuwa habari safi{% if not has_key %} (GROQ_API_KEY haijawekwa){% endif %}</label></div></div>
+          <label class="form-check-label" for="rw">AI ipange maandishi kuwa habari safi{% if not has_key %} (hakuna AI iliyowekwa){% endif %}</label></div></div>
       </div>
       <button class="btn btn-brand mt-3"><i class="bi bi-plus-lg"></i> Unda rasimu</button>
       <p class="small text-muted mt-3 mb-0">Kwa Telegram: mtumie bot <b>picha</b> yenye maelezo (caption) — weka link ya chapisho (Instagram au Facebook) ndani ya maelezo; mtandao unatambuliwa kutoka link. Utajibiwa na rasimu + <b>OK code</b>.</p>

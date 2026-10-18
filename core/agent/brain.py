@@ -16,7 +16,7 @@ import logging
 
 from django.conf import settings
 
-from core import groq
+from core import llm
 
 log = logging.getLogger("core.agent")
 
@@ -40,11 +40,11 @@ Never invent an id that was not given. Never omit one."""
 
 
 def _enabled():
-    return bool(getattr(settings, "GROQ_API_KEY", "")) and getattr(settings, "AGENT_BRAIN_ENABLED", True)
+    return llm.enabled() and getattr(settings, "AGENT_BRAIN_ENABLED", True)
 
 
 def _call(system, user_content, max_tokens=900, temperature=0.3, timeout=12):
-    return groq.chat(system, user_content, max_tokens=max_tokens, temperature=temperature, timeout=timeout)
+    return llm.chat(system, user_content, max_tokens=max_tokens, temperature=temperature, timeout=timeout)
 
 
 def phrase_brief(fallback_text, facts=None):

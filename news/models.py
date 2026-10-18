@@ -236,6 +236,12 @@ class EditorSettings(models.Model):
         help_text="Maelekezo ya ziada kwa AI anapoandika (mf. 'kwenye michezo taja matokeo na wafungaji')")
     sports_slot = models.BooleanField(
         default=True, help_text="Habari moja ya michezo ya Tanzania kila siku (slot 6)")
+    ai_model = models.CharField(
+        max_length=80, default="gemini:gemini-2.5-flash",
+        choices=[("gemini:gemini-2.5-flash", "Gemini 2.5 Flash"), ("gemini:gemini-2.5-pro", "Gemini 2.5 Pro"),
+                 ("groq:openai/gpt-oss-120b", "Groq · GPT-OSS 120B"),
+                 ("groq:llama-3.3-70b-versatile", "Groq · Llama 3.3 70B")],
+        help_text="AI inayoandika habari. Ikishindwa (kikomo/key), mfumo unatumia mtoa huduma mwingine.")
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
