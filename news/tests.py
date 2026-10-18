@@ -1170,6 +1170,58 @@ class GeminiAndModelChoiceTests(TestCase):
         self.assertContains(self.client.get("/admin/news/editorsettings/"), "Gemini 2.5 Flash")
 
 
+@override_settings(GEMINI_API_KEY="g-key", GROQ_API_KEY="q-key")
+class AiHealthWarningTests(TestCase):
+    def _fail_once(self):
+        from core import gemini, llm
+        with mock.patch("core.gemini.chat", side_effect=gemini.GeminiError('gemini HTTP 429: {"status": "RESOURCE_EXHAUSTED"}')), \
+             mock.patch("core.groq.chat", return_value="jibu la groq"):
+            llm.chat("s", "u")
+
+    def test_fallback_is_recorded_and_cleared(self):
+        from core import llm
+        self.assertIsNone(llm.health())
+        self._fail_once()
+        self._fail_once()
+        h = llm.health()
+        self.assertEqual(h["level"], "fallback")
+        self.assertIn("Gemini imeshindwa", h["title"])
+        self.assertIn("Groq", h["title"])
+        self.assertIn("Kikomo cha bure", h["reason"])
+        self.assertEqual(h["count"], 2)
+        with mock.patch("core.gemini.chat", return_value="sawa"):
+            llm.chat("s", "u")
+        self.assertIsNone(llm.health())
+
+    def test_all_failing_is_down(self):
+        from core import gemini, groq, llm
+        with mock.patch("core.gemini.chat", side_effect=gemini.GeminiError("gemini HTTP 403: API key not valid")), \
+             mock.patch("core.groq.chat", side_effect=groq.GroqError("groq HTTP 500: x")):
+            with self.assertRaises(llm.LLMError):
+                llm.chat("s", "u")
+        h = llm.health()
+        self.assertEqual(h["level"], "down")
+        self.assertIn("Key haikubaliki", h["reason"])
+
+    @override_settings(GEMINI_API_KEY="")
+    def test_missing_gemini_key_warns(self):
+        from core import llm
+        self.assertIn("Gemini haijawekwa", llm.health()["title"])
+
+    def test_warning_shows_for_staff_on_dashboard_and_ai_pages(self):
+        self._fail_once()
+        owner = User.objects.create_superuser("owner", "o@x.com", "x")
+        self.client.force_login(owner)
+        for url in ("/dashboard/", "/habari-admin/agiza/", "/habari-admin/rasimu/", "/habari-admin/weka-habari/"):
+            self.assertContains(self.client.get(url, follow=True), "Gemini imeshindwa", msg_prefix=url)
+
+    def test_warning_hidden_from_non_staff(self):
+        self._fail_once()
+        user = User.objects.create_user("u", "u@x.com", "x")
+        self.client.force_login(user)
+        self.assertNotContains(self.client.get("/dashboard/", follow=True), "Gemini imeshindwa")
+
+
 class NoAiKeyTests(TestCase):
     @override_settings(GEMINI_API_KEY="", GROQ_API_KEY="")
     def test_no_keys(self):
