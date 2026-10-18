@@ -1120,6 +1120,28 @@ class GeminiAndModelChoiceTests(TestCase):
             gemini.chat("s", "u", model="gemini-9-flash")
         self.assertIn("gemini-2.0-flash:generateContent", post.call_args.args[0])
 
+    def test_model_suggested_by_google_is_used(self):
+        from core import gemini
+        gone = _http(404, {"error": {"code": 404, "message": "This model models/gemini-2.5-flash is no longer "
+                                     "available to new users. Please update your code to use "
+                                     "models/gemini-3.8-flash for the latest features."}})
+        models = _http(200, {"models": [{"name": "models/gemini-2.5-flash",
+                                         "supportedGenerationMethods": ["generateContent"]}]})
+        with mock.patch("core.gemini.requests.post", side_effect=[gone, _http(200, GEMINI_OK)]) as post, \
+             mock.patch("core.gemini.requests.get", return_value=models):
+            self.assertEqual(gemini.chat("s", "u", model="gemini-2.5-flash"), "Habari njema kwa Kiswahili.")
+        self.assertIn("gemini-3.8-flash:generateContent", post.call_args.args[0])
+        self.assertEqual(gemini._replacements["gemini-2.5-flash"], "gemini-3.8-flash")
+
+    def test_newest_listed_model_of_same_family_is_tried_next(self):
+        from core import gemini
+        models = _http(200, {"models": [{"name": f"models/{n}", "supportedGenerationMethods": ["generateContent"]}
+                                        for n in ("gemini-2.5-pro", "gemini-3.1-pro", "gemini-3.1-flash",
+                                                  "gemini-3.1-flash-lite", "gemini-2.5-flash-preview-tts")]})
+        with mock.patch("core.gemini.requests.get", return_value=models):
+            self.assertEqual(gemini.replacement_models("gemini-2.5-flash", "")[0], "gemini-3.1-flash")
+            self.assertEqual(gemini.replacement_models("gemini-2.5-pro", "")[0], "gemini-3.1-pro")
+
     def test_writer_uses_the_selected_model(self):
         from core import llm
         from news.models import EditorSettings

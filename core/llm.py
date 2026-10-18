@@ -190,6 +190,8 @@ def test(choice):
                   model=model, max_tokens=200, temperature=0.4, timeout=30)
         if choice == selected():
             _record_ok()
+        if provider == "gemini" and gemini._replacements.get(model):
+            text = f"[inatumia {gemini._replacements[model]}] {text}"
         return True, text, round(time.monotonic() - started, 1)
     except (gemini.GeminiError, groq.GroqError, requests.RequestException) as exc:
         return False, str(exc)[:300], round(time.monotonic() - started, 1)
