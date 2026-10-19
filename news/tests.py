@@ -1296,6 +1296,8 @@ class TemplatePromoPhoneTests(TestCase):
             self.assertIn("TTL = 2 * 60 * 60 * 1000", html, url)          # inarudi baada ya saa 2
             self.assertIn("drift=1", html, url)
             self.assertIn("utm_source=wilife", html, url)
+            self.assertIn("POS = 'jt_promo_pos'", html, url)               # inaburutwa, upande unakumbukwa
+            self.assertIn(".jtp.tuck .jtp-txt", html, url)                  # ikivutwa ukingoni inajificha nusu
 
     def test_promo_phone_not_on_staff_pages(self):
         staff = User.objects.create_superuser("boss", "b@x.com", "x")

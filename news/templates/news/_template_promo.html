@@ -6,7 +6,7 @@ Ikionekana, inapumzika saa 2 kwenye browser hiyo. JamiiTek ikishindwa kujibu, ha
 {% endcomment %}<style>
 .jtp{position:fixed;left:20px;bottom:20px;z-index:9000;display:flex;align-items:flex-end;font-family:inherit;
   --a:#2E7BF6;--b:#0B1B3A;opacity:0;transform:translateY(40px) scale(.8);transform-origin:0 100%;pointer-events:none;
-  transition:opacity .45s ease,transform .7s cubic-bezier(.34,1.45,.64,1)}
+  transition:opacity .45s ease,transform .7s cubic-bezier(.34,1.45,.64,1),left .4s cubic-bezier(.34,1.3,.64,1),top .4s cubic-bezier(.34,1.3,.64,1)}
 .jtp[hidden]{display:none}
 .jtp.on{opacity:1;transform:none;pointer-events:auto}
 .jtp-card{position:relative;display:flex;align-items:flex-end;gap:10px;text-decoration:none;color:#fff}
@@ -28,6 +28,17 @@ Ikionekana, inapumzika saa 2 kwenye browser hiyo. JamiiTek ikishindwa kujibu, ha
 .jtp-x{position:absolute;top:-12px;left:58px;z-index:3;width:26px;height:26px;padding:0;border-radius:50%;border:1px solid rgba(255,255,255,.2);background:#11131f;color:#cfd6e6;
   font:600 15px/1 system-ui,sans-serif;cursor:pointer;display:grid;place-items:center;box-shadow:0 6px 16px rgba(0,0,0,.4)}
 .jtp-x:hover{background:#ff5f57;color:#fff;border-color:#ff5f57}
+/* Kusogeza: buruta popote (inajibandika ukingo wa karibu); ivute nje ya ukingo → inajificha nusu */
+.jtp-card{touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none;-webkit-user-drag:none}
+.jtp.drag{transition:opacity .45s ease}
+.jtp.drag .jtp-card{cursor:grabbing}
+.jtp.drag .jtp-phone{transform:scale(1.06) rotate(-3deg)}
+.jtp.r{transform-origin:100% 100%}
+.jtp.r .jtp-card{flex-direction:row-reverse}
+.jtp.r .jtp-txt{border-radius:14px 14px 4px 14px}
+.jtp.r .jtp-x{left:auto;right:58px}
+.jtp.tuck .jtp-txt,.jtp.tuck .jtp-x{display:none}
+.jtp.tuck .jtp-phone{animation:none}
 @keyframes jtpWiggle{0%,100%{rotate:0deg}20%{rotate:-6deg}40%{rotate:5deg}60%{rotate:-3deg}80%{rotate:2deg}}
 @keyframes jtpRing{0%{opacity:.9;transform:scale(.9)}100%{opacity:0;transform:scale(1.25)}}
 @media(max-width:600px){
@@ -36,14 +47,14 @@ Ikionekana, inapumzika saa 2 kwenye browser hiyo. JamiiTek ikishindwa kujibu, ha
   .jtp-scr{width:64px;height:140px;border-radius:13px}
   .jtp-scr iframe{transform:scale(.1641)}
   .jtp-island{top:6px;width:20px;height:5px;margin-left:-10px}
-  .jtp-txt{margin-bottom:12px;padding:9px 12px}.jtp-x{left:44px}
+  .jtp-txt{margin-bottom:12px;padding:9px 12px}.jtp-x{left:44px}.jtp.r .jtp-x{right:44px}
   .jtp-txt b{font-size:13px}
 }
 @media(prefers-reduced-motion:reduce){.jtp,.jtp-phone{transition:none;animation:none}.jtp-phone::before{display:none}}
 @media print{.jtp{display:none!important}}
 </style>
 <div class="jtp" id="jtp" hidden data-api="{% jamiitek_site %}/templates/promo.json" role="complementary" aria-label="Website hii inauzwa">
-  <a class="jtp-card" href="{% jamiitek_site %}/templates/" target="_blank" rel="noopener" aria-label="Website hii inauzwa — gusa kuitazama">
+  <a class="jtp-card" draggable="false" href="{% jamiitek_site %}/templates/" target="_blank" rel="noopener" aria-label="Website hii inauzwa — gusa kuitazama">
     <span class="jtp-phone"><span class="jtp-island"></span><span class="jtp-scr"><iframe tabindex="-1" aria-hidden="true" title="Demo ya template ya JamiiTek" loading="lazy"></iframe></span></span>
     <span class="jtp-txt"><b>Website hii inauzwa</b><small>Gusa kuitazama 👆</small></span>
   </a>
@@ -82,6 +93,7 @@ Ikionekana, inapumzika saa 2 kwenye browser hiyo. JamiiTek ikishindwa kujibu, ha
     // Demo iko kwenye domain ya JamiiTek, kwa hiyo inajiscroll yenyewe (?drift=1)
     frame.src = t.raw + (t.raw.indexOf('?') < 0 ? '?' : '&') + 'drift=1';
     el.hidden = false;
+    place();
     requestAnimationFrame(function(){ requestAnimationFrame(function(){ el.classList.add('on'); }); });
   }
   function close(){
@@ -89,6 +101,62 @@ Ikionekana, inapumzika saa 2 kwenye browser hiyo. JamiiTek ikishindwa kujibu, ha
     setTimeout(function(){ el.remove(); }, 500);
   }
   el.querySelector('.jtp-x').addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); close(); });
+
+  // Kusogeza: msomaji anaiburuta popote; ikiachiwa inajibandika ukingo wa karibu (kushoto/kulia).
+  // Ikivutwa nje ya ukingo inajificha nusu, na kuigusa kunairudisha. Upande na kimo vinakumbukwa.
+  var POS = 'jt_promo_pos', phone = el.querySelector('.jtp-phone'), pos = {s: 'l', y: -1, t: 0}, drag = null, moved = false;
+  try { var saved = JSON.parse(localStorage.getItem(POS) || 'null'); if (saved && (saved.s === 'l' || saved.s === 'r')) pos = {s: saved.s, y: +saved.y || -1, t: 0}; } catch (e) {}
+  function gap(){ return innerWidth <= 600 ? 12 : 20; }
+  function place(){
+    var g = gap(), W = document.documentElement.clientWidth;
+    el.classList.toggle('r', pos.s === 'r'); el.classList.toggle('tuck', !!pos.t);
+    var w = el.offsetWidth, h = el.offsetHeight, peek = 26;
+    el.style.right = 'auto';
+    el.style.left = (pos.t ? (pos.s === 'l' ? peek - w : W - peek) : (pos.s === 'l' ? g : W - w - g)) + 'px';
+    if (pos.y < 0){ el.style.top = 'auto'; el.style.bottom = g + 'px'; }
+    else { el.style.bottom = 'auto'; el.style.top = Math.max(g, Math.min(innerHeight - h - g, pos.y * innerHeight)) + 'px'; }
+  }
+  function save(){ try { localStorage.setItem(POS, JSON.stringify({s: pos.s, y: pos.y})); } catch (e) {} }
+  card.addEventListener('dragstart', function(e){ e.preventDefault(); });
+  card.addEventListener('pointerdown', function(e){
+    if (e.button) return;
+    var r = el.getBoundingClientRect();
+    moved = false;
+    drag = {x: e.clientX, y: e.clientY, l: r.left, t: r.top, id: e.pointerId, on: false};
+  });
+  card.addEventListener('pointermove', function(e){
+    if (!drag) return;
+    var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!drag.on){
+      if (Math.abs(dx) + Math.abs(dy) < 8) return;     // mguso mdogo bado ni "gusa", si kuburuta
+      drag.on = moved = true;
+      el.classList.add('drag');
+      try { card.setPointerCapture(drag.id); } catch (er) {}
+    }
+    el.style.right = el.style.bottom = 'auto';
+    el.style.left = drag.l + dx + 'px'; el.style.top = drag.t + dy + 'px';
+  });
+  function drop(){
+    if (!drag) return;
+    var was = drag.on; drag = null;
+    if (!was) return;
+    el.classList.remove('drag');
+    var r = phone.getBoundingClientRect(), W = document.documentElement.clientWidth;
+    pos.s = r.left + r.width / 2 < W / 2 ? 'l' : 'r';
+    pos.t = (r.left < -r.width * .3 || r.right > W + r.width * .3) ? 1 : 0;
+    pos.y = el.getBoundingClientRect().top / innerHeight;
+    save(); place();
+  }
+  card.addEventListener('pointerup', drop);
+  card.addEventListener('pointercancel', drop);
+  // Kwenye window (capture) ili izuie kubofya kabla ya script nyingine za ukurasa (mf. skrini ya
+  // "Loading" ya kubadilisha ukurasa) kudhani mtu amefungua link.
+  window.addEventListener('click', function(e){
+    if (!card.contains(e.target)) return;
+    if (moved){ moved = false; e.preventDefault(); e.stopPropagation(); return; }       // ilikuwa kuburuta, si kubofya
+    if (pos.t){ e.preventDefault(); e.stopPropagation(); pos.t = 0; place(); return; }   // imejificha — kugusa kunairudisha
+  }, true);
+  addEventListener('resize', function(){ if (!el.hidden && el.isConnected) place(); });
 
   // Inasubiri msomaji aanze ku-scroll, ili isifunike habari mwanzoni.
   function onScroll(){
