@@ -149,8 +149,17 @@ def service_jsonld(context, service):
     return _script(data)
 
 
+def _prune(value):
+    """Ondoa sehemu tupu (None, [], "") — schema.org haikubali `null`."""
+    if isinstance(value, dict):
+        return {k: _prune(v) for k, v in value.items() if v not in (None, [], "", {})}
+    if isinstance(value, list):
+        return [_prune(v) for v in value if v not in (None, [], "", {})]
+    return value
+
+
 def _script(data):
-    payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
+    payload = json.dumps(_prune(data), ensure_ascii=False).replace("</", "<\\/")
     return mark_safe(f'<script type="application/ld+json">{payload}</script>')
 
 

@@ -277,6 +277,30 @@ class SeoAndSpeedTests(TestCase):
         self.a.render_cover()
         self.a.save()
 
+    def test_head_tags_are_clean(self):
+        import re
+        body = self.client.get(self.a.get_absolute_url()).content.decode()
+        self.assertEqual(body.count('property="og:image:width"'), 1)
+        self.assertNotIn("hreflang", body)
+        blocks = re.findall(r'application/ld\+json">(.*?)</script>', body, re.S)
+        self.assertTrue(blocks)
+        for block in blocks:
+            json.loads(block)
+            self.assertNotIn("null", block)
+        self.assertEqual(len(re.findall(r"<h1[ >]", body)), 1)
+
+    def test_pagination_links_page_one_cleanly(self):
+        for i in range(25):
+            Article.objects.create(title=f"Habari ya majaribio {i}", category="tanzania", excerpt="M", body="Aya.",
+                                   status="published", published_at=timezone.now())
+        from django.core.cache import cache
+        cache.clear()
+        body = self.client.get("/habari/?page=2").content.decode()
+        cache.clear()   # ukurasa uliohifadhiwa (cache_page) usivuje kwenye majaribio mengine
+        self.assertIn('rel="prev" href="/habari/"', body)
+        self.assertNotIn("page=1", body)
+        self.assertIn('og:url" content="http://testserver/habari/?page=2"', body)
+
     def test_no_old_brand_or_schedule_on_public_pages(self):
         for url in ("/", "/habari/", "/kuhusu/", self.a.get_absolute_url()):
             body = self.client.get(url).content.decode()
