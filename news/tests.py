@@ -1275,3 +1275,31 @@ class NoAiKeyTests(TestCase):
         self.assertFalse(llm.enabled())
         with self.assertRaises(llm.LLMError):
             llm.chat("s", "u")
+
+
+@override_settings(JAMIITEK_SITE="https://www.jamiitek.com")
+class TemplatePromoPhoneTests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.art = Article.objects.create(
+            title="Habari ya promo", category="dunia", excerpt="x", body="Maandishi.",
+            status="published", published_at=timezone.now(), cover_png=b"\x89PNG")
+
+    def test_promo_phone_on_public_pages_from_jamiitek(self):
+        for url in ("/", self.art.get_absolute_url()):
+            html = self.client.get(url).content.decode()
+            self.assertIn('id="jtp" hidden', html, url)                 # haionekani hadi JS iamue
+            self.assertIn('data-api="https://www.jamiitek.com/templates/promo.json"', html, url)
+            self.assertIn("addEventListener('scroll', onScroll", html, url)   # inasubiri ku-scroll
+            self.assertIn("TTL = 2 * 60 * 60 * 1000", html, url)          # inarudi baada ya saa 2
+            self.assertIn("drift=1", html, url)
+            self.assertIn("utm_source=wilife", html, url)
+            self.assertIn("POS = 'jt_promo_pos'", html, url)               # inaburutwa, upande unakumbukwa
+            self.assertIn(".jtp.tuck .jtp-txt", html, url)                  # ikivutwa ukingoni inajificha nusu
+
+    def test_promo_phone_not_on_staff_pages(self):
+        staff = User.objects.create_superuser("boss", "b@x.com", "x")
+        self.client.force_login(staff)
+        self.assertNotIn('id="jtp"', self.client.get("/dashboard/", follow=True).content.decode())

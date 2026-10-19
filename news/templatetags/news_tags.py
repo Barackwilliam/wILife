@@ -260,6 +260,12 @@ def jamiitek_url(path="/", campaign="site"):
     return url(path, campaign)
 
 
+@register.simple_tag
+def jamiitek_site():
+    from news.jamiitek_links import site
+    return site()
+
+
 @register.filter
 def jamiitek_service_url(service):
     from news.jamiitek_links import service_url
