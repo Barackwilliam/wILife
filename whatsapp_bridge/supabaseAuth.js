@@ -64,10 +64,13 @@ async function useSupabaseAuthState(connectionString, sessionName = 'default') {
 
     async function writeData(keyId, value) {
         try {
-            const json = JSON.parse(JSON.stringify(value, BufferJSON.replacer));
+            // Tunatuma maandishi ya JSON (si object) na ::jsonb — `pg` hubadilisha array ya JS
+            // kuwa array ya Postgres ('{"0","84"}'), si JSON, kwa hiyo funguo kama
+            // device-list zilikataliwa ("invalid input syntax for type json").
+            const json = JSON.stringify(value, BufferJSON.replacer);
             await pool.query(
                 `INSERT INTO baileys_auth (session_name, key_id, value, updated_at)
-                 VALUES ($1, $2, $3, NOW())
+                 VALUES ($1, $2, $3::jsonb, NOW())
                  ON CONFLICT (session_name, key_id)
                  DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
                 [sessionName, keyId, json]

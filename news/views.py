@@ -279,7 +279,11 @@ def indexnow_key(request, key):
 def news_sitemap(request):
     """Google News sitemap: articles from the last 48 hours."""
     since = timezone.now() - timedelta(hours=48)
-    items = _published().filter(published_at__gte=since)[:1000]
+    items = list(_published().filter(published_at__gte=since)[:1000])
+    # An empty <urlset> is an error in Search Console ("Missing XML tag: url"), so on a quiet
+    # 48 hours the newest article stays listed; Google News simply ignores it, it is not an error.
+    if not items:
+        items = list(_published()[:1])
     return render(request, "news/news_sitemap.xml", {"items": items}, content_type="application/xml")
 
 
