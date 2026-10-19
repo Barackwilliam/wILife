@@ -14,7 +14,7 @@
     <a class="rv-btn" data-more rel="next" href="?{% if q %}q={{ q|urlencode }}&amp;{% endif %}page={{ page.next_page_number }}"><span>Pakia habari zaidi</span>{% icon "arrow-right" %}</a>
     <span class="rv-pg">Ukurasa {{ page.number }} kati ya {{ page.paginator.num_pages }}</span>
   </div>{% endif %}
-  {% if page.has_previous %}<div class="rv-more"><a class="rv-prev" rel="prev" href="?{% if q %}q={{ q|urlencode }}&amp;{% endif %}page={{ page.previous_page_number }}">{% icon "arrow-left" %} Habari mpya zaidi</a></div>{% endif %}
+  {% if page.has_previous %}<div class="rv-more"><a class="rv-prev" rel="prev" href="{% if page.previous_page_number == 1 %}{% if q %}?q={{ q|urlencode }}{% else %}{{ request.path }}{% endif %}{% else %}?{% if q %}q={{ q|urlencode }}&amp;{% endif %}page={{ page.previous_page_number }}{% endif %}">{% icon "arrow-left" %} Habari mpya zaidi</a></div>{% endif %}
 </div>
 <script>
 document.addEventListener("click", async function (e) {
