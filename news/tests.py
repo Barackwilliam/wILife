@@ -1303,3 +1303,27 @@ class TemplatePromoPhoneTests(TestCase):
         staff = User.objects.create_superuser("boss", "b@x.com", "x")
         self.client.force_login(staff)
         self.assertNotIn('id="jtp"', self.client.get("/dashboard/", follow=True).content.decode())
+
+
+class NewsSitemapNeverEmptyTests(TestCase):
+    """Search Console treats an empty <urlset> as an error ("Missing XML tag: url")."""
+
+    def _article(self, title, hours_ago):
+        a = Article.objects.create(title=title, category="dunia", excerpt="x", body="x",
+                                   status="published", published_at=timezone.now(), cover_png=b"\x89PNG")
+        Article.objects.filter(pk=a.pk).update(published_at=timezone.now() - timedelta(hours=hours_ago))
+        return a
+
+    def test_quiet_48_hours_keep_the_newest_article(self):
+        old = self._article("Habari ya juzi", 72)
+        self._article("Habari ya zamani zaidi", 200)
+        xml = self.client.get("/news-sitemap.xml").content.decode()
+        self.assertEqual(xml.count("<url>"), 1)
+        self.assertIn(old.get_absolute_url(), xml)
+
+    def test_only_recent_articles_when_there_are_some(self):
+        new = self._article("Habari ya leo", 1)
+        old = self._article("Habari ya juzi", 72)
+        xml = self.client.get("/news-sitemap.xml").content.decode()
+        self.assertIn(new.get_absolute_url(), xml)
+        self.assertNotIn(old.get_absolute_url(), xml)
