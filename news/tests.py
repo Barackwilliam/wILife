@@ -323,7 +323,8 @@ class SeoAndSpeedTests(TestCase):
         self.assertContains(self.client.get("/mada/dodoma/"), self.a.title)
         self.assertEqual(self.client.get("/mada/haipo/").status_code, 404)
         self.assertContains(self.client.get("/habari/"), self.a.title)
-        self.assertContains(self.client.get("/sitemap.xml"), "/mada/bunge/")
+        # Mada yenye habari moja tu haiingii kwenye sitemap (IndexingHygieneTest)
+        self.assertNotContains(self.client.get("/sitemap.xml"), "/mada/bunge/")
 
     def test_news_sitemap_has_image(self):
         self.assertContains(self.client.get("/news-sitemap.xml"), f"/habari/picha/{self.a.pk}.png")
@@ -1327,3 +1328,28 @@ class NewsSitemapNeverEmptyTests(TestCase):
         xml = self.client.get("/news-sitemap.xml").content.decode()
         self.assertIn(new.get_absolute_url(), xml)
         self.assertNotIn(old.get_absolute_url(), xml)
+
+
+class IndexingHygieneTest(TestCase):
+    """Search Console: kurasa nyembamba za mada na /index.html zilizokuwa 404."""
+
+    def _publish(self, n, keywords):
+        from django.utils import timezone
+        for i in range(n):
+            Article.objects.create(title=f"Habari {keywords} {i}",
+                                   category="tanzania", excerpt="x", body="maandishi", keywords=keywords,
+                                   status="published", published_at=timezone.now())
+
+    def test_topics_with_few_articles_are_noindex_and_left_out_of_the_sitemap(self):
+        self._publish(3, "Bunge, Dodoma")
+        self._publish(1, "Simba")
+        self.assertContains(self.client.get("/mada/simba/"), 'content="noindex, follow"')
+        self.assertNotContains(self.client.get("/mada/bunge/"), "noindex")
+        xml = self.client.get("/sitemap.xml").content.decode()
+        self.assertIn("/mada/bunge/", xml)
+        self.assertNotIn("/mada/simba/", xml)
+
+    def test_old_index_urls_redirect_home(self):
+        for url in ("/index.html", "/index"):
+            r = self.client.get(url)
+            self.assertEqual((r.status_code, r["Location"]), (301, "/"), url)

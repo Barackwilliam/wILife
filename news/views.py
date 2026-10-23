@@ -84,7 +84,13 @@ def _river(request, items, template, context, lead=True):
     return render(request, template, context)
 
 
-def _topics(limit=14):
+# Mada yenye habari chache ni nakala ya kadi zilizo kwenye makala yenyewe: Google
+# inaiona ni "thin content" na inashusha imani yake kwa tovuti nzima. Mada inaingia
+# kwenye sitemap na kuruhusiwa kuorodheshwa ikiwa na habari angalau hizi tu.
+TOPIC_MIN_ARTICLES = 3
+
+
+def _topics(limit=14, min_count=1):
     counts, names = Counter(), {}
     for kw in _published().values_list("keywords", flat=True)[:120]:
         for raw in kw.split(","):
@@ -93,7 +99,7 @@ def _topics(limit=14):
             if tag and key and len(tag) <= 30:
                 counts[key] += 1
                 names.setdefault(key, tag)
-    return [(names[k], k) for k, _ in counts.most_common(limit)]
+    return [(names[k], k) for k, n in counts.most_common(limit) if n >= min_count]
 
 
 @public_page
@@ -154,7 +160,8 @@ def topic(request, slug):
     if not matches:
         raise Http404
     name = next(n for n, k in matches[0].tag_list() if k == slug)
-    return _river(request, matches, "news/topic.html", {"name": name, "slug": slug})
+    return _river(request, matches, "news/topic.html", {
+        "name": name, "slug": slug, "thin": len(matches) < TOPIC_MIN_ARTICLES})
 
 
 def article(request, category, slug):

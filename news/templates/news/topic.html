@@ -1,6 +1,7 @@
 {% extends 'news/base.html' %}
 {% load news_tags %}
 {% block title %}{{ name|capfirst }} — Habari za Hivi Punde{% if page.number > 1 %} (Ukurasa {{ page.number }}){% endif %} | wILife{% endblock %}
+{% block robots %}{% if thin %}<meta name="robots" content="noindex, follow">{% else %}{{ block.super }}{% endif %}{% endblock %}
 {% block description %}Habari zote kuhusu {{ name }} kwa Kiswahili — za karibuni kutoka Tanzania, Afrika na Dunia.{% endblock %}
 {% block content %}
 {% with heading="#"|add:name intro="Habari zote kuhusu "|add:name|add:", kuanzia ya karibuni zaidi." %}
