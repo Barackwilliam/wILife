@@ -1,5 +1,6 @@
 from django.contrib.sitemaps.views import sitemap
 from django.urls import path
+from django.views.generic import RedirectView
 
 from news import views
 from news.rss import LatestFeed
@@ -9,6 +10,9 @@ app_name = "news"
 
 urlpatterns = [
     path("", views.home, name="home"),
+    # Search Console: /index.html na /index zilikuwa 404 (anwani za zamani / viungo vya nje)
+    path("index.html", RedirectView.as_view(url="/", permanent=True)),
+    path("index", RedirectView.as_view(url="/", permanent=True)),
     path("habari/", views.latest, name="latest"),
     path("habari/picha/<int:pk>.png", views.cover, name="cover"),
     path("habari/picha/<int:pk>-sanaa.webp", views.cover_thumb, name="cover_thumb"),

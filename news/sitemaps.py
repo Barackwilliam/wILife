@@ -67,8 +67,8 @@ class TopicSitemap(Sitemap):
     priority = 0.5
 
     def items(self):
-        from news.views import _topics
-        return [k for _, k in _topics(limit=200)]
+        from news.views import TOPIC_MIN_ARTICLES, _topics
+        return [k for _, k in _topics(limit=200, min_count=TOPIC_MIN_ARTICLES)]
 
     def location(self, item):
         return reverse("news:topic", args=[item])
