@@ -42,6 +42,14 @@
     </header>
     <div class="hero-img">{% include 'news/_img.html' with a=article big=True %}</div>
 
+    {% if article.live_started_at %}{% include 'news/_live.html' %}
+    {% elif user.is_staff and not is_draft %}
+    <form method="post" action="{% url 'news:live_action' article.pk %}" style="margin:0 0 18px">
+      {% csrf_token %}<input type="hidden" name="action" value="start">
+      <button class="btn btn-ghost" title="Kwa habari inayoendelea: mechi, tukio, tangazo kubwa">🔴 Anza LIVE kwenye habari hii</button>
+    </form>
+    {% endif %}
+
     <div class="prose">{% if jt_links %}{{ article.body|render_body:"jamiitek" }}{% else %}{{ article.body|render_body }}{% endif %}</div>
 
     {% if article.tag_list %}<div class="tagline tags">{% for name, slug in article.tag_list %}<a href="{% url 'news:topic' slug %}">{% icon "hash" %}{{ name }}</a>{% endfor %}</div>{% endif %}

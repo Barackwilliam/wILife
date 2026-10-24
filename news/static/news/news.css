@@ -686,3 +686,6 @@ a:hover .img img, .card:hover .img img { transform: scale(1.045); }
 .prose a.jt-link:hover { text-decoration-color: currentColor; }
 .ad .ad-more { display: flex; align-items: center; gap: 4px; margin-top: 10px; font-size: .8rem; font-weight: 700; color: inherit; opacity: .8; text-decoration: none; }
 .ad .ad-more:hover { opacity: 1; }
+
+/* Habari ya LIVE (news/live.py) — kadi */
+.live-pill { display: inline-block; background: #dc2626; color: #fff; font-weight: 800; font-size: 10px; letter-spacing: .08em; border-radius: 4px; padding: 1px 6px; margin-right: 4px; vertical-align: 1px; }

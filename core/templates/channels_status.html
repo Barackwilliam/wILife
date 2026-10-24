@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="sw">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Njia za ujumbe — wILife</title>
+<style>
+:root{--ink:#1d1b24;--muted:#74707c;--line:#e8e1d5;--ok:#15803d;--bad:#b91c1c;--brand:#e2603f;--bg:#f7f3ec}
+@media (prefers-color-scheme:dark){:root{--ink:#f3efe8;--muted:#9a95a3;--line:#2b2933;--bg:#15131a}}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,sans-serif}
+main{max-width:640px;margin:0 auto;padding:22px 16px 40px}
+h1{font-size:21px;margin:0 0 4px}
+.sub{color:var(--muted);font-size:13.5px;margin:0 0 18px}
+.row{display:flex;gap:12px;padding:13px 0;border-top:1px solid var(--line)}
+.ic{font-size:18px;line-height:1.3;flex-shrink:0}
+.t{font-weight:700}
+.fix{color:var(--muted);font-size:13.5px;margin-top:2px;word-break:break-word}
+.box{border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:18px 0}
+.ok{color:var(--ok)}.bad{color:var(--bad)}
+button{border:0;border-radius:9px;padding:11px 16px;font-weight:700;font-size:15px;background:var(--brand);color:#fff;cursor:pointer;width:100%}
+a{color:var(--brand)}
+code{font-size:13px}
+</style>
+</head>
+<body><main>
+  <h1>Njia za ujumbe kwako</h1>
+  <p class="sub">Inatumika sasa: <b>{{ in_use }}</b> · Zilizo tayari: {{ ready }}{% if recipient %} · WhatsApp yako: <code>{{ recipient }}</code>{% endif %}</p>
+
+  {% if result %}<div class="box {% if result.0 == 'ok' %}ok{% else %}bad{% endif %}">{{ result.1 }}</div>{% endif %}
+
+  {% for name, ok, fix in checks %}
+  <div class="row">
+    <span class="ic">{% if ok %}✅{% else %}❌{% endif %}</span>
+    <div><div class="t">{{ name }}</div>{% if not ok %}<div class="fix">{{ fix }}</div>{% endif %}</div>
+  </div>
+  {% endfor %}
+
+  <div class="box">
+    {% if all_ok %}<p class="ok" style="margin-top:0"><b>Kila kitu kiko sawa.</b> Tuma ujumbe wa majaribio uhakikishe unafika.</p>
+    {% else %}<p style="margin-top:0">Rekebisha ❌ hapo juu (Render → Environment, kisha deploy). Unaweza kujaribu kutuma hata sasa — kosa halisi litaonekana hapa.</p>{% endif %}
+    <form method="post">{% csrf_token %}<input type="hidden" name="action" value="test"><button>Tuma WhatsApp ya majaribio</button></form>
+  </div>
+  <p class="sub">QR ya kuunganisha WhatsApp: <a href="{% url 'whatsapp_qr' %}">/agent/whatsapp/qr/</a></p>
+</main></body>
+</html>

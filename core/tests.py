@@ -532,3 +532,55 @@ class JamiiTekTeamTests(TestCase):
             text = jamiitek_team.status_text()
         self.assertIn("*Diana* (Fedha na ofisi): kazi wazi 1 · 2 zinasubiri idhini, 1 zimekwama", text)
         self.assertIn("*OK 4821*", text)
+
+
+class ChannelsStatusPageTests(TestCase):
+    """/agent/channels/ — kwa nini WhatsApp haimfikii William, bila Render Shell."""
+
+    url = "/agent/channels/"
+
+    def setUp(self):
+        self.staff = User.objects.create_user("william", password="x", is_staff=True)
+
+    def test_staff_only(self):
+        self.assertEqual(self.client.get(self.url).status_code, 302)
+
+    @override_settings(AGENT_SELF_CHANNEL="email", WHATSAPP_BRIDGE_KEY="", WHATSAPP_BRIDGE_URL="",
+                       AGENT_DEFAULT_RECIPIENT="")
+    def test_default_setup_explains_why_no_whatsapp_arrives(self):
+        self.client.force_login(self.staff)
+        page = self.client.get(self.url).content.decode()
+        self.assertIn("Sasa ni &#x27;email&#x27;", page)
+        self.assertIn("AGENT_SELF_CHANNEL=all", page)
+        self.assertIn("Bila key hii bridge haiwashwi", page)
+        self.assertIn("AGENT_DEFAULT_RECIPIENT", page)
+
+    @override_settings(**ALL_CHANNELS)
+    def test_everything_ready_and_test_message_reaches_the_bridge(self):
+        self.client.force_login(self.staff)
+        status = mock.Mock(status_code=200)
+        status.json.return_value = {"connected": True}
+        sent = mock.Mock(status_code=200)
+        sent.json.return_value = {"id": "wa-9"}
+        with mock.patch("core.agent.whatsapp.requests.get", return_value=status), \
+                mock.patch("core.agent.whatsapp.requests.post", return_value=sent) as post:
+            page = self.client.get(self.url).content.decode()
+            self.assertNotIn("❌", page)
+            r = self.client.post(self.url, {"action": "test"})
+        self.assertContains(r, "Imetumwa kwa 255712345678 (id=wa-9)")
+        self.assertEqual(post.call_args.args[0], "http://bridge.test/send")
+        self.assertEqual(post.call_args.kwargs["json"]["to"], "255712345678")
+
+    @override_settings(**ALL_CHANNELS)
+    def test_unlinked_bridge_shows_the_real_error(self):
+        self.client.force_login(self.staff)
+        status = mock.Mock(status_code=200)
+        status.json.return_value = {"connected": False, "status": "qr"}
+        refused = mock.Mock(status_code=503, text='{"error":"not connected (qr)"}')
+        with mock.patch("core.agent.whatsapp.requests.get", return_value=status), \
+                mock.patch("core.agent.whatsapp.requests.post", return_value=refused), \
+                mock.patch("core.agent.whatsapp.time.sleep"):
+            r = self.client.post(self.url, {"action": "test"})
+        page = r.content.decode()
+        self.assertIn("uscan QR", page)
+        self.assertIn("Imeshindwa: bridge HTTP 503", page)

@@ -1,7 +1,14 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from news.models import Article, JamiiTekService, NewsBatch, EditorSettings, NewsRequest
+from news.models import Article, JamiiTekService, LiveUpdate, NewsBatch, EditorSettings, NewsRequest
+
+
+class LiveUpdateInline(admin.TabularInline):
+    """Masasisho ya habari ya LIVE — hapa mhariri anarekebisha au kufuta lililokosewa."""
+    model = LiveUpdate
+    extra = 0
+    fields = ("label", "text", "created_at")
 
 
 @admin.register(Article)
@@ -12,6 +19,7 @@ class ArticleAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("title",)}
     readonly_fields = ("photo_info", "views", "created_at", "updated_at", "batch", "slot")
     actions = ["publish_selected", "reprocess_photos"]
+    inlines = [LiveUpdateInline]
 
     BADGE = {"hd": ("#15803d", "HD"), "sd": ("#2563eb", "Kawaida"), "low": ("#b45309", "Ndogo"),
              "generated": ("#6b7280", "Ya mfumo"), "error": ("#b91c1c", "Imeshindikana")}

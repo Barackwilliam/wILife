@@ -133,7 +133,11 @@ WHATSAPP_BRIDGE_KEY = env("WHATSAPP_BRIDGE_KEY", "")
 WHATSAPP_TOKEN = env("WHATSAPP_TOKEN", "")
 WHATSAPP_PHONE_NUMBER_ID = env("WHATSAPP_PHONE_NUMBER_ID", "")
 WHATSAPP_API_VERSION = env("WHATSAPP_API_VERSION", "v21.0")
-AGENT_DEFAULT_RECIPIENT = env("AGENT_DEFAULT_RECIPIENT", "")
+# Namba ya William inayopokea taarifa za wILife (WhatsApp). Bridge inaunganishwa (QR) kwa
+# namba nyingine — 0629712678 — ili taarifa zifike kama ujumbe wa kawaida wenye arifa.
+AGENT_DEFAULT_RECIPIENT = env("AGENT_DEFAULT_RECIPIENT", "255750910158")
+# Namba za William zinazoruhusiwa kutoa amri (OK 1234, live …, andika habari …)
+AGENT_OWNER_NUMBERS = [n.strip() for n in env("AGENT_OWNER_NUMBERS", "255750910158,255629712678").split(",") if n.strip()]
 AGENT_DEFAULT_COUNTRY_CODE = env("AGENT_DEFAULT_COUNTRY_CODE", "255")
 
 # Approvals
@@ -299,7 +303,7 @@ NEWS_DRAFT_HOUR = int(env("NEWS_DRAFT_HOUR", "5"))  # local hour drafting starts
 NEWS_GIVE_UP_HOUR = int(env("NEWS_GIVE_UP_HOUR", "10"))
 NEWS_STOP_HOUR = int(env("NEWS_STOP_HOUR", "16"))     # keep retrying missing slots until this hour
 NEWS_MODEL = env("NEWS_MODEL", "")                  # defaults to GROQ_MODEL
-JAMIITEK_WHATSAPP = env("JAMIITEK_WHATSAPP", "")    # e.g. 255712345678 for "Wasiliana nasi" buttons
+JAMIITEK_WHATSAPP = env("JAMIITEK_WHATSAPP", "255750910158")    # "Wasiliana nasi" buttons
 JAMIITEK_EMAIL = env("JAMIITEK_EMAIL", "")
 # Public JamiiTek site: service pages and article links point here.
 JAMIITEK_SITE = (env("JAMIITEK_SITE", "") or JAMIITEK_URL or "https://www.jamiitek.com").rstrip("/")
