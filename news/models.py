@@ -358,8 +358,10 @@ class LiveMatch(models.Model):
     OFF = {"PST", "CANC", "ABD", "AWD", "WO"}
 
     article = models.OneToOneField(Article, on_delete=models.CASCADE, related_name="match")
-    fixture_id = models.PositiveIntegerField(null=True, blank=True, unique=True,
-                                             help_text="Namba ya mechi kwenye API-Football (tupu = mechi ya mhariri)")
+    fixture_id = models.BigIntegerField(null=True, blank=True, unique=True,
+                                        help_text="Namba ya mechi kwa mtoaji wa data (tupu = mechi ya mhariri)")
+    provider = models.CharField(max_length=12, blank=True, default="api-football",
+                                help_text="Mtoaji wa data wa mechi hii: api-football / highlightly")
     competition = models.CharField(max_length=80, blank=True)
     competition_logo = models.URLField(max_length=300, blank=True)
     round = models.CharField(max_length=80, blank=True)
