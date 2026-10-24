@@ -1656,6 +1656,24 @@ class FootballAutoLiveTest(TestCase):
         self.assertFalse(a.is_live)
         self.assertEqual(LiveMatch.objects.get().status, "FT")
 
+    def test_live_mode_fetches_events_when_the_score_changes(self):
+        from news.models import FootballState
+        goal = {"time": {"elapsed": 30, "extra": None}, "team": {"id": 49, "name": "Chelsea"},
+                "player": {"id": 10, "name": "C. Palmer"}, "assist": {}, "type": "Goal", "detail": "Normal Goal"}
+        self.run_with(_Resp([_fixture()]), _Resp([_fixture(status="1H", elapsed=1, hg=0, ag=0)]))
+        FootballState.objects.update(live_mode="live")
+        a = Article.objects.get()
+        # 'live' haina matukio; magoli yamebadilika -> ombi la id linaleta mfungaji
+        self.calls.clear()
+        self.run_with(_Resp([dict(_fixture(status="1H", elapsed=31, hg=0, ag=1), events=[])]),
+                      _Resp([_fixture(status="1H", elapsed=31, hg=0, ag=1, events=[goal])]))
+        self.assertEqual([c.get("id") for c in self.calls], [None, 101])
+        self.assertTrue(a.live_updates.filter(kind="goal", text__contains="C. Palmer").exists())
+        # hakuna kilichobadilika -> ombi 1 tu
+        self.calls.clear()
+        self.run_with(_Resp([dict(_fixture(status="1H", elapsed=35, hg=0, ag=1), events=[])]))
+        self.assertEqual(len(self.calls), 1)
+
     def test_a_failed_request_is_not_retried_every_minute(self):
         from news import football
         self.run_with(_Resp([], errors={"token": "Error/Missing application key."}))
