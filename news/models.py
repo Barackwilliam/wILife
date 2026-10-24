@@ -428,6 +428,7 @@ class FootballState(models.Model):
     live_mode = models.CharField(max_length=5, blank=True,
                                  help_text="Njia ya kuuliza mechi zinazochezwa ambayo mpango unaruhusu: ids / live / id")
     error = models.CharField(max_length=300, blank=True)
+    sample = models.TextField(blank=True, help_text="Mfano wa jibu halisi la API (mechi moja) — kuhakiki majina ya sehemu")
 
     def __str__(self):
         return f"{self.day}: {self.requests}"

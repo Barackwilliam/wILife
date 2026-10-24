@@ -302,6 +302,18 @@ SITE_URL = SITE_URL.rstrip("/")
 # ── LIVE ya kujiendesha: mechi za kimataifa (news/football.py) ──
 # Ufunguo kutoka dashboard.api-football.com (api-sports.io). Tupu = imezimwa.
 API_FOOTBALL_KEY = env("API_FOOTBALL_KEY", "")
+# Highlightly (highlightly.net) — ikiwa na ufunguo, ndiyo inayotumika badala ya API-Football (news/highlightly.py).
+HIGHLIGHTLY_API_KEY = env("HIGHLIGHTLY_API_KEY", "")
+HIGHLIGHTLY_VIA_RAPIDAPI = env_bool("HIGHLIGHTLY_VIA_RAPIDAPI", False)   # True = ufunguo wa RapidAPI
+# "Nchi:Ligi" kwa kipaumbele; '*' = nchi yoyote (mashindano ya kimataifa)
+HIGHLIGHTLY_LEAGUES = [x.strip() for x in env(
+    "HIGHLIGHTLY_LEAGUES",
+    "England:Premier League,Spain:La Liga,Italy:Serie A,Germany:Bundesliga,France:Ligue 1,"
+    "*:UEFA Champions League,*:UEFA Europa League,*:World Cup,*:Africa Cup of Nations,"
+    "*:CAF Champions League,*:CAF Confederation Cup,Tanzania:Premier League,Tanzania:Ligi Kuu Bara",
+).split(",") if x.strip()]
+HIGHLIGHTLY_DAILY_LIMIT = int(env("HIGHLIGHTLY_DAILY_LIMIT", "100"))      # mpango wa bure: 100
+HIGHLIGHTLY_SCHEDULE_HOURS = int(env("HIGHLIGHTLY_SCHEDULE_HOURS", "8"))
 # Ligi kwa kipaumbele: EPL, La Liga, Serie A, Bundesliga, Ligue 1, UEFA Champions League,
 # Europa League, Kombe la Dunia, AFCON, CAF Champions League, CAF Confederation Cup.
 API_FOOTBALL_LEAGUES = [x.strip() for x in env("API_FOOTBALL_LEAGUES", "39,140,135,78,61,2,3,1,6,12,20").split(",") if x.strip()]
