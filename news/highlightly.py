@@ -305,7 +305,9 @@ def schedule(state, day):
         for raw in rows:
             r = rank(raw)
             if r is not None and raw.get("id") is not None:
-                found.append((r, raw.get("date") or "", normalize(raw)))
+                item = normalize(raw)
+                item["_rank"] = r
+                found.append((r, raw.get("date") or "", item))
         total = ((data.get("pagination") or {}).get("totalCount") if isinstance(data, dict) else None) or 0
         _scan["total"] = total
         if len(rows) < PAGE or (page + 1) * PAGE >= total:

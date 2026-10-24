@@ -11,6 +11,7 @@ from django.db.models import Count, F, Q
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.templatetags.static import static
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
 from django.views.decorators.cache import cache_control, cache_page, never_cache
@@ -241,6 +242,68 @@ def live_hub(request):
         "done": done,
         "live_count": len(on),
         "live_v": _live_version(on, soon, done),
+    })
+
+
+def _day_version(rows):
+    """Alama ya ukurasa wa siku: matokeo/hali ikibadilika, ukurasa unajibadilisha bila kurefresh."""
+    import hashlib
+    key = [(r.key, r.status, r.home_goals, r.away_goals, r.minute) for r in rows]
+    return hashlib.md5(repr(key).encode()).hexdigest()[:12]
+
+
+def _day_page(request, day, kind):
+    """Mechi za siku moja: ratiba, matokeo (LIVE ikiendelea) na makadirio, kwa ligi."""
+    from news import fixtures, predict
+    from news.pipeline import swahili_date
+    today = timezone.localdate()
+    rows = fixtures.day_rows(day)
+    if kind == "siku" and not rows:
+        raise Http404
+    counts = {"on": sum(r.is_playing for r in rows), "done": sum(r.is_finished for r in rows),
+              "soon": sum(r.status == "NS" for r in rows)}
+    canonical = {today: "news:matches_today", today - timedelta(days=1): "news:results_yesterday"}.get(day)
+    return render(request, "news/day.html", {
+        "kind": kind, "day": day, "date_text": swahili_date(day), "rows": rows, "groups": fixtures.groups(rows),
+        "counts": counts, "is_today": day == today, "is_past": day < today,
+        "prev_day": day - timedelta(days=1), "next_day": day + timedelta(days=1) if day + timedelta(days=2) < today else None,   # jana/leo zina vitufe vyao
+        "canonical": reverse(canonical) if canonical else request.path,
+        "page_v": _day_version(rows), "has_live": bool(counts["on"]),
+        "record": predict.record(30),
+    })
+
+
+@_live_page
+def matches_today(request):
+    return _day_page(request, timezone.localdate(), "leo")
+
+
+@_live_page
+def results_yesterday(request):
+    return _day_page(request, timezone.localdate() - timedelta(days=1), "jana")
+
+
+@_live_page
+def matches_day(request, day):
+    from datetime import date
+    try:
+        when = date.fromisoformat(day)
+    except ValueError:
+        raise Http404
+    today = timezone.localdate()
+    if when > today or when < today - timedelta(days=400):
+        raise Http404
+    return _day_page(request, when, "siku")
+
+
+@_live_page
+def predictions(request):
+    """Makadirio ya mechi zijazo + rekodi ya wazi ya yalivyopatia."""
+    from news import predict
+    upcoming = predict.upcoming()
+    return render(request, "news/predictions.html", {
+        "upcoming": upcoming, "week": predict.record(7), "record": predict.record(30),
+        "page_v": _day_version([]) + str(len(upcoming)),
     })
 
 

@@ -35,10 +35,10 @@ class SectionSitemap(Sitemap):
     priority = 1.0
 
     def items(self):
-        return ["home", "live_hub", "latest"] + list(Category.values)
+        return ["home", "live_hub", "matches_today", "results_yesterday", "predictions", "latest"] + list(Category.values)
 
     def location(self, item):
-        if item in ("home", "live_hub", "latest"):
+        if item in ("home", "live_hub", "matches_today", "results_yesterday", "predictions", "latest"):
             return reverse(f"news:{item}")
         return reverse("news:category", args=[item])
 
@@ -74,5 +74,21 @@ class TopicSitemap(Sitemap):
         return reverse("news:topic", args=[item])
 
 
-SITEMAPS = {"topics": TopicSitemap, "sections": SectionSitemap, "articles": ArticleSitemap,
+class DaySitemap(Sitemap):
+    """Kurasa za matokeo ya siku zilizopita (/mechi/<tarehe>/) — leo na jana zina anwani zao za kudumu."""
+    changefreq = "weekly"
+    priority = 0.5
+
+    def items(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        from news.fixtures import days_with_fixtures
+        yesterday = timezone.localdate() - timedelta(days=1)
+        return [d for d in days_with_fixtures() if d < yesterday]
+
+    def location(self, item):
+        return reverse("news:matches_day", args=[item.isoformat()])
+
+
+SITEMAPS = {"days": DaySitemap, "topics": TopicSitemap, "sections": SectionSitemap, "articles": ArticleSitemap,
             "services": ServiceSitemap, "pages": StaticSitemap}

@@ -17,7 +17,7 @@ from datetime import timedelta
 from django.core.cache import cache
 from django.utils import timezone
 
-from news import highlightly
+from news import highlightly, predict
 from news.models import LiveMatch
 
 log = logging.getLogger("news.enrich")
@@ -193,6 +193,9 @@ def insights(m):
             w = letters.count("W")
             out.append(f"{team}: ushindi {w} katika mechi {len(letters)} zilizopita "
                        f"({', '.join(FORM_SW[l] for l in letters)}).")
+    guess = predict.sentence(m)
+    if guess:
+        out.append(guess)
     poss = next((r for r in x.get("stats") or [] if r["name"] == "Umiliki wa mpira"), None)
     if poss and m.status != "NS":
         lead = m.home if poss["pct"] >= 50 else m.away
@@ -237,6 +240,9 @@ def run(state, now):
         provider="highlightly", fixture_id__isnull=False, article__status="published",
         kickoff__gte=now - timedelta(hours=6), kickoff__lte=now + timedelta(hours=24)).order_by("kickoff"))
     for m in matches:
+        x = m.extra or {}
+        if m.status == "NS" and x.get("h2h_done") and "prediction" not in x and predict.ensure(m):
+            _refresh_body(m)                     # fomu ilipatikana kabla makadirio hayajakuwepo
         if spent >= PER_TICK or _left(state) <= 5:
             break
         x = m.extra or {}
@@ -265,6 +271,7 @@ def run(state, now):
                     form(state, m, side)
                     spent += 1
             _save(m, {"h2h_done": True})
+            predict.ensure(m)
             _refresh_body(m)
     return spent
 
