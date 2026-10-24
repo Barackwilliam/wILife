@@ -1546,6 +1546,9 @@ class FootballAutoLiveTest(TestCase):
         from news import football
         queue = list(responses)
 
+        from news.models import FootballState
+        FootballState.objects.update(live_at=None)   # kila run_with = tick baada ya muda wa kuangalia mechi kufika
+
         def fake_get(url, params=None, headers=None, timeout=None):
             self.calls.append(params)
             self.assertEqual(headers["x-apisports-key"], "test-key")
@@ -1630,6 +1633,46 @@ class FootballAutoLiveTest(TestCase):
         self.assertFalse(a.is_live)
         self.assertTrue(a.title.startswith("Arsenal 0-1 Chelsea"))
         self.assertIn("C. Palmer anaifungia Chelsea", a.body)
+
+    def test_free_plan_without_ids_falls_back_to_live_and_finishes_matches(self):
+        from news import football
+        from news.models import FootballState, LiveMatch
+        plan = _Resp([], errors={"plan": "Free plans do not have access to the Ids parameter."})
+        goal = {"time": {"elapsed": 5, "extra": None}, "team": {"id": 42, "name": "Arsenal"},
+                "player": {"id": 7, "name": "B. Saka"}, "assist": {}, "type": "Goal", "detail": "Normal Goal"}
+        # ratiba; ids imekataliwa -> live (mechi inachezwa)
+        out = self.run_with(_Resp([_fixture()]), plan, _Resp([_fixture(status="1H", elapsed=5, hg=1, ag=0, events=[goal])]))
+        self.assertEqual(out["failed"], 0, out)
+        self.assertEqual(self.calls[2]["live"], "39")
+        state = FootballState.objects.get()
+        self.assertEqual(state.live_mode, "live")
+        a = Article.objects.get()
+        self.assertTrue(a.is_live)
+        # Tick inayofuata: haijaribu ids tena; mechi haipo kwenye 'live' -> imeisha -> inaulizwa kwa id
+        self.calls.clear()
+        self.run_with(_Resp([]), _Resp([_fixture(status="FT", elapsed=90, hg=1, ag=0, events=[goal])]))
+        self.assertEqual([("live" in c, c.get("id")) for c in self.calls], [(True, None), (False, 101)])
+        a.refresh_from_db()
+        self.assertFalse(a.is_live)
+        self.assertEqual(LiveMatch.objects.get().status, "FT")
+
+    def test_a_failed_request_is_not_retried_every_minute(self):
+        from news import football
+        self.run_with(_Resp([], errors={"token": "Error/Missing application key."}))
+        self.assertEqual(len(self.calls), 1)
+        self.run_with()                           # tick ya dakika inayofuata: hakuna ombi jipya
+        self.assertEqual(len(self.calls), 1)
+
+    @override_settings(API_FOOTBALL_LIVE_SECONDS=120)
+    def test_free_plan_requests_are_spread_until_the_last_match_ends(self):
+        from news import football
+        self.run_with(_Resp([_fixture(kickoff=timezone.now() - timedelta(minutes=10)),
+                             _fixture(fid=102, kickoff=timezone.now() + timedelta(hours=8))]),
+                      _Resp([]))
+        state = football._state()
+        gap = football.live_interval(state, timezone.now()).total_seconds()
+        self.assertGreater(gap, 300)              # ~10.5h / ~94 maombi
+        self.assertLess(gap, 600)
 
     def test_no_key_does_nothing_and_api_errors_are_recorded(self):
         from news import football

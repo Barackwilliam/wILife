@@ -413,6 +413,8 @@ class FootballState(models.Model):
     remaining = models.IntegerField(null=True, blank=True, help_text="Kwa mujibu wa API yenyewe")
     schedule_at = models.DateTimeField(null=True, blank=True)
     live_at = models.DateTimeField(null=True, blank=True)
+    live_mode = models.CharField(max_length=5, blank=True,
+                                 help_text="Njia ya kuuliza mechi zinazochezwa ambayo mpango unaruhusu: ids / live / id")
     error = models.CharField(max_length=300, blank=True)
 
     def __str__(self):
