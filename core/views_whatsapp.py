@@ -175,6 +175,14 @@ def whatsapp_qr(request):
 
 def _handle_message(from_number, text):
     """Act on an approval reply. Returns the confirmation text, or '' to stay silent."""
+    from news import live_chat
+    if live_chat.is_command(text):            # LIVE: mhariri anaripoti mechi kutoka WhatsApp
+        user = _authorised_user(from_number)
+        if user is None:
+            log.warning("live command from unauthorised number %s", from_number)
+            return ""
+        return live_chat.from_chat(text, user) or ""
+
     decision, code = approvals.parse_reply(text)
     if not decision:
         from news import commission

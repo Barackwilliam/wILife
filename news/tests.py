@@ -1425,3 +1425,70 @@ class LiveCoverageTest(TestCase):
         self.a.status = "draft"
         self.a.save()
         self.assertEqual(self.client.get(f"/habari/live/{self.a.pk}.json").status_code, 404)
+
+
+@override_settings(WHATSAPP_BRIDGE_KEY="bridge-key", AGENT_DEFAULT_RECIPIENT="255712345678",
+                   TELEGRAM_WEBHOOK_SECRET="tg-secret", AGENT_TELEGRAM_CHAT_ID="42", SITE_URL="https://www.wlife.online")
+class LiveFromChatTest(TestCase):
+    """Mhariri anaripoti mechi kutoka WhatsApp / Telegram — kupitia milango ile ile bridge na Telegram zinayotumia."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        User.objects.create_user("william", "w@x.com", "p", is_superuser=True, is_staff=True)
+        cover = mock.patch("news.models.Article.render_cover")
+        cover.start()
+        self.addCleanup(cover.stop)
+
+    def wa(self, message, phone="255712345678"):
+        r = self.client.post("/agent/whatsapp/baileys/", json.dumps({"phone": phone, "message": message}),
+                             content_type="application/json", HTTP_X_BRIDGE_KEY="bridge-key")
+        self.assertEqual(r.status_code, 200)
+        return r.json()["reply"]
+
+    def test_whatsapp_runs_a_whole_match(self):
+        reply = self.wa("live anza Simba vs Yanga")
+        a = Article.objects.get()
+        self.assertIn("LIVE imeanza", reply)
+        self.assertIn(f"https://www.wlife.online{a.get_absolute_url()}", reply)
+        self.assertTrue(a.is_live)
+        self.assertEqual(a.status, "published")
+
+        self.assertIn("Sasisho limewekwa", self.wa("live 1' Mechi imeanza!"))
+        self.assertIn("Simba 1-0 Yanga", self.wa("LIVE 6' GOOOL! Chama anafunga | Simba 1-0 Yanga"))
+        self.assertIn("Simba 1-1 Yanga", self.wa("live matokeo Simba 1-1 Yanga"))
+        self.wa("live 45+2' Kipindi cha kwanza kimeisha")
+        updates = list(a.live_updates.order_by("created_at", "id").values_list("label", "text"))
+        self.assertEqual(updates, [("1'", "Mechi imeanza!"), ("6'", "GOOOL! Chama anafunga"),
+                                   ("45+2'", "Kipindi cha kwanza kimeisha")])
+
+        status = self.wa("live")
+        self.assertIn("Inaendelea: Simba vs Yanga", status)
+        self.assertIn("live mwisho", status)
+
+        page = self.client.get(a.get_absolute_url()).content.decode()
+        self.assertIn("Simba 1-1 Yanga", page)
+        self.assertIn("GOOOL! Chama anafunga", page)
+
+        self.assertIn("LIVE imeisha", self.wa("live mwisho"))
+        a.refresh_from_db()
+        self.assertFalse(a.is_live)
+        self.assertIn("Hakuna LIVE inayoendelea", self.wa("live 90' Bado?"))
+
+    def test_strangers_cannot_post_and_other_messages_are_untouched(self):
+        self.assertEqual(self.wa("live anza Mechi bandia", phone="255700000999"), "")
+        self.assertFalse(Article.objects.exists())
+        self.assertEqual(self.wa("Habari za leo?"), "")              # si amri — kimya kama zamani
+        self.assertFalse(Article.objects.exists())
+
+    def test_telegram_works_the_same(self):
+        sent = []
+        with mock.patch("core.views_telegram.send_telegram", side_effect=lambda chat, text: sent.append(text)):
+            for text in ("live anza Azam vs Namungo", "live 12' Penalti kwa Azam | Azam 1-0 Namungo"):
+                r = self.client.post("/agent/telegram/", json.dumps({"message": {"chat": {"id": 42}, "text": text}}),
+                                     content_type="application/json", HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN="tg-secret")
+                self.assertEqual(r.status_code, 200)
+        self.assertIn("LIVE imeanza: Azam vs Namungo", sent[0])
+        self.assertIn("Azam 1-0 Namungo", sent[1])
+        self.assertEqual(Article.objects.get().live_updates.get().label, "12'")

@@ -73,6 +73,14 @@ def _handle(payload):
         log.warning("ignoring telegram message from unknown chat %s", chat_id)
         return
 
+    from news import live_chat
+    if live_chat.is_command(text):            # LIVE: mhariri anaripoti mechi kutoka Telegram
+        try:
+            send_telegram(chat_id, live_chat.from_chat(text))
+        except Exception as exc:
+            log.error("could not confirm live command: %s", exc)
+        return
+
     decision, code = approvals.parse_reply(text)
     if not decision:
         from news import commission
