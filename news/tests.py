@@ -1871,3 +1871,133 @@ class MatchCoverTest(TestCase):
         with mock.patch.dict(os.environ, {"RENDER_GIT_COMMIT": "abc1234def"}):
             page = self.client.get("/kuhusu/").content.decode()
         self.assertRegex(page, r"news(\.[0-9a-f]+)?\.css\?v=abc1234d")
+
+
+def _hl(mid=7001, desc="Not started", clock=None, score=None, events=None, league="Premier League",
+        country="England", kickoff=None):
+    """Mechi moja kama Highlightly inavyoirudisha (muundo wa github.com/Highlightly/world-cup-tracker)."""
+    kickoff = kickoff or (timezone.now() + timedelta(minutes=1))
+    raw = {"id": mid, "date": kickoff.isoformat(), "round": "Regular Season - 9",
+           "country": {"name": country}, "league": {"id": 33973, "name": league, "logo": "https://hl.example/l.png"},
+           "homeTeam": {"id": 1, "name": "Arsenal", "logo": "https://hl.example/1.png"},
+           "awayTeam": {"id": 2, "name": "Chelsea", "logo": "https://hl.example/2.png"},
+           "state": {"description": desc, "clock": clock, "score": {"current": score}},
+           "venue": {"name": "Emirates Stadium", "city": "London"}}
+    if events is not None:
+        raw["events"] = events
+    return raw
+
+
+class _HLResp:
+    def __init__(self, body, status=200):
+        self.body, self.status_code, self.headers = body, status, {}
+
+    def json(self):
+        return self.body
+
+
+@override_settings(HIGHLIGHTLY_API_KEY="hl-key", API_FOOTBALL_KEY="", API_FOOTBALL_LIVE_SECONDS=0,
+                   HIGHLIGHTLY_LEAGUES=["England:Premier League", "*:CAF Champions League"],
+                   SITE_URL="https://www.wlife.online")
+class HighlightlyProviderTest(TestCase):
+    """LIVE ya kujiendesha kupitia Highlightly — mtiririko ule ule, data ya mtoaji mwingine."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        for target in ("news.models.Article.render_cover", "news.indexnow.submit"):
+            p = mock.patch(target)
+            p.start()
+            self.addCleanup(p.stop)
+        p = mock.patch("news.football._image", return_value=None)
+        p.start()
+        self.addCleanup(p.stop)
+        self.calls = []
+
+    def run_with(self, *responses):
+        from news import football
+        from news.models import FootballState
+        FootballState.objects.update(live_at=None)
+        queue = list(responses)
+
+        def fake_get(url, params=None, headers=None, timeout=None):
+            self.calls.append((url, params))
+            self.assertEqual(headers["x-rapidapi-key"], "hl-key")
+            return queue.pop(0)
+        with mock.patch("news.highlightly.requests.get", side_effect=fake_get):
+            return football.run()
+
+    def test_match_runs_from_preview_to_final_with_scorers(self):
+        from news.models import FootballState, LiveMatch
+        schedule = _HLResp({"data": [_hl(), _hl(mid=7002, league="Premier League", country="Kenya")],
+                            "pagination": {"totalCount": 2}})
+        out = self.run_with(schedule, _HLResp([_hl(events=[])]))
+        self.assertEqual(out["failed"], 0, out)
+        self.assertTrue(self.calls[0][0].endswith("/matches"))
+        self.assertEqual(self.calls[0][1]["date"], timezone.localdate().isoformat())
+        a = Article.objects.get()                          # Premier League ya Kenya haikuchaguliwa
+        self.assertEqual(a.title, "Arsenal vs Chelsea LIVE: Matokeo na Matukio Yote — Premier League")
+        m = LiveMatch.objects.get()
+        self.assertEqual((m.home_logo, m.venue, m.status), ("https://hl.example/1.png", "Emirates Stadium", "NS"))
+        self.assertIn('"Arsenal"', FootballState.objects.get().sample)
+
+        goal = {"type": "Goal", "time": "23", "team": {"id": 1, "name": "Arsenal"},
+                "player": "B. Saka", "assist": "M. Ødegaard"}
+        card = {"type": "Yellow Card", "time": "45+2", "team": {"id": 2, "name": "Chelsea"}, "player": "M. Caicedo"}
+        sub = {"type": "Substitution", "time": "60", "team": {"id": 2, "name": "Chelsea"},
+               "player": "J. Pedro", "substituted": "N. Jackson"}
+        self.run_with(_HLResp([_hl(desc="Second half", clock=61, score="1 - 0", events=[goal, card, sub])]))
+        self.assertTrue(self.calls[-1][0].endswith("/matches/7001"))
+        a.refresh_from_db()
+        self.assertTrue(a.is_live)
+        self.assertEqual(a.live_score, "Arsenal 1 - 0 Chelsea")
+        rows = list(a.live_updates.order_by("created_at", "id").values_list("label", "kind", "text"))
+        self.assertEqual(rows[1], ("23'", "goal", "⚽ GOLI! B. Saka anaifungia Arsenal. Pasi: M. Ødegaard. "
+                                                 "(Arsenal 1-0 Chelsea)"))
+        self.assertEqual(rows[2], ("45+2'", "card", "🟨 Kadi ya njano kwa M. Caicedo (Chelsea)."))
+        self.assertEqual(rows[3][:2], ("60'", "sub"))
+        self.assertIn("J. Pedro ↔ N. Jackson", rows[3][2])
+        self.assertEqual(LiveMatch.objects.get().minute, 61)
+
+        self.run_with(_HLResp([_hl(desc="Finished", clock=90, score="2 - 0", events=[goal, card, sub, dict(
+            goal, time="88", player="G. Martinelli", assist=None, type="Penalty")])]))
+        a.refresh_from_db()
+        self.assertFalse(a.is_live)
+        self.assertTrue(a.title.startswith("Arsenal 2-0 Chelsea: Matokeo"))
+        self.assertIn("G. Martinelli anaifungia Arsenal kwa penalti", a.body)
+        self.assertEqual(LiveMatch.objects.get().status, "FT")
+
+    def test_status_and_score_mapping(self):
+        from news import highlightly
+        cases = {"Not started": "NS", "To be announced": "NS", "First half": "1H", "Half time": "HT",
+                 "Second half": "2H", "Extra time": "ET", "Penalties": "P", "Finished": "FT",
+                 "Finished after extra time": "AET", "Finished after penalties": "PEN", "Postponed": "PST",
+                 "Cancelled": "CANC", "Abandoned": "ABD"}
+        for desc, code in cases.items():
+            self.assertEqual(highlightly._status({"state": {"description": desc}}), code, desc)
+        item = highlightly.normalize(_hl(desc="First half", clock="34", score="2 - 1"))
+        self.assertEqual((item["goals"], item["fixture"]["status"]), ({"home": 2, "away": 1},
+                                                                     {"short": "1H", "elapsed": 34}))
+        self.assertEqual(highlightly.normalize(_hl())["goals"], {"home": None, "away": None})
+
+    def test_rules_match_country_and_international_cups(self):
+        from news import highlightly
+        self.assertEqual(highlightly.rank(_hl()), 0)
+        self.assertIsNone(highlightly.rank(_hl(country="Kenya")))
+        self.assertEqual(highlightly.rank(_hl(league="CAF Champions League", country="World")), 1)
+
+    def test_api_errors_are_shown_and_not_retried_every_minute(self):
+        from news.models import FootballState
+        out = self.run_with(_HLResp({"message": "Invalid API key"}, status=401))
+        self.assertEqual(out["failed"], 1)
+        self.assertIn("Highlightly 401: Invalid API key", FootballState.objects.get().error)
+        self.run_with()                                   # dakika inayofuata: hakuna ombi jipya
+        self.assertEqual(len(self.calls), 1)
+
+    @override_settings(HIGHLIGHTLY_VIA_RAPIDAPI=True)
+    def test_rapidapi_key_uses_the_rapidapi_host(self):
+        from news import highlightly
+        base, headers = highlightly._base_and_headers()
+        self.assertEqual(base, "https://football-highlights-api.p.rapidapi.com")
+        self.assertEqual(headers["x-rapidapi-host"], "football-highlights-api.p.rapidapi.com")

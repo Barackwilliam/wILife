@@ -62,13 +62,34 @@ def _state(now=None):
     return state
 
 
-def _get(path, params, state):
-    """Ombi moja kwa API, likihesabiwa. Linarudisha orodha ya `response`."""
-    limit = getattr(settings, "API_FOOTBALL_DAILY_LIMIT", 100)
+def provider():
+    """Mtoaji wa data anayetumika: Highlightly (ukiwa na ufunguo wake), vinginevyo API-Football."""
+    from news import highlightly
+    if highlightly.key() and highlightly.rules():
+        return "highlightly"
+    if key() and leagues():
+        return "api-football"
+    return ""
+
+
+def daily_limit():
+    if provider() == "highlightly":
+        return getattr(settings, "HIGHLIGHTLY_DAILY_LIMIT", 100)
+    return getattr(settings, "API_FOOTBALL_DAILY_LIMIT", 100)
+
+
+def spend(state):
+    """Hesabu ombi moja kabla ya kulituma — kikomo cha siku hakivukwi kamwe."""
+    limit = daily_limit()
     if state.requests >= limit - RESERVE or (state.remaining is not None and state.remaining <= RESERVE):
         raise QuotaExhausted(f"maombi {state.requests}/{limit} ya leo yameisha")
     FootballState.objects.filter(pk=state.pk).update(requests=state.requests + 1)
     state.requests += 1
+
+
+def _get(path, params, state):
+    """Ombi moja kwa API-Football, likihesabiwa. Linarudisha orodha ya `response`."""
+    spend(state)
     r = requests.get(f"{API}{path}", params=params, headers={"x-apisports-key": key()}, timeout=15)
     remaining = r.headers.get("x-ratelimit-requests-remaining")
     if remaining is not None and remaining.lstrip("-").isdigit():
@@ -221,16 +242,19 @@ def max_per_day():
     cap = getattr(settings, "API_FOOTBALL_MAX_PER_DAY", None)
     if cap:
         return cap
-    return 5 if getattr(settings, "API_FOOTBALL_DAILY_LIMIT", 100) <= 100 else 20
+    return 5 if daily_limit() <= 100 else 20
 
 
 def sync_schedule(state, now):
     today = _local(now).date()
-    items = _get("/fixtures", {"date": today.isoformat(), "timezone": settings.TIME_ZONE}, state)
-    wanted = leagues()
-    rank = {lid: i for i, lid in enumerate(wanted)}
-    items = sorted((i for i in items if i.get("league", {}).get("id") in rank),
-                   key=lambda i: (rank[i["league"]["id"]], i["fixture"].get("date", "")))
+    if provider() == "highlightly":
+        from news import highlightly
+        items = highlightly.schedule(state, today)        # tayari zimechujwa na kupangwa
+    else:
+        items = _get("/fixtures", {"date": today.isoformat(), "timezone": settings.TIME_ZONE}, state)
+        rank = {lid: i for i, lid in enumerate(leagues())}
+        items = sorted((i for i in items if i.get("league", {}).get("id") in rank),
+                       key=lambda i: (rank[i["league"]["id"]], i["fixture"].get("date", "")))
     cap = max_per_day()
     start = timezone.make_aware(datetime.combine(today, datetime.min.time()))
     made = Article.objects.filter(origin="football", created_at__gte=start).count()
@@ -432,9 +456,13 @@ def sync_live(state, now):
         return 0
     state.live_at = now                       # muda wa jaribio — kosa lisirudiwe kila dakika
     state.save(update_fields=["live_at"])
-    names = [n for n, _ in MODES]
+    modes = MODES
+    if provider() == "highlightly":
+        from news import highlightly
+        modes = [("hl", lambda st, ms: [i for m in ms for i in highlightly.match(st, m)])]
+    names = [n for n, _ in modes]
     start = names.index(state.live_mode) if state.live_mode in names else 0
-    for name, fetch in MODES[start:]:
+    for name, fetch in modes[start:]:
         try:
             items = fetch(state, matches)
         except PlanError:
@@ -461,7 +489,7 @@ def live_interval(state, now):
     usiishe kabla ya mechi za jioni.
     """
     base = getattr(settings, "API_FOOTBALL_LIVE_SECONDS", 120)
-    left = getattr(settings, "API_FOOTBALL_DAILY_LIMIT", 100) - RESERVE - state.requests - 2  # 2: ratiba
+    left = daily_limit() - RESERVE - state.requests - 2  # 2: ratiba
     last = (LiveMatch.objects.filter(fixture_id__isnull=False, article__status="published",
                                      kickoff__gte=now - timedelta(hours=4))
             .exclude(status__in=LiveMatch.FINISHED | LiveMatch.OFF)
@@ -469,15 +497,15 @@ def live_interval(state, now):
     if not last or left <= 0:
         return timedelta(seconds=base)
     horizon = (last + timedelta(minutes=150) - now).total_seconds()
-    per_poll = len(active(now)) if state.live_mode == "id" else 1
+    per_poll = len(active(now)) if state.live_mode in ("id", "hl") or provider() == "highlightly" else 1
     return timedelta(seconds=max(base, horizon / left * per_poll))
 
 
 def run(now=None, deadline=None, dry_run=False):
     """Kazi ya tick ya wakala."""
     out = {"job": "football", "sent": 0, "failed": 0, "detail": ""}
-    if not key() or not leagues():
-        out["detail"] = "API_FOOTBALL_KEY haijawekwa"
+    if not provider():
+        out["detail"] = "HIGHLIGHTLY_API_KEY / API_FOOTBALL_KEY haijawekwa"
         return out
     if dry_run:
         out["detail"] = "dry run"
@@ -486,7 +514,10 @@ def run(now=None, deadline=None, dry_run=False):
     state = _state(now)
     notes = []
     try:
-        every = timedelta(hours=getattr(settings, "API_FOOTBALL_SCHEDULE_HOURS", 6))
+        hours = getattr(settings, "API_FOOTBALL_SCHEDULE_HOURS", 6)
+        if provider() == "highlightly":          # ratiba ya siku nzima ni kurasa kadhaa — mara chache
+            hours = getattr(settings, "HIGHLIGHTLY_SCHEDULE_HOURS", 8)
+        every = timedelta(hours=hours)
         if not state.schedule_at or now - state.schedule_at >= every:
             state.schedule_at = now           # muda wa jaribio — kosa lisirudiwe kila dakika
             state.save(update_fields=["schedule_at"])

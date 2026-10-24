@@ -141,4 +141,4 @@ class EditorSettingsAdmin(admin.ModelAdmin):
 class FootballStateAdmin(admin.ModelAdmin):
     """Maombi ya API-Football kwa siku — kikomo cha bure ni 100."""
     list_display = ("day", "requests", "remaining", "schedule_at", "live_at", "live_mode", "error")
-    readonly_fields = ("day", "requests", "remaining", "schedule_at", "live_at", "live_mode", "error")
+    readonly_fields = ("day", "requests", "remaining", "schedule_at", "live_at", "live_mode", "error", "sample")
