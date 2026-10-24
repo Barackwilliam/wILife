@@ -260,14 +260,15 @@ def sync_schedule(state, now):
     made = Article.objects.filter(origin="football", created_at__gte=start).count()
     created = 0
     for item in items:
-        m = LiveMatch.objects.filter(fixture_id=item["fixture"]["id"]).select_related("article").first()
+        m = (LiveMatch.objects.filter(fixture_id=item["fixture"]["id"], provider=provider())
+             .select_related("article").first())
         if m:
             if m.article.status == "published":     # LIVE iliyoondolewa na mhariri haiguswi tena
                 apply(item, m)
             continue
         if made >= cap:
             continue
-        m = LiveMatch(article=None)
+        m = LiveMatch(article=None, provider=provider())
         _fill(m, item)
         if m.status in LiveMatch.FINISHED | LiveMatch.OFF:
             continue                  # mechi iliyokwisha kabla hatujaiona haina LIVE ya kuonyesha
@@ -393,7 +394,7 @@ def apply(item, m=None):
 def active(now):
     """Mechi zinazohitaji kuangaliwa sasa: zimeanza (au zinakaribia) na bado hazijaisha."""
     return list(LiveMatch.objects.select_related("article").filter(
-        fixture_id__isnull=False, article__status="published", kickoff__lte=now + timedelta(minutes=3), kickoff__gte=now - timedelta(hours=4))
+        fixture_id__isnull=False, provider=provider(), article__status="published", kickoff__lte=now + timedelta(minutes=3), kickoff__gte=now - timedelta(hours=4))
         .exclude(status__in=LiveMatch.FINISHED | LiveMatch.OFF).order_by("kickoff")[:MAX_IDS])
 
 
@@ -490,7 +491,7 @@ def live_interval(state, now):
     """
     base = getattr(settings, "API_FOOTBALL_LIVE_SECONDS", 120)
     left = daily_limit() - RESERVE - state.requests - 2  # 2: ratiba
-    last = (LiveMatch.objects.filter(fixture_id__isnull=False, article__status="published",
+    last = (LiveMatch.objects.filter(fixture_id__isnull=False, provider=provider(), article__status="published",
                                      kickoff__gte=now - timedelta(hours=4))
             .exclude(status__in=LiveMatch.FINISHED | LiveMatch.OFF)
             .order_by("-kickoff").values_list("kickoff", flat=True).first())
@@ -516,12 +517,15 @@ def run(now=None, deadline=None, dry_run=False):
     try:
         hours = getattr(settings, "API_FOOTBALL_SCHEDULE_HOURS", 6)
         if provider() == "highlightly":          # ratiba ya siku nzima ni kurasa kadhaa — mara chache
-            hours = getattr(settings, "HIGHLIGHTLY_SCHEDULE_HOURS", 8)
+            hours = getattr(settings, "HIGHLIGHTLY_SCHEDULE_HOURS", 24)
         every = timedelta(hours=hours)
         if not state.schedule_at or now - state.schedule_at >= every:
             state.schedule_at = now           # muda wa jaribio — kosa lisirudiwe kila dakika
             state.save(update_fields=["schedule_at"])
             notes.append(f"ratiba: mpya {sync_schedule(state, now)}")
+            if provider() == "highlightly":
+                from news import highlightly
+                notes.append(highlightly.last_scan_note())
         for m in LiveMatch.objects.select_related("article").filter(
                 fixture_id__isnull=False, cover_ok=False, article__status="published")[:3]:
             refresh_cover(m)                   # mechi za zamani zenye picha za mfumo -> nembo za timu

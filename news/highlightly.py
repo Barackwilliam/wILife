@@ -29,7 +29,8 @@ BASE = "https://soccer.highlightly.net"
 RAPIDAPI_BASE = "https://football-highlights-api.p.rapidapi.com"
 RAPIDAPI_HOST = "football-highlights-api.p.rapidapi.com"
 PAGE = 100
-MAX_PAGES = 6            # ratiba ya siku nzima: hadi mechi 600 — inalinda maombi 100 ya siku
+MAX_PAGES = 15           # ratiba ya siku nzima (mechi za dunia nzima): hadi mechi 1500, mara moja kwa siku
+_scan = {"pages": 0, "total": 0, "rows": 0}
 
 
 def key():
@@ -225,11 +226,14 @@ def normalize(raw):
 def schedule(state, day):
     """Mechi za siku za ligi zetu, kwa kipaumbele. Kurasa kadhaa (100 kwa ukurasa)."""
     found = []
+    _scan.update(pages=0, total=0, rows=0)
     for page in range(MAX_PAGES):
         data = _get("/matches", {"date": day.isoformat(), "timezone": settings.TIME_ZONE,
                                  "limit": PAGE, "offset": page * PAGE}, state)
         rows = data.get("data") if isinstance(data, dict) else data
         rows = rows or []
+        _scan["pages"] += 1
+        _scan["rows"] += len(rows)
         if rows:
             _sample(state, rows[0])
         for raw in rows:
@@ -237,10 +241,18 @@ def schedule(state, day):
             if r is not None and raw.get("id") is not None:
                 found.append((r, raw.get("date") or "", normalize(raw)))
         total = ((data.get("pagination") or {}).get("totalCount") if isinstance(data, dict) else None) or 0
+        _scan["total"] = total
         if len(rows) < PAGE or (page + 1) * PAGE >= total:
             break
     found.sort(key=lambda x: (x[0], x[1]))
     return [item for _, _, item in found]
+
+
+def last_scan_note():
+    """Mf. 'kurasa 9, mechi 870/870' — ionekane kwenye Agent runs kama ratiba ilikatika."""
+    total = _scan["total"] or _scan["rows"]
+    cut = " (IMEKATIKA — ongeza MAX_PAGES)" if _scan["total"] and _scan["rows"] < _scan["total"] else ""
+    return f"kurasa {_scan['pages']}, mechi {_scan['rows']}/{total}{cut}"
 
 
 def match(state, m):

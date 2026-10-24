@@ -2001,3 +2001,31 @@ class HighlightlyProviderTest(TestCase):
         base, headers = highlightly._base_and_headers()
         self.assertEqual(base, "https://football-highlights-api.p.rapidapi.com")
         self.assertEqual(headers["x-rapidapi-host"], "football-highlights-api.p.rapidapi.com")
+
+
+@override_settings(HIGHLIGHTLY_API_KEY="hl-key", API_FOOTBALL_KEY="old-key", API_FOOTBALL_LEAGUES=["39"],
+                   API_FOOTBALL_LIVE_SECONDS=0, HIGHLIGHTLY_LEAGUES=["England:Premier League"])
+class ProviderSwitchTest(TestCase):
+    """Mechi za API-Football hazitumwi kwa Highlightly (namba zao ni za mtoaji mwingine)."""
+
+    def test_only_current_provider_matches_are_polled(self):
+        from news import football
+        from news.models import LiveMatch
+        with mock.patch("news.indexnow.submit"):
+            old = Article.objects.create(title="Lens vs Paris FC LIVE", category="dunia", excerpt="x", body="x",
+                                         status="published", published_at=timezone.now(), origin="football")
+            LiveMatch.objects.create(article=old, fixture_id=1388012, provider="api-football", home="Lens",
+                                     away="Paris FC", kickoff=timezone.now() - timedelta(minutes=30))
+            new = Article.objects.create(title="Arsenal vs Chelsea LIVE", category="dunia", excerpt="x", body="x",
+                                         status="published", published_at=timezone.now(), origin="football")
+            LiveMatch.objects.create(article=new, fixture_id=1340772559, provider="highlightly", home="Arsenal",
+                                     away="Chelsea", kickoff=timezone.now() - timedelta(minutes=10))
+        self.assertEqual(football.provider(), "highlightly")
+        self.assertEqual([m.fixture_id for m in football.active(timezone.now())], [1340772559])
+
+    def test_scan_note_reports_a_cut_schedule(self):
+        from news import highlightly
+        highlightly._scan.update(pages=15, total=1800, rows=1500)
+        self.assertIn("IMEKATIKA", highlightly.last_scan_note())
+        highlightly._scan.update(pages=9, total=870, rows=870)
+        self.assertEqual(highlightly.last_scan_note(), "kurasa 9, mechi 870/870")

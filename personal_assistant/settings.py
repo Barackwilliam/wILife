@@ -313,7 +313,7 @@ HIGHLIGHTLY_LEAGUES = [x.strip() for x in env(
     "*:CAF Champions League,*:CAF Confederation Cup,Tanzania:Premier League,Tanzania:Ligi Kuu Bara",
 ).split(",") if x.strip()]
 HIGHLIGHTLY_DAILY_LIMIT = int(env("HIGHLIGHTLY_DAILY_LIMIT", "100"))      # mpango wa bure: 100
-HIGHLIGHTLY_SCHEDULE_HOURS = int(env("HIGHLIGHTLY_SCHEDULE_HOURS", "8"))
+HIGHLIGHTLY_SCHEDULE_HOURS = int(env("HIGHLIGHTLY_SCHEDULE_HOURS", "24"))   # ratiba: mara moja kwa siku
 # Ligi kwa kipaumbele: EPL, La Liga, Serie A, Bundesliga, Ligue 1, UEFA Champions League,
 # Europa League, Kombe la Dunia, AFCON, CAF Champions League, CAF Confederation Cup.
 API_FOOTBALL_LEAGUES = [x.strip() for x in env("API_FOOTBALL_LEAGUES", "39,140,135,78,61,2,3,1,6,12,20").split(",") if x.strip()]
