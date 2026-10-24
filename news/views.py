@@ -263,6 +263,16 @@ def live_action(request, pk):
     elif action == "end":
         live.end(item)
         messages.success(request, "LIVE imeisha. Masasisho yanabaki kwenye makala.")
+    elif action == "delete":
+        live.remove(item)
+        messages.success(request, f"“{item.title}” imeondolewa kwenye tovuti.")
+        nxt = request.POST.get("next", "")
+        return redirect(nxt if nxt.startswith("/") and not nxt.startswith("//") else "news:live_hub")
+    elif action == "delete_update":
+        update = item.live_updates.filter(pk=request.POST.get("update")).first()
+        if update:
+            live.delete_update(update)
+            messages.success(request, "Sasisho limefutwa.")
     elif action == "update":
         text = request.POST.get("text", "").strip()
         score = request.POST.get("score")

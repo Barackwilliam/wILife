@@ -46,6 +46,7 @@
 
     {% if article.live_started_at %}
     {% elif article.match %}<p class="lh-wait">⏱ Mechi bado haijaanza. Ukurasa huu utaanza kusasishwa wenyewe filimbi ikipulizwa.</p>
+    {% if user.is_staff %}<div class="lh-staff">{% include 'news/_live_delete.html' %}</div>{% endif %}
     {% elif user.is_staff and not is_draft %}
     <form method="post" action="{% url 'news:live_action' article.pk %}" style="margin:0 0 18px">
       {% csrf_token %}<input type="hidden" name="action" value="start">

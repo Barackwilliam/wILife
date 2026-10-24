@@ -96,6 +96,26 @@ def add_score(article, score):
     _sync_match_score(article)
 
 
+def remove(article):
+    """
+    Ondoa LIVE nzima kwenye tovuti (ya mhariri au ya API-Football). Makala inafichwa (status
+    'rejected') badala ya kufutwa: mechi ya automatic ikifutwa kabisa, ratiba ya API ingeiunda
+    upya tick inayofuata. Google inaambiwa (IndexNow) kuwa anwani imeondoka.
+    """
+    if article.live_started_at and not article.live_ended_at:
+        article.live_ended_at = timezone.now()
+    article.status = "rejected"
+    article.save(update_fields=["status", "live_ended_at", "updated_at"])
+    indexnow.submit([article.get_absolute_url()])
+
+
+def delete_update(update):
+    """Futa sasisho moja lililokosewa."""
+    article = update.article
+    update.delete()
+    article.save(update_fields=["updated_at"])
+
+
 def as_json(update):
     return {
         "id": update.id,

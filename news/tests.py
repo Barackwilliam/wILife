@@ -1685,3 +1685,76 @@ class LiveHubTest(TestCase):
         page = self.client.get("/live/")
         self.assertEqual(page.status_code, 200)
         self.assertIn("Mechi zikianza", page.content.decode())
+
+
+class LiveDeleteTest(TestCase):
+    """Mhariri anaondoa LIVE nzima au sasisho moja — za mkono na za automatic."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        for target in ("news.models.Article.render_cover", "news.indexnow.submit"):
+            p = mock.patch(target)
+            p.start()
+            self.addCleanup(p.stop)
+        self.staff = User.objects.create_user("mhariri", "m@x.com", "p", is_staff=True)
+
+    def test_staff_removes_an_update_and_a_whole_live_from_the_site(self):
+        from news import live_chat
+        live_chat.from_chat("live anza Simba vs Yanga")
+        live_chat.from_chat("live 6' GOOOL! Chama | Simba 1-0 Yanga")
+        live_chat.from_chat("live 7' Kosa la kuandika")
+        a = Article.objects.get()
+        act = f"/habari-admin/live/{a.pk}/"
+        typo = a.live_updates.first()
+
+        self.client.post(act, {"action": "delete_update", "update": typo.pk})      # si mhariri
+        self.assertEqual(a.live_updates.count(), 2)
+        self.client.force_login(self.staff)
+        page = self.client.get(a.get_absolute_url()).content.decode()
+        self.assertIn("Ondoa LIVE hii", page)
+        self.assertIn('name="action" value="delete_update"', page)
+        self.client.post(act, {"action": "delete_update", "update": typo.pk})
+        self.assertEqual(list(a.live_updates.values_list("label", flat=True)), ["6'"])
+
+        r = self.client.post(act, {"action": "delete", "next": "https://evil.example/"})
+        self.assertRedirects(r, "/live/", fetch_redirect_response=False)
+        a.refresh_from_db()
+        self.assertEqual(a.status, "rejected")
+        self.assertFalse(a.is_live)
+        self.client.logout()
+        self.assertEqual(self.client.get(a.get_absolute_url()).status_code, 404)
+        self.assertNotIn('data-match="%d"' % a.pk, self.client.get("/live/").content.decode())
+
+    def test_chat_deletes_last_update_or_whole_live(self):
+        from news import live_chat
+        live_chat.from_chat("live anza Azam vs Namungo")
+        live_chat.from_chat("live 3' Sasisho la kwanza")
+        live_chat.from_chat("live 4' Limekosewa")
+        self.assertIn("Sasisho limefutwa: 4' Limekosewa", live_chat.from_chat("live futa"))
+        a = Article.objects.get()
+        self.assertEqual(a.live_updates.count(), 1)
+        self.assertIn("imeondolewa", live_chat.from_chat("live futa yote"))
+        a.refresh_from_db()
+        self.assertEqual(a.status, "rejected")
+
+    @override_settings(API_FOOTBALL_KEY="k", API_FOOTBALL_LEAGUES=["39"], API_FOOTBALL_LIVE_SECONDS=0)
+    def test_removed_automatic_match_is_not_recreated_or_updated(self):
+        from news import football, live
+        from news.models import LiveMatch
+        fx = _fixture(kickoff=timezone.now() + timedelta(hours=2))
+        with mock.patch("news.football.requests.get", return_value=_Resp([fx])):
+            football.run()
+        a = Article.objects.get()
+        self.client.force_login(self.staff)
+        hub = self.client.get("/live/").content.decode()
+        self.assertIn('class="sb-del"', hub)
+        live.remove(a)
+        from news.models import FootballState
+        FootballState.objects.all().delete()                      # ratiba isomwe tena
+        with mock.patch("news.football.requests.get", return_value=_Resp([dict(fx, goals={"home": 1, "away": 0})])):
+            football.run()
+        self.assertEqual(Article.objects.count(), 1)
+        self.assertEqual(Article.objects.get().status, "rejected")
+        self.assertIsNone(LiveMatch.objects.get().home_goals)

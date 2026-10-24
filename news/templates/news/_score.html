@@ -13,5 +13,6 @@
     <div class="sb-team"><span class="sb-logo">{% if m.away_logo %}<img src="{{ m.away_logo }}" alt="" width="48" height="48" loading="lazy" referrerpolicy="no-referrer">{% else %}{{ m.away|slice:":1"|upper }}{% endif %}</span><b>{{ m.away }}</b></div>
   </div>
   {% if big %}{% if m.venue or m.kickoff %}<div class="sb-meta">{% if m.kickoff %}<time datetime="{{ m.kickoff|date:'c' }}">{{ m.kickoff|sw_date }}, {{ m.kickoff|time:"H:i" }}</time>{% endif %}{% if m.venue %} · {{ m.venue }}{% if m.city %}, {{ m.city }}{% endif %}{% endif %}</div>{% endif %}
-  {% else %}<a class="sb-link" href="{{ a.get_absolute_url }}"><span class="sr-only">{{ a.title }}</span></a>{% endif %}
+  {% else %}<a class="sb-link" href="{{ a.get_absolute_url }}"><span class="sr-only">{{ a.title }}</span></a>
+  {% if user.is_staff %}<form class="sb-del" method="post" action="{% url 'news:live_action' a.pk %}" onsubmit="return confirm('Ondoa {{ a.match.home|escapejs }} vs {{ a.match.away|escapejs }} kwenye tovuti?')">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="next" value="{{ request.path }}"><button title="Ondoa LIVE hii" aria-label="Ondoa LIVE hii">✕</button></form>{% endif %}{% endif %}
 </div>{% endwith %}
