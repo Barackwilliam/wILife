@@ -1476,6 +1476,13 @@ class LiveFromChatTest(TestCase):
         self.assertFalse(a.is_live)
         self.assertIn("Hakuna LIVE inayoendelea", self.wa("live 90' Bado?"))
 
+    @override_settings(AGENT_DEFAULT_RECIPIENT="255750910158", AGENT_OWNER_NUMBERS=["255750910158", "255629712678"])
+    def test_both_of_williams_numbers_can_report(self):
+        self.assertIn("LIVE imeanza", self.wa("live anza Simba vs Yanga", phone="0750910158"))
+        self.assertIn("Sasisho limewekwa", self.wa("live 3' Kona ya kwanza", phone="+255 629 712 678"))
+        self.assertEqual(self.wa("live 4' Bandia", phone="255712345678"), "")    # namba ya mfano: haikubaliwi
+        self.assertEqual(Article.objects.get().live_updates.count(), 1)
+
     def test_strangers_cannot_post_and_other_messages_are_untouched(self):
         self.assertEqual(self.wa("live anza Mechi bandia", phone="255700000999"), "")
         self.assertFalse(Article.objects.exists())

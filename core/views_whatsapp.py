@@ -75,8 +75,10 @@ def _authorised_user(from_number):
         if number and number == sender:
             return user
 
-    default = normalise_number(getattr(settings, "AGENT_DEFAULT_RECIPIENT", ""))
-    if default and default == sender:
+    owners = {normalise_number(n) for n in getattr(settings, "AGENT_OWNER_NUMBERS", [])}
+    owners.add(normalise_number(getattr(settings, "AGENT_DEFAULT_RECIPIENT", "")))
+    owners.discard("")
+    if sender in owners:      # namba za William (0750910158, 0629712678)
         return User.objects.filter(is_active=True).order_by("pk").first()
     return None
 
