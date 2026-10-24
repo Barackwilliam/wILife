@@ -21,7 +21,7 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from news import indexnow, live
+from news import covers, indexnow, live
 from news.models import Article, Category, FootballState, LiveMatch
 
 log = logging.getLogger("news.football")
@@ -39,6 +39,10 @@ class QuotaExhausted(Exception):
     pass
 
 
+class PlanError(RuntimeError):
+    """Mpango wa API hauruhusu njia hii (mf. mpango wa bure hauruhusu `ids`)."""
+
+
 def key():
     return getattr(settings, "API_FOOTBALL_KEY", "")
 
@@ -49,7 +53,12 @@ def leagues():
 
 def _state(now=None):
     day = (now or timezone.now()).astimezone(dt_timezone.utc).date()
-    state, _ = FootballState.objects.get_or_create(day=day)
+    state, created = FootballState.objects.get_or_create(day=day)
+    if created:   # njia iliyofanya kazi jana (mf. mpango wa bure: 'live') — usipoteze ombi kuijaribu upya
+        prev = FootballState.objects.filter(day__lt=day).exclude(live_mode="").order_by("-day").first()
+        if prev:
+            state.live_mode = prev.live_mode
+            state.save(update_fields=["live_mode"])
     return state
 
 
@@ -69,6 +78,8 @@ def _get(path, params, state):
     errors = data.get("errors")
     if errors:   # API inarudisha 200 hata kwa kosa (ufunguo, mpango, msimu) — kosa liko hapa
         msg = "; ".join(f"{k}: {v}" for k, v in errors.items()) if isinstance(errors, dict) else str(errors)
+        if isinstance(errors, dict) and "plan" in errors:
+            raise PlanError(msg[:300])
         raise RuntimeError(msg[:300])
     return data.get("response") or []
 
@@ -129,6 +140,45 @@ def _final_body(m, article):
     return "\n\n".join(lines)
 
 
+def _image(url):
+    """Nembo kutoka API (media.api-sports.io) — bytes, au None ikishindikana (picha inatumia herufi za mwanzo)."""
+    if not (url or "").startswith("https://"):
+        return None
+    try:
+        r = requests.get(url, timeout=8)
+        r.raise_for_status()
+        return r.content
+    except requests.RequestException:
+        return None
+
+
+def match_cover(m):
+    """(png ya kushirikisha, webp ya kadi) zenye nembo halisi za timu, mashindano na saa / matokeo."""
+    home, away, comp = _image(m.home_logo), _image(m.away_logo), _image(m.competition_logo)
+    score = f"{m.home_goals} - {m.away_goals}" if m.has_score and (m.is_playing or m.is_finished) else None
+    when = "" if m.is_finished else (_when(m.kickoff) if m.kickoff else "")
+    kw = dict(home=m.home, away=m.away, home_logo=home, away_logo=away, competition=m.competition,
+              comp_logo=comp, when_text=when, score=score, live=m.is_playing)
+    png = covers.render_match(**kw)
+    art = covers.thumbnail(covers.render_match(**kw, with_text=False))
+    return png, art
+
+
+def refresh_cover(m):
+    """Tengeneza upya picha ya mechi (imeundwa, imeanza, imeisha) na uihifadhi."""
+    article = m.article
+    if article.cover_original:
+        return
+    try:
+        article.render_cover()
+    except Exception as exc:          # picha isizuie LIVE
+        log.warning("match cover failed for %s: %s", m, exc)
+        return
+    article.save(update_fields=["cover_image", "cover_art", "cover_png", "cover_thumb", "updated_at"])
+    LiveMatch.objects.filter(pk=m.pk).update(cover_ok=True)
+    m.cover_ok = True
+
+
 def _create_article(m, league):
     article = Article.objects.create(
         title=preview_title(m), category=_category(league), origin="football",
@@ -138,12 +188,7 @@ def _create_article(m, league):
         keywords=", ".join([m.home, m.away, f"{m.home} vs {m.away}", m.competition, "matokeo", "live"])[:300],
         sources=[{"title": "Takwimu za mechi", "url": "https://www.api-football.com/", "publisher": "API-Football"}],
         status="published", published_at=timezone.now())
-    try:
-        article.render_cover()
-        article.save()
-    except Exception:
-        pass
-    return article
+    return article          # picha (nembo za timu) inatengenezwa mechi ikishahifadhiwa — refresh_cover
 
 
 # ── Ratiba ─────────────────────────────────────────────────────────────────────
@@ -197,6 +242,7 @@ def sync_schedule(state, now):
         with transaction.atomic():
             m.article = _create_article(m, item.get("league", {}))
             m.save()
+        refresh_cover(m)
         indexnow.submit([m.article.get_absolute_url()])
         made += 1
         created += 1
@@ -253,6 +299,7 @@ def _whistle(article, m, old):
     if old == "NS" and m.status in LiveMatch.PLAYING:
         live.start(article)
         live.add(article, f"📣 Mechi imeanza! {m.home} dhidi ya {m.away}.", "1'", kind="whistle")
+        refresh_cover(m)                       # picha inapata alama ya LIVE
     elif m.status == "HT":
         live.add(article, f"📣 Mapumziko: {m.score_text}.", "HT", kind="whistle")
     elif old == "HT" and m.status == "2H":
@@ -271,6 +318,7 @@ def _finish(article, m):
                            f"dakika kwa dakika kwenye wILife.")[:300]
         article.body = _final_body(m, article)
         article.save(update_fields=["title", "excerpt", "body", "updated_at"])
+        refresh_cover(m)                       # picha inaonyesha matokeo ya mwisho
     else:
         live.add(article, f"⚠️ Mechi {m.get_status_display().lower()}.", "", kind="whistle")
     live.end(article)
@@ -317,21 +365,91 @@ def active(now):
         .exclude(status__in=LiveMatch.FINISHED | LiveMatch.OFF).order_by("kickoff")[:MAX_IDS])
 
 
+def _by_ids(state, matches):
+    """Ombi 1 kwa mechi zote (hadi 20). Mipango ya kulipia tu."""
+    return _get("/fixtures", {"ids": "-".join(str(m.fixture_id) for m in matches),
+                              "timezone": settings.TIME_ZONE}, state)
+
+
+def _by_id(state, m):
+    return _get("/fixtures", {"id": m.fixture_id, "timezone": settings.TIME_ZONE}, state)
+
+
+def _by_live(state, matches):
+    """
+    Ombi 1: mechi zinazochezwa sasa kwenye ligi zetu. Mechi iliyokuwa uwanjani na sasa haipo
+    kwenye orodha imeisha (au imesimamishwa) — inaulizwa peke yake mara moja kupata matokeo ya mwisho.
+    """
+    items = _get("/fixtures", {"live": "-".join(str(x) for x in leagues()), "timezone": settings.TIME_ZONE}, state)
+    seen = {i.get("fixture", {}).get("id") for i in items}
+    now = timezone.now()
+    for m in matches:
+        if m.fixture_id in seen:
+            continue
+        gone = m.status in LiveMatch.PLAYING
+        late = m.status == "NS" and m.kickoff and now - m.kickoff > timedelta(minutes=30) and (
+            not m.synced_at or now - m.synced_at > timedelta(minutes=20))   # imeahirishwa? angalia mara chache
+        if gone or late:
+            items += _by_id(state, m)
+    return items
+
+
+def _one_by_one(state, matches):
+    """Njia ya mwisho: ombi 1 kwa kila mechi."""
+    items = []
+    for m in matches:
+        items += _by_id(state, m)
+    return items
+
+
+MODES = [("ids", _by_ids), ("live", _by_live), ("id", _one_by_one)]
+
+
 def sync_live(state, now):
     matches = active(now)
     if not matches:
         return 0
-    items = _get("/fixtures", {"ids": "-".join(str(m.fixture_id) for m in matches),
-                               "timezone": settings.TIME_ZONE}, state)
+    state.live_at = now                       # muda wa jaribio — kosa lisirudiwe kila dakika
+    state.save(update_fields=["live_at"])
+    names = [n for n, _ in MODES]
+    start = names.index(state.live_mode) if state.live_mode in names else 0
+    for name, fetch in MODES[start:]:
+        try:
+            items = fetch(state, matches)
+        except PlanError:
+            continue                          # mpango hauruhusu njia hii — jaribu inayofuata
+        if state.live_mode != name:
+            state.live_mode = name
+        break
+    else:
+        raise RuntimeError("mpango wa API hauruhusu njia yoyote ya kufuatilia mechi zinazochezwa")
     by_id = {m.fixture_id: m for m in matches}
     new = 0
     for item in items:
         m = by_id.get(item.get("fixture", {}).get("id"))
         if m:
             new += apply(item, m)
-    state.live_at = now
-    state.save(update_fields=["live_at", "requests", "remaining"])
+    state.save(update_fields=["live_at", "live_mode", "requests", "remaining"])
     return new
+
+
+def live_interval(state, now):
+    """
+    Kila ngapi kuangalia mechi zinazochezwa. Si chini ya API_FOOTBALL_LIVE_SECONDS, na maombi
+    yaliyobaki leo yanagawanywa mpaka mechi ya mwisho ya leo iishe — mpango wa bure (100)
+    usiishe kabla ya mechi za jioni.
+    """
+    base = getattr(settings, "API_FOOTBALL_LIVE_SECONDS", 120)
+    left = getattr(settings, "API_FOOTBALL_DAILY_LIMIT", 100) - RESERVE - state.requests - 2  # 2: ratiba
+    last = (LiveMatch.objects.filter(fixture_id__isnull=False, article__status="published",
+                                     kickoff__gte=now - timedelta(hours=4))
+            .exclude(status__in=LiveMatch.FINISHED | LiveMatch.OFF)
+            .order_by("-kickoff").values_list("kickoff", flat=True).first())
+    if not last or left <= 0:
+        return timedelta(seconds=base)
+    horizon = (last + timedelta(minutes=150) - now).total_seconds()
+    per_poll = len(active(now)) if state.live_mode == "id" else 1
+    return timedelta(seconds=max(base, horizon / left * per_poll))
 
 
 def run(now=None, deadline=None, dry_run=False):
@@ -349,9 +467,13 @@ def run(now=None, deadline=None, dry_run=False):
     try:
         every = timedelta(hours=getattr(settings, "API_FOOTBALL_SCHEDULE_HOURS", 6))
         if not state.schedule_at or now - state.schedule_at >= every:
+            state.schedule_at = now           # muda wa jaribio — kosa lisirudiwe kila dakika
+            state.save(update_fields=["schedule_at"])
             notes.append(f"ratiba: mpya {sync_schedule(state, now)}")
-        live_every = timedelta(seconds=getattr(settings, "API_FOOTBALL_LIVE_SECONDS", 120))
-        if active(now) and (not state.live_at or now - state.live_at >= live_every):
+        for m in LiveMatch.objects.select_related("article").filter(
+                fixture_id__isnull=False, cover_ok=False, article__status="published")[:3]:
+            refresh_cover(m)                   # mechi za zamani zenye picha za mfumo -> nembo za timu
+        if active(now) and (not state.live_at or now - state.live_at >= live_interval(state, now)):
             n = sync_live(state, now)
             out["sent"] = n
             notes.append(f"live: masasisho {n}")

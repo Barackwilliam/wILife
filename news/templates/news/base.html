@@ -35,7 +35,7 @@
   <link rel="preload" as="style" href="{{ fonts }}">
   <link href="{{ fonts }}" rel="stylesheet" media="print" onload="this.media='all'">
   <noscript><link href="{{ fonts }}" rel="stylesheet"></noscript>{% endwith %}
-  <link href="{% static 'news/news.css' %}" rel="stylesheet">
+  <link href="{% static 'news/news.css' %}{% if asset_v %}?v={{ asset_v }}{% endif %}" rel="stylesheet">
   {% site_jsonld %}
   {% block jsonld %}{% endblock %}
 </head>

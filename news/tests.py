@@ -1536,8 +1536,8 @@ class FootballAutoLiveTest(TestCase):
         from django.core.cache import cache
         cache.clear()
         self.addCleanup(cache.clear)
-        for target in ("news.models.Article.render_cover", "news.indexnow.submit"):
-            p = mock.patch(target)
+        for target in ("news.models.Article.render_cover", "news.indexnow.submit", "news.football._image"):
+            p = mock.patch(target, return_value=None) if target.endswith("_image") else mock.patch(target)
             p.start()
             self.addCleanup(p.stop)
         self.calls = []
@@ -1545,6 +1545,9 @@ class FootballAutoLiveTest(TestCase):
     def run_with(self, *responses):
         from news import football
         queue = list(responses)
+
+        from news.models import FootballState
+        FootballState.objects.update(live_at=None)   # kila run_with = tick baada ya muda wa kuangalia mechi kufika
 
         def fake_get(url, params=None, headers=None, timeout=None):
             self.calls.append(params)
@@ -1631,6 +1634,46 @@ class FootballAutoLiveTest(TestCase):
         self.assertTrue(a.title.startswith("Arsenal 0-1 Chelsea"))
         self.assertIn("C. Palmer anaifungia Chelsea", a.body)
 
+    def test_free_plan_without_ids_falls_back_to_live_and_finishes_matches(self):
+        from news import football
+        from news.models import FootballState, LiveMatch
+        plan = _Resp([], errors={"plan": "Free plans do not have access to the Ids parameter."})
+        goal = {"time": {"elapsed": 5, "extra": None}, "team": {"id": 42, "name": "Arsenal"},
+                "player": {"id": 7, "name": "B. Saka"}, "assist": {}, "type": "Goal", "detail": "Normal Goal"}
+        # ratiba; ids imekataliwa -> live (mechi inachezwa)
+        out = self.run_with(_Resp([_fixture()]), plan, _Resp([_fixture(status="1H", elapsed=5, hg=1, ag=0, events=[goal])]))
+        self.assertEqual(out["failed"], 0, out)
+        self.assertEqual(self.calls[2]["live"], "39")
+        state = FootballState.objects.get()
+        self.assertEqual(state.live_mode, "live")
+        a = Article.objects.get()
+        self.assertTrue(a.is_live)
+        # Tick inayofuata: haijaribu ids tena; mechi haipo kwenye 'live' -> imeisha -> inaulizwa kwa id
+        self.calls.clear()
+        self.run_with(_Resp([]), _Resp([_fixture(status="FT", elapsed=90, hg=1, ag=0, events=[goal])]))
+        self.assertEqual([("live" in c, c.get("id")) for c in self.calls], [(True, None), (False, 101)])
+        a.refresh_from_db()
+        self.assertFalse(a.is_live)
+        self.assertEqual(LiveMatch.objects.get().status, "FT")
+
+    def test_a_failed_request_is_not_retried_every_minute(self):
+        from news import football
+        self.run_with(_Resp([], errors={"token": "Error/Missing application key."}))
+        self.assertEqual(len(self.calls), 1)
+        self.run_with()                           # tick ya dakika inayofuata: hakuna ombi jipya
+        self.assertEqual(len(self.calls), 1)
+
+    @override_settings(API_FOOTBALL_LIVE_SECONDS=120)
+    def test_free_plan_requests_are_spread_until_the_last_match_ends(self):
+        from news import football
+        self.run_with(_Resp([_fixture(kickoff=timezone.now() - timedelta(minutes=10)),
+                             _fixture(fid=102, kickoff=timezone.now() + timedelta(hours=8))]),
+                      _Resp([]))
+        state = football._state()
+        gap = football.live_interval(state, timezone.now()).total_seconds()
+        self.assertGreater(gap, 300)              # ~10.5h / ~94 maombi
+        self.assertLess(gap, 600)
+
     def test_no_key_does_nothing_and_api_errors_are_recorded(self):
         from news import football
         from news.models import FootballState
@@ -1694,8 +1737,8 @@ class LiveDeleteTest(TestCase):
         from django.core.cache import cache
         cache.clear()
         self.addCleanup(cache.clear)
-        for target in ("news.models.Article.render_cover", "news.indexnow.submit"):
-            p = mock.patch(target)
+        for target in ("news.models.Article.render_cover", "news.indexnow.submit", "news.football._image"):
+            p = mock.patch(target, return_value=None) if target.endswith("_image") else mock.patch(target)
             p.start()
             self.addCleanup(p.stop)
         self.staff = User.objects.create_user("mhariri", "m@x.com", "p", is_staff=True)
@@ -1758,3 +1801,55 @@ class LiveDeleteTest(TestCase):
         self.assertEqual(Article.objects.count(), 1)
         self.assertEqual(Article.objects.get().status, "rejected")
         self.assertIsNone(LiveMatch.objects.get().home_goals)
+
+
+
+class MatchCoverTest(TestCase):
+    """Mechi za API-Football zinapata picha yenye nembo halisi za timu, si sanaa ya mfumo."""
+
+    def test_automatic_match_cover_uses_team_crests(self):
+        import io
+        from PIL import Image
+        from news import covers, football
+        from news.models import LiveMatch
+        crest = io.BytesIO()
+        Image.new("RGBA", (120, 120), (200, 16, 46, 255)).save(crest, "PNG")
+        a = Article.objects.create(title="Arsenal vs Chelsea LIVE", category="dunia", excerpt="x", body="x",
+                                   status="published", published_at=timezone.now(), origin="football")
+        m = LiveMatch.objects.create(article=a, fixture_id=1, home="Arsenal", away="Chelsea",
+                                     home_logo="https://media.example/42.png", away_logo="https://media.example/49.png",
+                                     competition="Premier League", kickoff=timezone.now())
+        fetched = []
+
+        def fake_image(url):
+            fetched.append(url)
+            return crest.getvalue()
+        with mock.patch("news.football._image", side_effect=fake_image), \
+                mock.patch.object(covers, "render", side_effect=AssertionError("sanaa ya mfumo")), \
+                mock.patch("news.indexnow.submit"):
+            football.refresh_cover(m)
+        a.refresh_from_db()
+        self.assertEqual({u for u in fetched if u}, {"https://media.example/42.png", "https://media.example/49.png"})
+        self.assertTrue(LiveMatch.objects.get().cover_ok)
+        png = bytes(a.cover_png)
+        self.assertEqual(Image.open(io.BytesIO(png)).size, (1200, 630))
+        self.assertEqual(Image.open(io.BytesIO(bytes(a.cover_thumb))).format, "WEBP")
+        # nembo nyekundu iko kwenye picha (upande wa wenyeji)
+        img = Image.open(io.BytesIO(png)).convert("RGB")
+        self.assertEqual(img.getpixel((300, 255)), (200, 16, 46))
+        self.assertIn("?v=", a.art_url)
+
+    def test_missing_logo_falls_back_to_initials_not_ai_art(self):
+        from news import covers
+        png = covers.render_match("Manchester United", "Chelsea", None, None, "Premier League", None, "", score="3 - 1")
+        self.assertTrue(png.startswith(b"\x89PNG"))
+
+    @override_settings()
+    def test_css_link_carries_the_deploy_version(self):
+        import os
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        with mock.patch.dict(os.environ, {"RENDER_GIT_COMMIT": "abc1234def"}):
+            page = self.client.get("/kuhusu/").content.decode()
+        self.assertRegex(page, r"news(\.[0-9a-f]+)?\.css\?v=abc1234d")

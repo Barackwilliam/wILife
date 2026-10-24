@@ -12,7 +12,10 @@ def news(request):
         name = next((n for n in ("facebook", "instagram", "youtube", "linkedin", "whatsapp")
                      if n in u), "twitter-x" if ("twitter" in u or "x.com" in u) else "link-45deg")
         social.append({"url": url, "icon": name})
+    import os
     return {
+        # Toleo la deploy (Render) kwenye ?v= ya CSS — kivinjari kisitumie news.css ya zamani baada ya deploy
+        "asset_v": os.environ.get("RENDER_GIT_COMMIT", "")[:8],
         "live_now": _live_now(),
         "social_links": social,
         "sw_today": swahili_date(timezone.localdate()),
