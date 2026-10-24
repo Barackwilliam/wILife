@@ -320,6 +320,8 @@ class LiveUpdate(models.Model):
     """Sasisho moja la habari ya LIVE (goli, kadi, tamko…). Mpya juu."""
     article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name="live_updates")
     label = models.CharField(max_length=20, blank=True, help_text="Mf. 45' au 14:30")
+    kind = models.CharField(max_length=10, blank=True, default="",
+                            help_text="goal / card / red / sub / var / whistle — ikoni kwenye ukurasa")
     text = models.TextField(max_length=1000)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
 
@@ -328,3 +330,90 @@ class LiveUpdate(models.Model):
 
     def __str__(self):
         return f"{self.label} {self.text[:40]}".strip()
+
+
+class LiveMatch(models.Model):
+    """
+    Mechi iliyo nyuma ya habari ya LIVE: timu, magoli, dakika na hali. Inajazwa na mhariri
+    (live anza Simba vs Yanga) au yenyewe kutoka API-Football (news/football.py).
+    Ukurasa unaitumia kuonyesha ubao wa matokeo, na Google inapewa `SportsEvent`.
+    """
+    STATUS = [("NS", "Bado"), ("1H", "Kipindi cha 1"), ("HT", "Mapumziko"), ("2H", "Kipindi cha 2"),
+              ("ET", "Muda wa ziada"), ("BT", "Mapumziko (ziada)"), ("P", "Penalti"), ("FT", "Imeisha"),
+              ("AET", "Imeisha (ziada)"), ("PEN", "Imeisha (penalti)"), ("PST", "Imeahirishwa"),
+              ("CANC", "Imefutwa"), ("ABD", "Imesimamishwa"), ("SUSP", "Imesimamishwa"), ("INT", "Imesimama"),
+              ("LIVE", "Inaendelea")]
+    PLAYING = {"1H", "HT", "2H", "ET", "BT", "P", "LIVE", "INT", "SUSP"}
+    FINISHED = {"FT", "AET", "PEN"}
+    OFF = {"PST", "CANC", "ABD", "AWD", "WO"}
+
+    article = models.OneToOneField(Article, on_delete=models.CASCADE, related_name="match")
+    fixture_id = models.PositiveIntegerField(null=True, blank=True, unique=True,
+                                             help_text="Namba ya mechi kwenye API-Football (tupu = mechi ya mhariri)")
+    competition = models.CharField(max_length=80, blank=True)
+    competition_logo = models.URLField(max_length=300, blank=True)
+    round = models.CharField(max_length=80, blank=True)
+    home = models.CharField(max_length=80)
+    away = models.CharField(max_length=80)
+    home_logo = models.URLField(max_length=300, blank=True)
+    away_logo = models.URLField(max_length=300, blank=True)
+    home_goals = models.PositiveSmallIntegerField(null=True, blank=True)
+    away_goals = models.PositiveSmallIntegerField(null=True, blank=True)
+    status = models.CharField(max_length=5, default="NS", choices=STATUS)
+    minute = models.PositiveSmallIntegerField(null=True, blank=True)
+    kickoff = models.DateTimeField(null=True, blank=True, db_index=True)
+    venue = models.CharField(max_length=120, blank=True)
+    city = models.CharField(max_length=80, blank=True)
+    seen_events = models.JSONField(default=list, blank=True, editable=False)
+    synced_at = models.DateTimeField(null=True, blank=True, editable=False)
+
+    class Meta:
+        ordering = ["kickoff", "id"]
+
+    def __str__(self):
+        return f"{self.home} vs {self.away}"
+
+    @property
+    def has_score(self):
+        return self.home_goals is not None and self.away_goals is not None
+
+    @property
+    def is_playing(self):
+        return self.status in self.PLAYING
+
+    @property
+    def is_finished(self):
+        return self.status in self.FINISHED
+
+    @property
+    def clock(self):
+        """Kinachoonyeshwa juu ya ubao: 67', HT, FT, au saa ya kuanza."""
+        if self.status in ("1H", "2H", "ET", "LIVE") and self.minute:
+            return f"{self.minute}'"
+        if self.status == "NS" and self.kickoff:
+            return timezone.localtime(self.kickoff).strftime("%H:%M")
+        return self.status if self.status in ("HT", "FT", "AET", "PEN") else self.get_status_display()
+
+    @property
+    def score_text(self):
+        if not self.has_score:
+            return f"{self.home} vs {self.away}"
+        return f"{self.home} {self.home_goals} - {self.away_goals} {self.away}"
+
+    def as_json(self):
+        return {"id": self.article_id, "home": self.home, "away": self.away,
+                "hg": self.home_goals, "ag": self.away_goals, "status": self.status,
+                "clock": self.clock, "playing": self.is_playing, "finished": self.is_finished}
+
+
+class FootballState(models.Model):
+    """Matumizi ya API-Football kwa siku (UTC — kikomo kinaanza upya saa 00:00 UTC). news/football.py"""
+    day = models.DateField(unique=True)
+    requests = models.PositiveIntegerField(default=0)
+    remaining = models.IntegerField(null=True, blank=True, help_text="Kwa mujibu wa API yenyewe")
+    schedule_at = models.DateTimeField(null=True, blank=True)
+    live_at = models.DateTimeField(null=True, blank=True)
+    error = models.CharField(max_length=300, blank=True)
+
+    def __str__(self):
+        return f"{self.day}: {self.requests}"

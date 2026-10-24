@@ -120,6 +120,9 @@ def article_jsonld(context, article):
         })
         if updates:
             data[0]["dateModified"] = max(updates[0].created_at, article.updated_at).isoformat()
+    match = getattr(article, "match", None)
+    if match:
+        data[0]["about"] = sports_event(match, url)
     data += [{
         "@context": "https://schema.org",
         "@type": "BreadcrumbList",
@@ -128,6 +131,72 @@ def article_jsonld(context, article):
             {"@type": "ListItem", "position": 2, "name": article.get_category_display(),
              "item": _abs(request, f"/habari/{article.category}/")},
             {"@type": "ListItem", "position": 3, "name": article.title, "item": url},
+        ],
+    }]
+    return _script(data)
+
+
+EVENT_STATUS = {"PST": "EventPostponed", "CANC": "EventCancelled", "ABD": "EventCancelled"}
+
+
+def sports_event(match, url):
+    """Mechi kama `SportsEvent` (schema.org) — timu, muda, uwanja na hali."""
+    def team(name, logo):
+        return {"@type": "SportsTeam", "name": name, **({"logo": logo} if logo else {})}
+    home, away = team(match.home, match.home_logo), team(match.away, match.away_logo)
+    event = {
+        "@type": "SportsEvent",
+        "name": f"{match.home} vs {match.away}",
+        "url": url,
+        "sport": "Soccer",
+        "eventStatus": "https://schema.org/" + EVENT_STATUS.get(match.status, "EventScheduled"),
+        "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+        "homeTeam": home,
+        "awayTeam": away,
+        "competitor": [home, away],
+    }
+    if match.kickoff:
+        event["startDate"] = match.kickoff.isoformat()
+    if match.competition:
+        event["superEvent"] = {"@type": "SportsEvent", "name": match.competition}
+        event["description"] = f"{match.home} dhidi ya {match.away} — {match.competition}" + (
+            f", {match.round}" if match.round else "")
+    if match.venue:
+        event["location"] = {"@type": "Place", "name": match.venue,
+                             **({"address": match.city} if match.city else {})}
+    return event
+
+
+@register.simple_tag(takes_context=True)
+def live_hub_jsonld(context, *groups):
+    """Ukurasa wa LIVE: CollectionPage + orodha ya mechi na habari zake + breadcrumb."""
+    request = context["request"]
+    url = _abs(request, request.path)
+    items, seen = [], set()
+    for group in groups:
+        for a in group:
+            if a.pk in seen:
+                continue
+            seen.add(a.pk)
+            link = _abs(request, a.get_absolute_url())
+            match = getattr(a, "match", None)
+            items.append({"@type": "ListItem", "position": len(items) + 1, "url": link,
+                          **({"item": sports_event(match, link)} if match else {"name": a.title})})
+    data = [{
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        "name": "Matokeo ya Mpira Leo — Mechi Moja kwa Moja",
+        "description": "Matokeo ya mpira leo na mechi zinazoendelea sasa kwa Kiswahili.",
+        "url": url,
+        "inLanguage": "sw",
+        "isPartOf": {"@type": "WebSite", "name": "wILife", "url": _abs(request, "/")},
+        "mainEntity": {"@type": "ItemList", "numberOfItems": len(items), "itemListElement": items[:50]},
+    }, {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {"@type": "ListItem", "position": 1, "name": "Mwanzo", "item": _abs(request, "/")},
+            {"@type": "ListItem", "position": 2, "name": "LIVE", "item": url},
         ],
     }]
     return _script(data)

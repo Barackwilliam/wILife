@@ -22,6 +22,11 @@
 .lv-when small{display:block;font-weight:500;color:var(--muted);font-size:11.5px}
 .lv-text p{margin:0 0 6px}
 .lv-text p:last-child{margin:0}
+.lv-item.k-goal{background:linear-gradient(90deg,rgba(22,163,74,.12),transparent 70%);border-left:4px solid #16a34a;padding-left:10px;margin-left:-14px}
+.lv-item.k-goal .lv-text{font-weight:700}
+.lv-item.k-red{border-left:4px solid #dc2626;padding-left:10px;margin-left:-14px}
+.lv-item.k-card{border-left:4px solid #eab308;padding-left:10px;margin-left:-14px}
+.lv-item.k-whistle .lv-text{font-weight:700;color:var(--ink)}
 .lv-empty{padding:14px 0;color:var(--muted);font-size:14px}
 .lv-staff{border-top:1px dashed var(--line-strong);padding:14px 16px;background:var(--brand-soft)}
 .lv-staff b{font-size:13px}
@@ -37,7 +42,7 @@
 <section class="lv" id="live" data-feed="{% url 'news:live_feed' article.pk %}" data-live="{{ article.is_live|yesno:'1,0' }}">
   <div class="lv-top">
     {% if article.is_live %}<span class="lv-badge"><i></i>LIVE</span>{% else %}<span class="lv-badge done">IMEISHA</span>{% endif %}
-    <span class="lv-score" id="lvScore">{{ article.live_score }}</span>
+    <span class="lv-score" id="lvScore"{% if article.match %} hidden{% endif %}>{{ article.live_score }}</span>
     <span class="lv-note">{% if article.is_live %}Masasisho yanaingia yenyewe{% else %}Ilianza {{ article.live_started_at|date:"H:i" }}{% if article.live_ended_at %} · ilimalizika {{ article.live_ended_at|date:"H:i" }}{% endif %}{% endif %}</span>
   </div>
 
@@ -67,7 +72,7 @@
 
   <ol class="lv-list" id="lvList">
     {% for u in updates %}
-    <li class="lv-item" id="u{{ u.id }}" data-id="{{ u.id }}">
+    <li class="lv-item{% if u.kind %} k-{{ u.kind }}{% endif %}" id="u{{ u.id }}" data-id="{{ u.id }}">
       <div class="lv-when">{{ u.label|default:"" }}<small><time datetime="{{ u.created_at|date:'c' }}">{{ u.created_at|date:"H:i" }}</time></small></div>
       <div class="lv-text">{{ u.text|linebreaks }}</div>
     </li>
@@ -92,7 +97,7 @@
         if (document.getElementById('u' + u.id)) return;
         if (empty) { empty.remove(); empty = null; }
         var li = document.createElement('li');
-        li.className = 'lv-item new'; li.id = 'u' + u.id; li.dataset.id = u.id;
+        li.className = 'lv-item new' + (u.kind ? ' k-' + u.kind : ''); li.id = 'u' + u.id; li.dataset.id = u.id;
         var when = document.createElement('div'); when.className = 'lv-when'; when.textContent = u.label || '';
         var sm = document.createElement('small'); sm.textContent = u.time; when.appendChild(sm);
         var txt = document.createElement('div'); txt.className = 'lv-text'; txt.innerHTML = u.html;   // html imesafishwa kwenye server

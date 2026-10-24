@@ -35,10 +35,10 @@ class SectionSitemap(Sitemap):
     priority = 1.0
 
     def items(self):
-        return ["home", "latest"] + list(Category.values)
+        return ["home", "live_hub", "latest"] + list(Category.values)
 
     def location(self, item):
-        if item in ("home", "latest"):
+        if item in ("home", "live_hub", "latest"):
             return reverse(f"news:{item}")
         return reverse("news:category", args=[item])
 
