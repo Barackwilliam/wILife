@@ -170,10 +170,59 @@ def sports_event(match, url):
         event["superEvent"] = {"@type": "SportsEvent", "name": match.competition}
         event["description"] = f"{match.home} dhidi ya {match.away} — {match.competition}" + (
             f", {match.round}" if match.round else "")
-    if match.venue:
+    if getattr(match, "venue", ""):
         event["location"] = {"@type": "Place", "name": match.venue,
-                             **({"address": match.city} if match.city else {})}
+                             **({"address": match.city} if getattr(match, "city", "") else {})}
     return event
+
+
+def _collection(request, url, name, description, items, crumbs):
+    return [{
+        "@context": "https://schema.org", "@type": "CollectionPage", "name": name, "description": description,
+        "url": url, "inLanguage": "sw",
+        "isPartOf": {"@type": "WebSite", "name": "wILife", "url": _abs(request, "/")},
+        "mainEntity": {"@type": "ItemList", "numberOfItems": len(items), "itemListElement": items[:100]},
+    }, {
+        "@context": "https://schema.org", "@type": "BreadcrumbList",
+        "itemListElement": [{"@type": "ListItem", "position": i + 1, "name": n, "item": _abs(request, p)}
+                            for i, (n, p) in enumerate(crumbs)],
+    }]
+
+
+@register.simple_tag(takes_context=True)
+def day_jsonld(context, rows, kind, date_text, canonical):
+    """Mechi za siku: CollectionPage + orodha ya SportsEvent (kila mechi, hata isiyo na ukurasa wake)."""
+    request = context["request"]
+    page = _abs(request, canonical)
+    items = []
+    for r in rows:
+        link = _abs(request, r.url) if r.url else f"{page}#m-{r.key}"
+        items.append({"@type": "ListItem", "position": len(items) + 1, "url": link, "item": sports_event(r, link)})
+    name = {"leo": "Mechi za Leo", "jana": "Matokeo ya Jana"}.get(kind, "Matokeo ya Mechi") + f" — {date_text}"
+    crumbs = [("Mwanzo", "/"), ("LIVE", "/live/"), (name.split(" — ")[0], canonical)]
+    return _script(_collection(request, page, name, f"Ratiba na matokeo ya mechi za {date_text} kwa Kiswahili.",
+                               items, crumbs))
+
+
+@register.simple_tag(takes_context=True)
+def predictions_jsonld(context, matches):
+    request = context["request"]
+    page = _abs(request, request.path)
+    items = []
+    for m in matches:
+        link = _abs(request, m.article.get_absolute_url())
+        items.append({"@type": "ListItem", "position": len(items) + 1, "url": link, "item": sports_event(m, link)})
+    return _script(_collection(request, page, "Makadirio ya Mechi za Leo",
+                               "Uwezekano wa matokeo ya mechi kubwa kutoka fomu na rekodi za timu.",
+                               items, [("Mwanzo", "/"), ("LIVE", "/live/"), ("Makadirio", request.path)]))
+
+
+@register.simple_tag
+def wa_join_link():
+    """wa.me ya namba ya wILife (NEWS_WHATSAPP_NUMBER) yenye neno JIUNGE — tupu kama haijawekwa."""
+    from core.agent.whatsapp import normalise_number
+    number = normalise_number(getattr(settings, "NEWS_WHATSAPP_NUMBER", ""))
+    return f"https://wa.me/{number}?text=JIUNGE" if number else ""
 
 
 @register.simple_tag(takes_context=True)

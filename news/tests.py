@@ -2238,3 +2238,220 @@ class SelfUpdatingPagesTest(TestCase):
         Article.objects.filter(pk=self.a.pk).update(live_ended_at=timezone.now() - timedelta(days=2))
         page = self.client.get(self.a.get_absolute_url()).content.decode()
         self.assertIn('data-active="0"', page)
+
+
+@override_settings(HIGHLIGHTLY_API_KEY="hl-key", API_FOOTBALL_KEY="", API_FOOTBALL_LIVE_SECONDS=0,
+                   HIGHLIGHTLY_LEAGUES=["England:Premier League", "Spain:La Liga"], API_FOOTBALL_MAX_PER_DAY=1,
+                   SITE_URL="https://www.wlife.online")
+class DayPagesTest(TestCase):
+    """Mechi za leo / Matokeo ya jana / /mechi/<tarehe>/ — ratiba nzima, si mechi zenye LIVE tu."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        for target in ("news.models.Article.render_cover", "news.indexnow.submit", "news.football._image"):
+            p = mock.patch(target, return_value=None)
+            p.start()
+            self.addCleanup(p.stop)
+        p = mock.patch("news.enrich.run", return_value=0)
+        p.start()
+        self.addCleanup(p.stop)
+
+    def _scan(self):
+        from news import football
+        later = timezone.now() + timedelta(hours=2)
+        rows = [_hl(), _hl(mid=7003, league="La Liga", country="Spain", kickoff=later),
+                _hl(mid=7004, league="Serie A", country="Italy")]
+        rows[1]["homeTeam"] = {"id": 5, "name": "Real Madrid", "logo": "https://hl.example/5.png"}
+        rows[1]["awayTeam"] = {"id": 6, "name": "Barcelona", "logo": "https://hl.example/6.png"}
+        with mock.patch("news.highlightly.requests.get",
+                        return_value=_HLResp({"data": rows, "pagination": {"totalCount": 3}})):
+            football.sync_schedule(football._state(), timezone.now())
+
+    def test_whole_schedule_is_stored_and_listed_beyond_live_cap(self):
+        from news.models import Fixture, LiveMatch
+        self._scan()
+        self.assertEqual(LiveMatch.objects.count(), 1)              # LIVE: mechi 1 tu (kikomo)
+        self.assertEqual(sorted(Fixture.objects.values_list("fixture_id", flat=True)), [7001, 7003])
+        page = self.client.get("/mechi-za-leo/").content.decode()
+        self.assertIn("<title>Mechi za Leo ", page)
+        for text in ("Arsenal", "Real Madrid", "Barcelona", "La Liga", '"@type": "SportsEvent"',
+                     '<link rel="canonical" href="https://www.wlife.online/mechi-za-leo/">'):
+            self.assertIn(text, page)
+        self.assertIn(LiveMatch.objects.get().article.get_absolute_url(), page)   # mechi yenye LIVE ni link
+        self.assertEqual(page.count('id="m-highlightly7001"'), 1)                   # haijirudii
+
+    def test_date_urls_canonical_and_bounds(self):
+        self._scan()
+        today = timezone.localdate()
+        page = self.client.get(f"/mechi/{today.isoformat()}/").content.decode()
+        self.assertIn('<link rel="canonical" href="https://www.wlife.online/mechi-za-leo/">', page)
+        self.assertEqual(self.client.get(f"/mechi/{(today + timedelta(days=1)).isoformat()}/").status_code, 404)
+        self.assertEqual(self.client.get(f"/mechi/{(today - timedelta(days=9)).isoformat()}/").status_code, 404)
+        self.assertEqual(self.client.get("/mechi/si-tarehe/").status_code, 404)
+        self.assertEqual(self.client.get("/matokeo-ya-jana/").status_code, 200)
+
+    def test_old_day_page_is_self_canonical_and_in_sitemap(self):
+        from news.models import Fixture
+        old = timezone.localdate() - timedelta(days=5)
+        Fixture.objects.create(fixture_id=1, day=old, home="Simba", away="Yanga", competition="Ligi Kuu",
+                               home_goals=1, away_goals=0, status="FT",
+                               kickoff=timezone.now() - timedelta(days=5))
+        url = f"/mechi/{old.isoformat()}/"
+        page = self.client.get(url).content.decode()
+        self.assertIn(f'<link rel="canonical" href="https://www.wlife.online{url}">', page)
+        self.assertIn("Simba", page)
+        sitemap = self.client.get("/sitemap.xml").content.decode()
+        for loc in (url, "/mechi-za-leo/", "/matokeo-ya-jana/", "/makadirio/"):
+            self.assertIn(f"https://www.wlife.online{loc}</loc>", sitemap)
+
+    def test_evening_refresh_fills_results_with_one_request_per_league(self):
+        from news import fixtures, football
+        from news.models import Fixture
+        Fixture.objects.create(fixture_id=8001, day=timezone.localdate(), home="Real Madrid", away="Barcelona",
+                               competition="La Liga", competition_id=140, kickoff=timezone.now() - timedelta(hours=3))
+        done = _hl(mid=8001, desc="Finished", score="3 - 1", league="La Liga", country="Spain")
+        calls = []
+
+        def fake_get(url, params=None, headers=None, timeout=None):
+            calls.append(params)
+            return _HLResp({"data": [done, _hl(mid=9999, desc="Finished", score="0 - 0")]})
+        with mock.patch("news.highlightly.requests.get", side_effect=fake_get):
+            spent = fixtures.refresh_results(football._state(), timezone.now(), 80)
+            again = fixtures.refresh_results(football._state(), timezone.now(), 80)    # saa 3 hazijapita
+        self.assertEqual((spent, again, len(calls)), (1, 0, 1))
+        self.assertEqual(calls[0]["leagueId"], 140)
+        f = Fixture.objects.get()
+        self.assertEqual((f.home_goals, f.away_goals, f.status), (3, 1, "FT"))
+        self.assertEqual(Fixture.objects.count(), 1)                                # 9999 haikuombwa
+
+
+class PredictionTest(TestCase):
+    """Makadirio (Poisson) kutoka fomu na uso kwa uso, na rekodi ya wazi baada ya mechi."""
+
+    def setUp(self):
+        from news.models import LiveMatch
+        p = mock.patch("news.models.Article.render_cover")
+        p.start()
+        self.addCleanup(p.stop)
+        self.a = Article.objects.create(title="Arsenal vs Chelsea LIVE", category="dunia", excerpt="x", body="b",
+                                        status="published", published_at=timezone.now(), origin="football")
+        strong = [{"home": "Arsenal", "away": t, "score": "3 - 0"} for t in "ABC"] + \
+                 [{"home": "D", "away": "Arsenal", "score": "0 - 2"}]
+        weak = [{"home": "Chelsea", "away": t, "score": "0 - 2"} for t in "ABC"] + \
+               [{"home": "D", "away": "Chelsea", "score": "1 - 1"}]
+        self.m = LiveMatch.objects.create(article=self.a, fixture_id=55, provider="highlightly", home="Arsenal",
+                                          away="Chelsea", competition="Premier League",
+                                          kickoff=timezone.now() + timedelta(hours=5),
+                                          extra={"form_home_games": strong, "form_away_games": weak})
+
+    def test_compute_favours_the_team_in_form_and_sums_to_100(self):
+        from news import predict
+        p = predict.ensure(self.m)
+        self.assertEqual(p["home"] + p["draw"] + p["away"], 100)
+        self.assertGreater(p["home"], 60)
+        self.assertEqual(p["pick"], "1")
+        self.assertRegex(p["score"], r"^\d-\d$")
+        self.assertIn("Makadirio ya wILife", " ".join(self.m.insights))
+
+    def test_not_enough_games_means_no_prediction(self):
+        from news import predict
+        self.m.extra = {"form_home_games": self.m.extra["form_home_games"][:2], "form_away_games": []}
+        self.assertIsNone(predict.ensure(self.m))
+
+    def test_prediction_is_frozen_at_kickoff_and_settled_after_final_whistle(self):
+        from news import predict
+        predict.ensure(self.m)
+        made = self.m.extra["prediction"]
+        self.m.status, self.m.home_goals, self.m.away_goals = "1H", 0, 0
+        self.m.extra["form_home_games"] = []
+        self.assertEqual(predict.ensure(self.m), made)            # mechi imeanza: hayabadiliki
+        self.m.status, self.m.home_goals, self.m.away_goals = "FT", 2, 0
+        self.m.save()
+        predict.settle(self.m)
+        self.m.refresh_from_db()
+        self.assertTrue(self.m.extra["prediction_hit"])
+        rec = predict.record()
+        self.assertEqual((rec["total"], rec["hits"], rec["pct"]), (1, 1, 100))
+
+    def test_predictions_page_and_match_panel(self):
+        from news import predict
+        predict.ensure(self.m)
+        page = self.client.get("/makadirio/").content.decode()
+        for text in ("Makadirio ya Mechi za Leo", "Arsenal", "18+", '"@type": "SportsEvent"', "Poisson"):
+            self.assertIn(text, page)
+        match_page = self.client.get(self.a.get_absolute_url()).content.decode()
+        self.assertIn("Makadirio ya wILife", match_page)
+        self.assertIn("beti kwa uwajibikaji", match_page)
+
+
+@override_settings(SITE_URL="https://www.wlife.online", AGENT_ENABLED=True, WHATSAPP_ENABLED=True,
+                   WHATSAPP_PROVIDER="baileys", WHATSAPP_BRIDGE_URL="http://bridge", WHATSAPP_BRIDGE_KEY="k",
+                   FOOTBALL_DIGEST_HOURS="8", NEWS_WHATSAPP_NUMBER="0629000000")
+class FootballDigestTest(TestCase):
+    """JIUNGE / ACHA na ujumbe wa kila siku wa michezo kwa wasomaji waliojiunga tu."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from news.models import Fixture
+        cache.clear()
+        self.addCleanup(cache.clear)
+        today = timezone.localdate()
+        Fixture.objects.create(fixture_id=1, day=today - timedelta(days=1), home="Simba", away="Yanga",
+                               competition="Ligi Kuu", home_goals=2, away_goals=1, status="FT",
+                               kickoff=timezone.now() - timedelta(days=1))
+        Fixture.objects.create(fixture_id=2, day=today, home="Arsenal", away="Chelsea", competition="Premier League",
+                               kickoff=timezone.make_aware(datetime.combine(today, datetime.min.time())) + timedelta(hours=22))
+
+    def _at(self, hour):
+        today = timezone.localdate()
+        return timezone.make_aware(datetime.combine(today, datetime.min.time())) + timedelta(hours=hour, minutes=5)
+
+    def test_join_and_leave_by_whatsapp(self):
+        from news.models import Subscriber
+        r = self.client.post("/agent/whatsapp/baileys/", data=json.dumps({"phone": "255711000111", "message": "Jiunge"}),
+                             content_type="application/json", HTTP_X_BRIDGE_KEY="k")
+        self.assertIn("Karibu wILife Michezo", r.json()["reply"])
+        self.assertTrue(Subscriber.objects.get(phone="255711000111").active)
+        from news import digest
+        self.assertIsNone(digest.handle("255799999999", "acha"))         # si mwanachama: kimya
+        self.assertIn("Umesitisha", digest.handle("0711000111", "ACHA"))
+        self.assertFalse(Subscriber.objects.get().active)
+
+    def test_daily_message_goes_once_per_slot_and_only_in_window(self):
+        from news import digest
+        from news.models import Subscriber
+        Subscriber.objects.create(phone="255711000111")
+        Subscriber.objects.create(phone="255711000222", active=False)
+        with mock.patch("core.agent.whatsapp._send_via_bridge", return_value="id") as send, \
+                mock.patch("time.sleep"):
+            self.assertEqual(digest.run(now=self._at(6))["sent"], 0)          # kabla ya saa 2
+            self.assertEqual(digest.run(now=self._at(8))["sent"], 1)
+            self.assertEqual(digest.run(now=self._at(9))["sent"], 0)          # tayari ametumiwa
+        number, text = send.call_args[0][:2]
+        self.assertEqual(number, "255711000111")
+        for part in ("Matokeo ya jana", "Simba 2-1 Yanga", "Mechi za leo", "22:00 Arsenal vs Chelsea",
+                     "https://www.wlife.online/mechi-za-leo/", "ACHA"):
+            self.assertIn(part, text)
+
+    def test_bridge_down_does_not_skip_the_reader(self):
+        from core.agent.whatsapp import WhatsAppError
+        from news import digest
+        from news.models import Subscriber
+        Subscriber.objects.create(phone="255711000111")
+        with mock.patch("core.agent.whatsapp._send_via_bridge", side_effect=WhatsAppError("ConnectionError")), \
+                mock.patch("time.sleep"):
+            out = digest.run(now=self._at(8))
+        self.assertEqual(out["failed"], 1)
+        sub = Subscriber.objects.get()
+        self.assertEqual((sub.last_slot, sub.active, sub.failures), ("", True, 0))
+
+    def test_join_box_shows_only_with_number(self):
+        page = self.client.get("/mechi-za-leo/").content.decode()
+        self.assertIn("https://wa.me/255629000000?text=JIUNGE", page)
+        with self.settings(NEWS_WHATSAPP_NUMBER=""):
+            from django.core.cache import cache
+            cache.clear()
+            self.assertNotIn("wa.me/?text=JIUNGE", self.client.get("/mechi-za-leo/").content.decode())
+            self.assertNotIn("Jiunge WhatsApp", self.client.get("/mechi-za-leo/").content.decode())

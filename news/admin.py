@@ -1,8 +1,8 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from news.models import (Article, EditorSettings, FootballState, JamiiTekService, LiveMatch, LiveUpdate, NewsBatch,
-                         NewsRequest)
+from news.models import (Article, EditorSettings, Fixture, FootballState, JamiiTekService, LiveMatch, LiveUpdate,
+                         NewsBatch, NewsRequest, Subscriber)
 
 
 class LiveUpdateInline(admin.TabularInline):
@@ -142,3 +142,19 @@ class FootballStateAdmin(admin.ModelAdmin):
     """Maombi ya API-Football kwa siku — kikomo cha bure ni 100."""
     list_display = ("day", "requests", "remaining", "schedule_at", "live_at", "live_mode", "error")
     readonly_fields = ("day", "requests", "remaining", "schedule_at", "live_at", "live_mode", "error", "sample")
+
+
+@admin.register(Fixture)
+class FixtureAdmin(admin.ModelAdmin):
+    """Ratiba ya siku (kurasa za Mechi za leo / Matokeo ya jana)."""
+    list_display = ("day", "kickoff", "competition", "home", "away", "home_goals", "away_goals", "status")
+    list_filter = ("day", "competition")
+    search_fields = ("home", "away", "competition")
+
+
+@admin.register(Subscriber)
+class SubscriberAdmin(admin.ModelAdmin):
+    """Wasomaji waliotuma JIUNGE kupata michezo WhatsApp."""
+    list_display = ("phone", "active", "created_at", "sent", "last_slot", "failures")
+    list_filter = ("active",)
+    search_fields = ("phone",)

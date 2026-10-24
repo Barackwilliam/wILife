@@ -17,6 +17,8 @@
 </section>
 {% endif %}{% endwith %}
 
+{% include 'news/_pred.html' with full=True %}
+
 {% if x.stats or x.lineups or x.h2h or x.form_home or x.form_away or x.highlights %}
 <section class="mp" id="mp" data-first="{% if x.highlights and m.is_finished %}video{% elif x.stats %}stats{% endif %}" data-feed="{% url 'news:live_feed' article.pk %}" data-live="{{ m.is_playing|yesno:'1,0' }}">
   <div class="mp-tabs" role="tablist">

@@ -161,6 +161,11 @@ def run_football(now=None, deadline=None, dry_run=False):
     return run(now=now, deadline=deadline, dry_run=dry_run)
 
 
+def run_football_digest(now=None, deadline=None, dry_run=False):
+    from news.digest import run
+    return run(now=now, deadline=deadline, dry_run=dry_run)
+
+
 def run_news_requests(now=None, deadline=None, dry_run=False):
     from news.commission import run_due
     return run_due(now=now, dry_run=dry_run)
@@ -181,6 +186,7 @@ JOBS = {
     "news_photos": run_news_photos,
     "news_drafts": run_news_drafts,
     "expire_approvals": run_expire_approvals,
+    "football_digest": run_football_digest,   # mwisho: inatumia muda uliobaki wa tick
 }
 
 

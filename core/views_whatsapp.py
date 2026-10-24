@@ -247,6 +247,10 @@ def _handle_message(from_number, text):
             return commission.from_chat(text, user, "whatsapp") or ""
         if jamiitek_team.is_team_command(text) and _authorised_user(from_number):
             return jamiitek_team.status_text()
+        from news import digest
+        reply = digest.handle(from_number, text)      # JIUNGE / ACHA — ujumbe wa michezo kwa wasomaji
+        if reply is not None:
+            return reply
         log.info("ignoring unrecognised inbound message from %s", from_number)
         return ""
 

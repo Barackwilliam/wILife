@@ -1,0 +1,6 @@
+{% load news_tags %}{% wa_join_link as join %}{% if join %}
+<aside class="waj" aria-label="Pata matokeo WhatsApp">
+  <span class="waj-ic">{% icon "whatsapp" %}</span>
+  <div><b>Pata mechi za leo na matokeo WhatsApp — bure</b><span>Ujumbe mmoja kwa siku: matokeo ya jana, mechi za leo na makadirio. Tuma <strong>JIUNGE</strong>; tuma ACHA kusitisha wakati wowote.</span></div>
+  <a class="waj-btn" href="{{ join }}" target="_blank" rel="noopener">Jiunge WhatsApp</a>
+</aside>{% endif %}

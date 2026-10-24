@@ -264,6 +264,10 @@ def sync_schedule(state, now):
         rank = {lid: i for i, lid in enumerate(leagues())}
         items = sorted((i for i in items if i.get("league", {}).get("id") in rank),
                        key=lambda i: (rank[i["league"]["id"]], i["fixture"].get("date", "")))
+        for i in items:
+            i["_rank"] = rank[i["league"]["id"]]
+    from news import fixtures
+    fixtures.store(items, today)                       # ratiba nzima ya siku: "Mechi za leo" (hakuna ombi la ziada)
     cap = max_per_day()
     start = timezone.make_aware(datetime.combine(today, datetime.min.time()))
     made = Article.objects.filter(origin="football", created_at__gte=start).count()
@@ -397,6 +401,9 @@ def apply(item, m=None):
     m.save(update_fields=["seen_events"])
     if done and article.live_started_at and not article.live_ended_at:
         _finish(article, m)
+    if m.is_finished:
+        from news import predict
+        predict.settle(m)                     # makadirio yalipatia? (rekodi ya wazi kwenye /makadirio/)
     return new
 
 
@@ -547,6 +554,11 @@ def run(now=None, deadline=None, dry_run=False):
             n = enrich.run(state, now)
             if n:
                 notes.append(f"ziada: maombi {n}")
+            if not active(now):                 # jioni, mechi zetu za LIVE zikiwa zimeisha: matokeo ya ratiba nzima
+                from news import fixtures
+                n = fixtures.refresh_results(state, now, daily_limit() - state.requests)
+                if n:
+                    notes.append(f"matokeo ya ratiba: maombi {n}")
         if state.error:
             state.error = ""
             state.save(update_fields=["error"])

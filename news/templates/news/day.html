@@ -1,0 +1,59 @@
+{% extends 'news/base.html' %}
+{% load news_tags %}
+{% block title %}{% if kind == 'leo' %}Mechi za Leo {{ date_text }}: Ratiba, Matokeo LIVE na Makadirio{% elif kind == 'jana' %}Matokeo ya Jana {{ date_text }}: Matokeo ya Mechi Zote{% else %}Matokeo ya Mechi {{ date_text }}: Ratiba na Matokeo ya Mpira{% endif %} | wILife{% endblock %}
+{% block description %}{% if kind == 'leo' %}Mechi za leo {{ date_text }} kwa saa za Afrika Mashariki: Premier League, La Liga, Champions League, Ligi Kuu na Afrika. {% if counts.on %}{{ counts.on }} zinaendelea sasa. {% endif %}Matokeo yanabadilika yenyewe, pamoja na makadirio ya mechi kubwa.{% else %}Matokeo ya mechi za {{ date_text }}: {{ rows|length }} mechi za Premier League, La Liga, Champions League, Ligi Kuu na Afrika — magoli na matokeo ya mwisho kwa Kiswahili.{% endif %}{% endblock %}
+{% block canonical %}{% absolute canonical %}{% endblock %}
+{% block og_title %}{% if kind == 'leo' %}Mechi za Leo — {{ date_text }}{% elif kind == 'jana' %}Matokeo ya Jana — {{ date_text }}{% else %}Matokeo ya Mechi — {{ date_text }}{% endif %} | wILife{% endblock %}
+{% block og_description %}{% if kind == 'leo' %}Ratiba ya mechi za leo, matokeo LIVE na makadirio kwa Kiswahili.{% else %}Matokeo ya mechi zote za {{ date_text }} kwa Kiswahili.{% endif %}{% endblock %}
+{% block jsonld %}{% day_jsonld rows kind date_text canonical %}{% endblock %}
+
+{% block content %}{% endblock %}
+
+{% block fullbleed %}
+<section class="lh-hero dy-hero" aria-labelledby="dy-title">
+  <div class="wrap">
+    <nav class="crumbs lh-crumbs" aria-label="breadcrumb"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><a href="{% url 'news:live_hub' %}">LIVE</a><span>/</span><span>{% if kind == 'leo' %}Mechi za leo{% elif kind == 'jana' %}Matokeo ya jana{% else %}{{ day|date:"d/m/Y" }}{% endif %}</span></nav>
+    <div class="lh-head">
+      <span class="lh-badge{% if not counts.on %} off{% endif %}"><i></i>{% if counts.on %}LIVE · {{ counts.on }}{% elif is_past %}MATOKEO{% else %}RATIBA{% endif %}</span>
+      <h1 id="dy-title">{% if kind == 'leo' %}Mechi za Leo{% elif kind == 'jana' %}Matokeo ya Jana{% else %}Matokeo ya Mechi{% endif %} <span>{{ date_text }}</span></h1>
+      <p class="lh-sub">{% if rows %}Mechi {{ rows|length }}{% if counts.on %} · {{ counts.on }} zinaendelea sasa{% endif %}{% if counts.done %} · {{ counts.done }} zimeisha{% endif %}{% if counts.soon %} · {{ counts.soon }} bado{% endif %} · saa za Afrika Mashariki{% else %}Ratiba ya siku hii bado haijapatikana{% endif %}</p>
+    </div>
+    <nav class="dy-days" aria-label="Siku">
+      {% if kind != 'leo' %}<a href="{% url 'news:matches_day' prev_day|date:'Y-m-d' %}" rel="prev">‹ {{ prev_day|sw_day }} {{ prev_day|sw_daydate }}</a>{% endif %}
+      <a href="{% url 'news:results_yesterday' %}"{% if kind == 'jana' %} class="on" aria-current="page"{% endif %}>Jana</a>
+      <a href="{% url 'news:matches_today' %}"{% if kind == 'leo' %} class="on" aria-current="page"{% endif %}>Leo</a>
+      <a href="{% url 'news:predictions' %}">Makadirio</a>
+      {% if next_day %}<a href="{% url 'news:matches_day' next_day|date:'Y-m-d' %}" rel="next">{{ next_day|sw_day }} ›</a>{% endif %}
+    </nav>
+  </div>
+</section>
+
+<div class="wrap lh-body dy-body">
+  <div id="lv-zone" data-v="{{ page_v }}">
+  {% for name, logo, items in groups %}
+  <section class="dy-lg" aria-label="{{ name }}">
+    <h2 class="dy-lgh">{% if logo %}<img src="{{ logo }}" alt="" width="20" height="20" loading="lazy" referrerpolicy="no-referrer">{% endif %}{{ name }}<span>{{ items|length }}</span></h2>
+    <div class="dy-rows">{% for r in items %}{% include 'news/_fx_row.html' %}{% endfor %}</div>
+  </section>
+  {% empty %}
+  <div class="dy-empty"><b>Hakuna mechi za kuonyesha kwa siku hii bado.</b><span>Ratiba ya ligi kubwa husomwa kila asubuhi. Angalia <a href="{% url 'news:live_hub' %}">LIVE</a> au <a href="{% url 'news:results_yesterday' %}">matokeo ya jana</a>.</span></div>
+  {% endfor %}
+  </div>
+
+  {% include 'news/_wa_join.html' %}
+
+  <section class="lh-about">
+    {% if kind == 'leo' %}
+    <h2>Mechi za leo kwa Kiswahili</h2>
+    <p>Hapa kuna ratiba ya mechi za leo, {{ date_text }}, kwa saa za Afrika Mashariki (Dar es Salaam, Nairobi, Kampala): Premier League, La Liga, Serie A, Bundesliga, Ligue 1, Champions League, Europa League, Ligi Kuu na mashindano ya Afrika. Mechi zinazoendelea zinaonyesha matokeo yanayobadilika yenyewe bila kurefresh, na mechi kubwa zina ukurasa wake wenye magoli, takwimu, vikosi na video.</p>
+    <p>Matokeo ya mechi za leo yanabaki hapa baada ya filimbi ya mwisho. Kesho asubuhi yanapatikana kwenye <a href="{% url 'news:results_yesterday' %}">matokeo ya jana</a>, na <a href="{% url 'news:predictions' %}">makadirio ya mechi</a> yanaonyesha uwezekano wa matokeo kabla mechi haijaanza.</p>
+    {% else %}
+    <h2>Matokeo ya mechi za {{ date_text }}</h2>
+    <p>Matokeo ya mwisho ya mechi zote za {{ date_text }} za ligi kubwa za Ulaya, Ligi Kuu na mashindano ya Afrika, kwa saa za Afrika Mashariki. Bofya mechi yenye ukurasa wake kuona waliofunga, kadi, takwimu na video za magoli.</p>
+    <p>Mechi zinazochezwa leo ziko kwenye <a href="{% url 'news:matches_today' %}">mechi za leo</a>{% if record.total %}, na makadirio yetu yamepatia matokeo ya mechi {{ record.hits }} kati ya {{ record.total }} siku {{ record.days }} zilizopita (<a href="{% url 'news:predictions' %}">rekodi kamili</a>){% endif %}.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}{% include 'news/_score_js.html' %}{% endblock %}

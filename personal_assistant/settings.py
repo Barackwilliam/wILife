@@ -321,6 +321,11 @@ API_FOOTBALL_DAILY_LIMIT = int(env("API_FOOTBALL_DAILY_LIMIT", "100"))      # mp
 API_FOOTBALL_LIVE_SECONDS = int(env("API_FOOTBALL_LIVE_SECONDS", "120"))    # kila ngapi kuangalia mechi zinazochezwa
 API_FOOTBALL_SCHEDULE_HOURS = int(env("API_FOOTBALL_SCHEDULE_HOURS", "6"))  # kila ngapi kusoma ratiba ya leo
 API_FOOTBALL_MAX_PER_DAY = int(env("API_FOOTBALL_MAX_PER_DAY", "0"))        # mechi kwa siku; 0 = 5 (bure) / 20 (kulipia)
+# Ujumbe wa kila siku wa michezo kwa wasomaji waliotuma JIUNGE (news/digest.py)
+NEWS_WHATSAPP_NUMBER = env("NEWS_WHATSAPP_NUMBER", "")   # namba iliyounganishwa na bridge; tupu = kitufe cha JIUNGE kimefichwa
+FOOTBALL_DIGEST_ENABLED = env_bool("FOOTBALL_DIGEST_ENABLED", True)
+FOOTBALL_DIGEST_HOURS = env("FOOTBALL_DIGEST_HOURS", "8")         # saa za kutuma (Afrika Mashariki), mf. "8,22"
+FOOTBALL_DIGEST_PER_TICK = int(env("FOOTBALL_DIGEST_PER_TICK", "6"))
 NEWS_ENABLED = env_bool("NEWS_ENABLED", False)      # turn the daily drafting on
 NEWS_DRAFT_HOUR = int(env("NEWS_DRAFT_HOUR", "5"))  # local hour drafting starts
 NEWS_GIVE_UP_HOUR = int(env("NEWS_GIVE_UP_HOUR", "10"))

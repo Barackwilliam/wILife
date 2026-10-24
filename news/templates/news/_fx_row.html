@@ -1,0 +1,8 @@
+{% comment %}Mstari mmoja wa mechi (news/fixtures.Row): saa/hali, timu, magoli, makadirio. Mechi yenye ukurasa ni link.{% endcomment %}
+<{% if r.article %}a href="{{ r.url }}"{% else %}div{% endif %} class="fx{% if r.is_playing %} is-on{% elif r.is_finished %} is-ft{% elif r.is_off %} is-off{% endif %}" id="m-{{ r.key }}"{% if r.article %} data-match="{{ r.article.pk }}"{% endif %}>
+  <span class="fx-t" data-clock>{{ r.clock }}</span>
+  <span class="fx-tm fx-h"><b>{{ r.home }}</b>{% if r.home_logo %}<img src="{{ r.home_logo }}" alt="Nembo ya {{ r.home }}" width="22" height="22" loading="lazy" referrerpolicy="no-referrer">{% endif %}</span>
+  <span class="fx-s" data-score>{% if r.has_score %}{{ r.home_goals }}<i>-</i>{{ r.away_goals }}{% else %}<small>vs</small>{% endif %}</span>
+  <span class="fx-tm fx-a">{% if r.away_logo %}<img src="{{ r.away_logo }}" alt="Nembo ya {{ r.away }}" width="22" height="22" loading="lazy" referrerpolicy="no-referrer">{% endif %}<b>{{ r.away }}</b></span>
+  <span class="fx-x">{% with p=r.prediction %}{% if p %}<em class="fx-p" title="Makadirio: {{ r.home }} {{ p.home }}%, sare {{ p.draw }}%, {{ r.away }} {{ p.away }}%">{% if p.pick == '1' %}1 · {{ p.home }}%{% elif p.pick == '2' %}2 · {{ p.away }}%{% else %}X · {{ p.draw }}%{% endif %}</em>{% endif %}{% endwith %}{% if r.article %}<i class="fx-go" aria-hidden="true">›</i>{% endif %}</span>
+</{% if r.article %}a{% else %}div{% endif %}>

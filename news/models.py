@@ -446,3 +446,70 @@ class FootballState(models.Model):
 
     def __str__(self):
         return f"{self.day}: {self.requests}"
+
+
+class Fixture(models.Model):
+    """
+    Mechi moja ya ratiba ya siku (ligi zetu zote, si zile 5 zenye LIVE tu) — kurasa za
+    "Mechi za leo" na "Matokeo ya jana" (news/fixtures.py). Inajazwa na usomaji wa ratiba
+    ambao tayari unafanyika (hakuna ombi la ziada), na matokeo yanasasishwa jioni.
+    """
+    provider = models.CharField(max_length=12, default="highlightly")
+    fixture_id = models.BigIntegerField()
+    day = models.DateField(db_index=True, help_text="Siku kwa saa za Afrika Mashariki")
+    kickoff = models.DateTimeField(null=True, blank=True)
+    rank = models.PositiveSmallIntegerField(default=99, help_text="Nafasi ya ligi kwenye HIGHLIGHTLY_LEAGUES")
+    competition = models.CharField(max_length=80, blank=True)
+    competition_id = models.BigIntegerField(null=True, blank=True)
+    competition_logo = models.URLField(max_length=300, blank=True)
+    country = models.CharField(max_length=60, blank=True)
+    round = models.CharField(max_length=80, blank=True)
+    home = models.CharField(max_length=80)
+    away = models.CharField(max_length=80)
+    home_logo = models.URLField(max_length=300, blank=True)
+    away_logo = models.URLField(max_length=300, blank=True)
+    home_goals = models.PositiveSmallIntegerField(null=True, blank=True)
+    away_goals = models.PositiveSmallIntegerField(null=True, blank=True)
+    status = models.CharField(max_length=5, default="NS")
+    minute = models.PositiveSmallIntegerField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["rank", "kickoff", "id"]
+        constraints = [models.UniqueConstraint(fields=["provider", "fixture_id"], name="uniq_fixture")]
+
+    def __str__(self):
+        return f"{self.day}: {self.home} vs {self.away}"
+
+    @property
+    def has_score(self):
+        return self.home_goals is not None and self.away_goals is not None
+
+    @property
+    def is_finished(self):
+        return self.status in LiveMatch.FINISHED
+
+    @property
+    def is_playing(self):
+        return self.status in LiveMatch.PLAYING
+
+    @property
+    def clock(self):
+        return LiveMatch.clock.fget(self)
+
+    def get_status_display(self):
+        return dict(LiveMatch.STATUS).get(self.status, self.status)
+
+
+class Subscriber(models.Model):
+    """Msomaji aliyejiunga kupata matokeo na mechi za leo WhatsApp (alituma JIUNGE; ACHA kusitisha)."""
+    phone = models.CharField(max_length=20, unique=True)
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    left_at = models.DateTimeField(null=True, blank=True)
+    last_slot = models.CharField(max_length=16, blank=True, help_text="Ujumbe wa mwisho uliotumwa (siku-saa)")
+    sent = models.PositiveIntegerField(default=0)
+    failures = models.PositiveSmallIntegerField(default=0)
+
+    def __str__(self):
+        return f"{self.phone}{'' if self.active else ' (ameacha)'}"
