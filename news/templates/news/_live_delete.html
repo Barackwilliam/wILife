@@ -1,0 +1,5 @@
+{% comment %}Mhariri: ondoa LIVE nzima kwenye tovuti (news.live.remove). Inahitaji `article`.{% endcomment %}
+<form method="post" action="{% url 'news:live_action' article.pk %}" onsubmit="return confirm('Ondoa LIVE hii kwenye tovuti? Wasomaji hawataiona tena.')">
+  {% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="next" value="{{ next|default:'' }}">
+  <button class="lv-danger" type="submit">🗑 Ondoa LIVE hii</button>
+</form>

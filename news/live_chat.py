@@ -27,7 +27,9 @@ HELP = ("📡 *Amri za LIVE*\n"
         "• live 45' GOOOL! Chama anafunga\n"
         "• live 52' Yanga wasawazisha | Simba 1-1 Yanga\n"
         "• live matokeo Simba 2-1 Yanga\n"
-        "• live mwisho")
+        "• live mwisho\n"
+        "• live futa  (futa sasisho la mwisho)\n"
+        "• live futa yote  (ondoa LIVE nzima kwenye tovuti)")
 
 
 def _kind(text):
@@ -95,6 +97,16 @@ def from_chat(text, user=None):
         return status + HELP
     if not article:
         return "Hakuna LIVE inayoendelea. Anza kwanza: live anza Simba vs Yanga"
+
+    if word in ("futa", "delete"):
+        if rest[len(word):].strip().lower() in ("yote", "zote", "all"):
+            live.remove(article)
+            return f"🗑 LIVE imeondolewa kwenye tovuti: {article.title}"
+        last = article.live_updates.first()
+        if not last:
+            return "Hakuna sasisho la kufuta."
+        live.delete_update(last)
+        return f"🗑 Sasisho limefutwa: {(last.label + ' ') if last.label else ''}{last.text[:80]}"
 
     if word in ("mwisho", "maliza", "end", "stop"):
         live.end(article)

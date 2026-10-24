@@ -27,6 +27,11 @@
 .lv-item.k-red{border-left:4px solid #dc2626;padding-left:10px;margin-left:-14px}
 .lv-item.k-card{border-left:4px solid #eab308;padding-left:10px;margin-left:-14px}
 .lv-item.k-whistle .lv-text{font-weight:700;color:var(--ink)}
+.lv-item{position:relative}
+.lv-del{position:absolute;top:10px;right:0;margin:0}
+.lv-item:has(.lv-del) .lv-text{padding-right:34px}
+.lv-del button{border:1px solid var(--line-strong);background:transparent;color:var(--muted);border-radius:6px;width:26px;height:26px;line-height:1;cursor:pointer;font-size:12px}
+.lv-del button:hover{color:#dc2626;border-color:#dc2626}
 .lv-empty{padding:14px 0;color:var(--muted);font-size:14px}
 .lv-staff{border-top:1px dashed var(--line-strong);padding:14px 16px;background:var(--brand-soft)}
 .lv-staff b{font-size:13px}
@@ -59,13 +64,17 @@
       <textarea name="text" maxlength="1000" placeholder="Kilichotokea, mf. GOOOL! Chama anafunga kwa kichwa."></textarea>
       <div class="lv-row"><button>Weka sasisho</button></div>
     </form>
+    <div class="lv-row">
     <form method="post" action="{% url 'news:live_action' article.pk %}" onsubmit="return confirm('Maliza LIVE?')">
       {% csrf_token %}<input type="hidden" name="action" value="end"><button class="lv-ghost">Maliza LIVE</button>
     </form>
+    {% include 'news/_live_delete.html' %}
+    </div>
     {% else %}
     <form method="post" action="{% url 'news:live_action' article.pk %}">
       {% csrf_token %}<input type="hidden" name="action" value="start"><button>Anza LIVE tena</button>
     </form>
+    {% include 'news/_live_delete.html' %}
     {% endif %}
   </div>
   {% endif %}
@@ -75,6 +84,7 @@
     <li class="lv-item{% if u.kind %} k-{{ u.kind }}{% endif %}" id="u{{ u.id }}" data-id="{{ u.id }}">
       <div class="lv-when">{{ u.label|default:"" }}<small><time datetime="{{ u.created_at|date:'c' }}">{{ u.created_at|date:"H:i" }}</time></small></div>
       <div class="lv-text">{{ u.text|linebreaks }}</div>
+      {% if user.is_staff %}<form class="lv-del" method="post" action="{% url 'news:live_action' article.pk %}" onsubmit="return confirm('Futa sasisho hili?')">{% csrf_token %}<input type="hidden" name="action" value="delete_update"><input type="hidden" name="update" value="{{ u.id }}"><button title="Futa sasisho hili" aria-label="Futa sasisho hili">✕</button></form>{% endif %}
     </li>
     {% empty %}
     <li class="lv-empty" id="lvEmpty">Masasisho yataanza kuonekana hapa hivi punde.</li>

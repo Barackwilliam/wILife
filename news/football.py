@@ -185,7 +185,8 @@ def sync_schedule(state, now):
     for item in items:
         m = LiveMatch.objects.filter(fixture_id=item["fixture"]["id"]).select_related("article").first()
         if m:
-            apply(item, m)
+            if m.article.status == "published":     # LIVE iliyoondolewa na mhariri haiguswi tena
+                apply(item, m)
             continue
         if made >= cap:
             continue
@@ -312,7 +313,7 @@ def apply(item, m=None):
 def active(now):
     """Mechi zinazohitaji kuangaliwa sasa: zimeanza (au zinakaribia) na bado hazijaisha."""
     return list(LiveMatch.objects.select_related("article").filter(
-        fixture_id__isnull=False, kickoff__lte=now + timedelta(minutes=3), kickoff__gte=now - timedelta(hours=4))
+        fixture_id__isnull=False, article__status="published", kickoff__lte=now + timedelta(minutes=3), kickoff__gte=now - timedelta(hours=4))
         .exclude(status__in=LiveMatch.FINISHED | LiveMatch.OFF).order_by("kickoff")[:MAX_IDS])
 
 
