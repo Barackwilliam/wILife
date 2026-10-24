@@ -130,11 +130,11 @@ def _when(dt):
 
 
 def preview_title(m):
-    return f"{m.home} vs {m.away} LIVE: Matokeo na Matukio Yote — {m.competition}"[:200]
+    return f"{m.home} vs {m.away} LIVE: Matokeo, Kikosi na Takwimu — {m.competition}"[:200]
 
 
 def final_title(m):
-    return f"{m.home} {m.home_goals}-{m.away_goals} {m.away}: Matokeo, Magoli na Matukio Yote — {m.competition}"[:200]
+    return f"{m.home} {m.home_goals}-{m.away_goals} {m.away}: Matokeo, Magoli na Takwimu — {m.competition}"[:200]
 
 
 def _preview_body(m):

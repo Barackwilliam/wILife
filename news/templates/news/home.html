@@ -9,13 +9,13 @@
 
 {% block content %}
 <h1 class="sr-only">wILife — habari za leo Tanzania, Afrika na Dunia kwa Kiswahili</h1>
-{% if live_strip %}
+<div id="lv-zone" data-v="{{ live_v }}">{% if live_strip %}
 <section class="ls" aria-label="LIVE sasa">
   <a class="ls-head" href="{% url 'news:live_hub' %}"><span class="lh-badge{% if not live_now %} off{% endif %}"><i></i>LIVE</span><b>{% if live_now %}Zinaendelea sasa{% else %}Matokeo ya mpira{% endif %}</b><span>Zote {% icon "arrow-right" %}</span></a>
   <div class="ls-row">{% for a in live_strip %}{% if a.match %}{% include 'news/_score.html' %}{% else %}
     <a class="ls-blog" href="{{ a.get_absolute_url }}">{% if a.is_live %}<span class="live-pill">LIVE</span>{% endif %}<b>{{ a.title }}</b>{% if a.live_score %}<span>{{ a.live_score }}</span>{% endif %}</a>{% endif %}{% endfor %}</div>
 </section>
-{% endif %}
+{% endif %}</div>
 {% if lead %}
 <section class="top" aria-label="Habari kuu">
   <article class="lead c-{{ lead.category }}">
@@ -74,7 +74,7 @@
 {% include 'news/_jt.html' %}
 {% endif %}
 {% endblock %}
-{% block extra_scripts %}{% if live_strip %}{% include 'news/_score_js.html' %}{% endif %}{% endblock %}
+{% block extra_scripts %}{% include 'news/_score_js.html' %}{% endblock %}
 
 {% block fullbleed %}
 {% if dunia %}

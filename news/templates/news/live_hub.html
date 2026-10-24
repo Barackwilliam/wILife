@@ -10,6 +10,7 @@
 {% block content %}{% endblock %}
 
 {% block fullbleed %}
+<div id="lv-zone" data-v="{{ live_v }}">
 <section class="lh-hero" aria-labelledby="lh-title">
   <div class="wrap">
     <nav class="crumbs lh-crumbs" aria-label="breadcrumb"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><span>LIVE</span></nav>
@@ -52,6 +53,8 @@
   </section>
   {% endif %}
 
+</div></div>{# /lh-body, /lv-zone #}
+<div class="wrap lh-body">
   <section class="lh-about">
     <h2>Kuhusu LIVE ya wILife</h2>
     <p>Hapa unapata matokeo ya mpira leo na matukio yote ya mechi kwa Kiswahili: magoli, waliofunga, kadi, mabadiliko ya wachezaji na maamuzi ya VAR, dakika kwa dakika. Kila mechi ina ukurasa wake unaosasishwa wenyewe bila kurefresh, na matokeo ya mwisho yanabaki hapo baada ya filimbi ya mwisho.</p>

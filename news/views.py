@@ -132,7 +132,15 @@ def home(request):
         "services": JamiiTekService.objects.filter(active=True)[:6],
         "ticker": latest[:10],
         "live_strip": _live_strip(),
+        "live_v": _live_version(*_live_sets()),
     })
+
+
+def _live_version(on, soon, done):
+    """Alama ya orodha ya LIVE: mechi mpya ikianza/kuisha, ukurasa wa LIVE na wa mwanzo vinajibadilisha."""
+    import hashlib
+    key = [(a.pk, getattr(getattr(a, "match", None), "status", ""), a.is_live) for a in on + soon] + [a.pk for a in done[:8]]
+    return hashlib.md5(repr(key).encode()).hexdigest()[:12]
 
 
 def _live_strip():
@@ -175,7 +183,7 @@ def article(request, category, slug):
     qs = Article.objects.defer(*LIGHT) if request.user.is_staff else _published()
     item = get_object_or_404(qs, category=category, slug=slug)
     views = item.views
-    if item.status == "published" and not request.user.is_staff:
+    if item.status == "published" and not request.user.is_staff and "_" not in request.GET:   # '_' = ukurasa unajibadilisha
         Article.objects.filter(pk=item.pk).update(views=F("views") + 1)
         views += 1
     related = list(_published().select_related("match").filter(category=item.category).exclude(pk=item.pk)[:4])
@@ -191,6 +199,9 @@ def article(request, category, slug):
         "jt_links": item.category == Category.JAMIITEK or "jamiitek" in item.body.lower(),
         "updates": list(item.live_updates.all()[:live.MAX_UPDATES]) if item.live_started_at else [],
         "now": timezone.now(),
+        "page_v": live.version(item) if (item.live_started_at or hasattr(item, "match")) else "",
+        "page_active": _page_active(item),
+        "other_matches": _other_matches(item) if hasattr(item, "match") else [],
     })
     return gzip_page(lambda r: response)(request)
 
@@ -229,22 +240,42 @@ def live_hub(request):
         "soon": soon,
         "done": done,
         "live_count": len(on),
+        "live_v": _live_version(on, soon, done),
     })
+
+
+def _page_active(item):
+    """Je, ukurasa uendelee kuuliza seva? LIVE inaendelea, mechi ya karibuni, au video zinasubiriwa."""
+    now = timezone.now()
+    if item.is_live:
+        return True
+    m = getattr(item, "match", None)
+    if not m or not m.kickoff:
+        return False
+    if m.is_finished or m.status in m.OFF:                   # video za magoli huja hadi saa ~3 baadaye
+        return bool(item.live_ended_at and now - item.live_ended_at < timedelta(hours=4))
+    return now - timedelta(hours=4) < m.kickoff < now + timedelta(hours=24)
+
+
+def _other_matches(item):
+    """Mechi nyingine za leo (zinazoendelea, zinazokuja, zilizoisha) — viungo vya ndani na wasomaji wabaki."""
+    on, soon, done = _live_sets()
+    return [a for a in on + soon + done if a.pk != item.pk and hasattr(a, "match")][:6]
 
 
 @never_cache
 def live_scores(request):
     """Matokeo ya sasa ya mechi zote za LIVE na zinazokuja — ukurasa wa LIVE na wa mwanzo unauliza kila sekunde 30."""
-    on, soon, _ = _live_sets()
+    on, soon, done = _live_sets()
     return JsonResponse({"matches": [a.match.as_json() for a in on + soon if hasattr(a, "match")],
-                         "live": len(on)})
+                         "live": len(on), "v": _live_version(on, soon, done)})
 
 
 @never_cache
 def live_feed(request, pk):
     """Masasisho mapya ya habari ya LIVE (ukurasa unauliza kila sekunde 30)."""
-    item = get_object_or_404(Article.objects.only("id", "status", "live_started_at", "live_ended_at", "live_score"),
-                             pk=pk, status="published", live_started_at__isnull=False)
+    item = get_object_or_404(Article.objects.defer(*LIGHT).filter(Q(live_started_at__isnull=False) | Q(match__isnull=False)),
+                             pk=pk, status="published")
     try:
         after = int(request.GET.get("after", 0))
     except ValueError:

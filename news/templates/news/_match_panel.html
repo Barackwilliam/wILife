@@ -81,31 +81,5 @@
   </div>
   {% endif %}
 </section>
-<script>
-(function () {
-  var box = document.getElementById('mp');
-  if (!box) return;
-  var tabs = box.querySelectorAll('[data-tab]'), panes = box.querySelectorAll('[data-pane]');
-  function show(name) {
-    tabs.forEach(function (t) { t.setAttribute('aria-selected', t.dataset.tab === name ? 'true' : 'false'); });
-    panes.forEach(function (p) { p.hidden = p.dataset.pane !== name; });
-  }
-  tabs.forEach(function (t) { t.addEventListener('click', function () { show(t.dataset.tab); }); });
-  var first = box.dataset.first && box.querySelector('[data-tab="' + box.dataset.first + '"]');
-  if (tabs.length) show(first ? box.dataset.first : tabs[0].dataset.tab);
-  if (box.dataset.live !== '1') return;
-  setInterval(function () {               /* takwimu mpya mechi ikiendelea */
-    if (document.hidden) return;
-    fetch(box.dataset.feed + '?after=999999999', {cache: 'no-store'}).then(function (r) { return r.json(); }).then(function (d) {
-      (d.match && d.match.stats || []).forEach(function (s) {
-        var row = box.querySelector('[data-stat="' + s.name.replace(/"/g, '') + '"]');
-        if (!row) return;
-        row.querySelector('[data-h]').textContent = s.home;
-        row.querySelector('[data-a]').textContent = s.away;
-        row.querySelector('.mp-bar i').style.width = s.pct + '%';
-      });
-    }).catch(function () {});
-  }, 60000);
-})();
-</script>
+
 {% endif %}{% endwith %}

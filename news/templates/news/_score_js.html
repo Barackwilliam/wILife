@@ -1,10 +1,22 @@
 <script>
 /* Ubao wa matokeo: magoli na dakika mpya kila sekunde 30 bila kurefresh (news.views.live_scores) */
 (function () {
-  if (!document.querySelector('[data-match]')) return;
+  var zone = document.getElementById('lv-zone'), tried = null;
+  if (!document.querySelector('[data-match]') && !zone) return;
+  function swap(v) {      /* mechi mpya imeanza / imeisha: orodha inajibadilisha bila kurefresh */
+    if (tried === v) return;
+    tried = v;
+    fetch(location.pathname, {cache: 'no-store', credentials: 'same-origin'}).then(function (r) { return r.text(); }).then(function (html) {
+      var fresh = new DOMParser().parseFromString(html, 'text/html').getElementById('lv-zone');
+      if (!fresh || fresh.dataset.v === zone.dataset.v) return;
+      zone.innerHTML = fresh.innerHTML;
+      zone.dataset.v = fresh.dataset.v;
+    }).catch(function () {});
+  }
   function tick() {
     if (document.hidden) return;
     fetch('{% url "news:live_scores" %}', {cache: 'no-store'}).then(function (r) { return r.json(); }).then(function (d) {
+      if (zone && d.v && d.v !== zone.dataset.v) swap(d.v);
       d.matches.forEach(function (m) {
         document.querySelectorAll('[data-match="' + m.id + '"]').forEach(function (el) {
           var s = el.querySelector('[data-score]'), c = el.querySelector('[data-clock]');

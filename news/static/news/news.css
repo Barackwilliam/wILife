@@ -857,3 +857,7 @@ a:hover .img img, .card:hover .img img { transform: scale(1.045); }
   .mp-list li { grid-template-columns: 1fr auto 1fr; }
   .mp-list li time { grid-column: 1 / -1; }
 }
+#mz-body.mz-flash { animation: mzflash 1.2s ease; }
+@keyframes mzflash { from { box-shadow: 0 0 0 3px rgba(225,29,46,.35); border-radius: 16px; } to { box-shadow: 0 0 0 0 transparent; } }
+.om { margin-top: 8px; }
+@media (prefers-reduced-motion: reduce) { #mz-body.mz-flash { animation: none; } }

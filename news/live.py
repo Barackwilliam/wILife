@@ -9,6 +9,7 @@ Kwa Google, makala ya LIVE inatoa `LiveBlogPosting` yenye `liveBlogUpdate`
 (news_tags.article_jsonld). Hiyo ndiyo inayoweza kuipa alama ya "LIVE" kwenye Top stories —
 Google ndiyo inaamua kuionyesha, hatuwezi kuilazimisha.
 """
+import hashlib
 import re
 
 from django.utils import timezone
@@ -128,6 +129,20 @@ def as_json(update):
     }
 
 
+def version(article):
+    """
+    Alama ya hali ya ukurasa: ikibadilika (mechi imeanza/imeisha, vikosi, video, uchambuzi, kichwa),
+    ukurasa unajibadilisha wenyewe bila kurefresh (news/static/news/match.js).
+    """
+    m = getattr(article, "match", None)
+    parts = [article.title, article.status, bool(article.live_started_at), bool(article.live_ended_at)]
+    if m:
+        x = m.extra or {}
+        parts += [m.status, bool(x.get("stats")), bool(x.get("lineups")), bool(x.get("h2h")),
+                  bool(x.get("form_home")), len(x.get("highlights") or []), x.get("referee"), m.venue, m.insights]
+    return hashlib.md5(repr(parts).encode()).hexdigest()[:12]
+
+
 def feed(article, after=0):
     """JSON kwa wasomaji walio kwenye ukurasa: masasisho mapya kuliko `after`."""
     qs = article.live_updates.all()
@@ -139,4 +154,5 @@ def feed(article, after=0):
         "score": article.live_score,
         "updates": [as_json(u) for u in qs[:50]],
         "match": article.match.as_json() if hasattr(article, "match") else None,
+        "v": version(article),
     }
