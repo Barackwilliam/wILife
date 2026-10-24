@@ -1,0 +1,5 @@
+{% if team %}<div class="mp-lu-col">
+  <h3>{{ name }}{% if team.formation %}<small>{{ team.formation }}</small>{% endif %}</h3>
+  <ol>{% for p in team.start %}<li><span>{{ p.number }}</span>{{ p.name }}{% if p.position %}<em>{{ p.position }}</em>{% endif %}</li>{% endfor %}</ol>
+  {% if team.subs %}<p class="mp-subs"><b>Wachezaji wa akiba:</b> {% for p in team.subs %}{{ p.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+</div>{% endif %}

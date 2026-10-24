@@ -123,6 +123,13 @@ def article_jsonld(context, article):
     match = getattr(article, "match", None)
     if match:
         data[0]["about"] = sports_event(match, url)
+        videos = [{
+            "@type": "VideoObject", "name": v["title"], "description": f"{match.home} vs {match.away} — {v['title']}",
+            "thumbnailUrl": [v["img"]], "uploadDate": (match.kickoff or article.updated_at).isoformat(),
+            **({"embedUrl": v["embed"]} if v.get("embed") else {"contentUrl": v["url"]}),
+        } for v in (match.extra or {}).get("highlights") or [] if v.get("img")]
+        if videos:
+            data[0]["video"] = videos[:5]
     data += [{
         "@context": "https://schema.org",
         "@type": "BreadcrumbList",

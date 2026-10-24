@@ -41,6 +41,7 @@
         </div>
       </div>
     </header>
+    {% if article.match %}{% include 'news/_match_panel.html' %}{% endif %}
     {% if article.live_started_at %}{% include 'news/_live.html' %}{% endif %}
     {% if not article.match %}<div class="hero-img">{% include 'news/_img.html' with a=article big=True %}</div>{% endif %}
 

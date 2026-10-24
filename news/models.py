@@ -377,6 +377,8 @@ class LiveMatch(models.Model):
     venue = models.CharField(max_length=120, blank=True)
     city = models.CharField(max_length=80, blank=True)
     seen_events = models.JSONField(default=list, blank=True, editable=False)
+    extra = models.JSONField(default=dict, blank=True,
+                             help_text="Takwimu, vikosi, uso kwa uso, fomu, video, mwamuzi, hali ya hewa (news/enrich.py)")
     cover_ok = models.BooleanField(default=False, editable=False,
                                    help_text="Picha yenye nembo za timu imetengenezwa")
     synced_at = models.DateTimeField(null=True, blank=True, editable=False)
@@ -414,8 +416,18 @@ class LiveMatch(models.Model):
             return f"{self.home} vs {self.away}"
         return f"{self.home} {self.home_goals} - {self.away_goals} {self.away}"
 
+    @property
+    def insights(self):
+        from news.enrich import insights
+        return insights(self)
+
+    @property
+    def x(self):
+        """Taarifa za ziada (extra) kwa template: takwimu, vikosi, H2H, fomu, video."""
+        return self.extra or {}
+
     def as_json(self):
-        return {"id": self.article_id, "home": self.home, "away": self.away,
+        return {"id": self.article_id, "stats": (self.extra or {}).get("stats") or [], "home": self.home, "away": self.away,
                 "hg": self.home_goals, "ag": self.away_goals, "status": self.status,
                 "clock": self.clock, "playing": self.is_playing, "finished": self.is_finished}
 
