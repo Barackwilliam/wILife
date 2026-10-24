@@ -308,7 +308,7 @@ API_FOOTBALL_LEAGUES = [x.strip() for x in env("API_FOOTBALL_LEAGUES", "39,140,1
 API_FOOTBALL_DAILY_LIMIT = int(env("API_FOOTBALL_DAILY_LIMIT", "100"))      # mpango wa bure: 100
 API_FOOTBALL_LIVE_SECONDS = int(env("API_FOOTBALL_LIVE_SECONDS", "120"))    # kila ngapi kuangalia mechi zinazochezwa
 API_FOOTBALL_SCHEDULE_HOURS = int(env("API_FOOTBALL_SCHEDULE_HOURS", "6"))  # kila ngapi kusoma ratiba ya leo
-API_FOOTBALL_MAX_PER_DAY = int(env("API_FOOTBALL_MAX_PER_DAY", "12"))       # makala mpya za mechi kwa siku
+API_FOOTBALL_MAX_PER_DAY = int(env("API_FOOTBALL_MAX_PER_DAY", "0"))        # mechi kwa siku; 0 = 5 (bure) / 20 (kulipia)
 NEWS_ENABLED = env_bool("NEWS_ENABLED", False)      # turn the daily drafting on
 NEWS_DRAFT_HOUR = int(env("NEWS_DRAFT_HOUR", "5"))  # local hour drafting starts
 NEWS_GIVE_UP_HOUR = int(env("NEWS_GIVE_UP_HOUR", "10"))

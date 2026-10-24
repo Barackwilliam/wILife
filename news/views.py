@@ -190,6 +190,7 @@ def article(request, category, slug):
         # Makala za JamiiTek (au zinazoitaja) — majina ya huduma yanakuwa viungo vya jamiitek.com
         "jt_links": item.category == Category.JAMIITEK or "jamiitek" in item.body.lower(),
         "updates": list(item.live_updates.all()[:live.MAX_UPDATES]) if item.live_started_at else [],
+        "now": timezone.now(),
     })
     return gzip_page(lambda r: response)(request)
 

@@ -216,6 +216,14 @@ def _fill(m, item):
     return old
 
 
+def max_per_day():
+    """Mechi ngapi kwa siku. Mpango wa bure (maombi 100) unatosha mechi chache tu zenye matukio kamili."""
+    cap = getattr(settings, "API_FOOTBALL_MAX_PER_DAY", None)
+    if cap:
+        return cap
+    return 5 if getattr(settings, "API_FOOTBALL_DAILY_LIMIT", 100) <= 100 else 20
+
+
 def sync_schedule(state, now):
     today = _local(now).date()
     items = _get("/fixtures", {"date": today.isoformat(), "timezone": settings.TIME_ZONE}, state)
@@ -223,7 +231,7 @@ def sync_schedule(state, now):
     rank = {lid: i for i, lid in enumerate(wanted)}
     items = sorted((i for i in items if i.get("league", {}).get("id") in rank),
                    key=lambda i: (rank[i["league"]["id"]], i["fixture"].get("date", "")))
-    cap = getattr(settings, "API_FOOTBALL_MAX_PER_DAY", 12)
+    cap = max_per_day()
     start = timezone.make_aware(datetime.combine(today, datetime.min.time()))
     made = Article.objects.filter(origin="football", created_at__gte=start).count()
     created = 0
@@ -382,7 +390,20 @@ def _by_live(state, matches):
     """
     items = _get("/fixtures", {"live": "-".join(str(x) for x in leagues()), "timezone": settings.TIME_ZONE}, state)
     seen = {i.get("fixture", {}).get("id") for i in items}
+    by_id = {m.fixture_id: m for m in matches}
     now = timezone.now()
+    # Orodha ya 'live' haina matukio (wafungaji, kadi). Mechi ambayo magoli au hali yake imebadilika
+    # inaulizwa kwa id — ombi 1 linaleta matukio yote yaliyotokea tangu mara ya mwisho.
+    for i, item in enumerate(list(items)):
+        m = by_id.get(item.get("fixture", {}).get("id"))
+        if not m or item.get("events"):
+            continue
+        goals = item.get("goals") or {}
+        status = ((item.get("fixture") or {}).get("status") or {}).get("short")
+        if (goals.get("home"), goals.get("away")) != (m.home_goals, m.away_goals) or status != m.status:
+            full = _by_id(state, m)
+            if full:
+                items[i] = full[0]
     for m in matches:
         if m.fixture_id in seen:
             continue
@@ -482,6 +503,9 @@ def run(now=None, deadline=None, dry_run=False):
             state.save(update_fields=["error"])
     except QuotaExhausted as exc:
         notes.append(str(exc))
+        if state.error != str(exc)[:300]:      # ionekane Admin -> Football states
+            state.error = str(exc)[:300]
+            state.save(update_fields=["error"])
     except Exception as exc:          # API au mtandao — tick iendelee, kosa lionekane
         log.warning("football sync failed: %s", exc)
         state.error = str(exc)[:300]
