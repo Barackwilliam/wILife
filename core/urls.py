@@ -84,6 +84,7 @@ urlpatterns = [
     path('agent/whatsapp/', views_whatsapp.whatsapp_webhook, name='whatsapp_webhook'),
     path('agent/whatsapp/baileys/', views_whatsapp.baileys_incoming, name='whatsapp_baileys_incoming'),
     path('agent/whatsapp/qr/', views_whatsapp.whatsapp_qr, name='whatsapp_qr'),
+    path('agent/channels/', views_whatsapp.channels_status, name='channels_status'),
     # Dashboard preferences
     path('dashboard/save-prefs/', views.dashboard_save_prefs, name='dashboard_save_prefs'),
     path('agent/telegram/', views_telegram.telegram_webhook, name='telegram_webhook'),

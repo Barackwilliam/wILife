@@ -173,6 +173,57 @@ def whatsapp_qr(request):
     return page
 
 
+@staff_member_required
+def channels_status(request):
+    """
+    Ukaguzi wa njia za ujumbe kwa William — kwa nini WhatsApp haifiki, bila Render Shell.
+    POST 'test' -> anatumiwa WhatsApp ya majaribio, na kosa halisi linaonyeshwa.
+    """
+    from django.shortcuts import render
+    from core.agent import whatsapp
+    from core.agent.channels import ready_channels, self_channel
+
+    user = request.user
+    recipient = normalise_number(whatsapp.resolve_recipient(user))
+    preferred = (getattr(settings, "AGENT_SELF_CHANNEL", "email") or "email").strip().lower()
+    bridge, bridge_error = {}, ""
+    if whatsapp.provider() == "baileys" and getattr(settings, "WHATSAPP_BRIDGE_URL", ""):
+        try:
+            bridge = whatsapp.bridge_status()
+        except Exception as exc:
+            bridge_error = f"{type(exc).__name__}: {exc}"
+
+    checks = [
+        ("AGENT_SELF_CHANNEL ni whatsapp au all", preferred in ("whatsapp", "all"),
+         f"Sasa ni '{preferred}' — ujumbe wako unaenda njia hiyo, si WhatsApp. "
+         "Render → Environment: AGENT_SELF_CHANNEL=all (au whatsapp)."),
+        ("WHATSAPP_ENABLED", bool(getattr(settings, "WHATSAPP_ENABLED", False)),
+         "Render → Environment: WHATSAPP_ENABLED=true"),
+        ("WHATSAPP_BRIDGE_KEY", bool(getattr(settings, "WHATSAPP_BRIDGE_KEY", "")),
+         "Bila key hii bridge haiwashwi kabisa (start.sh). Weka neno refu la siri."),
+        ("Namba yako ya WhatsApp", bool(recipient),
+         "Weka namba kwenye Profile yako, au AGENT_DEFAULT_RECIPIENT=2557XXXXXXXX."),
+        ("Bridge inafikika", bool(bridge) and not bridge_error,
+         bridge_error or "WHATSAPP_BRIDGE_URL haijawekwa."),
+        ("WhatsApp imeunganishwa (QR imescaniwa)", bool(bridge.get("connected")),
+         "Fungua /agent/whatsapp/qr/ na uscan QR kwa WhatsApp ya simu inayotuma (Linked devices)."),
+    ]
+
+    result = None
+    if request.method == "POST" and request.POST.get("action") == "test":
+        try:
+            msg_id = send_whatsapp(recipient, "✅ *wILife*\n\nUjumbe wa majaribio — WhatsApp inafanya kazi.")
+            result = ("ok", f"Imetumwa kwa {recipient} (id={msg_id}). Angalia WhatsApp yako.")
+        except Exception as exc:
+            result = ("error", f"Imeshindwa: {exc}")
+
+    return render(request, "channels_status.html", {
+        "checks": checks, "all_ok": all(ok for _, ok, _ in checks), "recipient": recipient,
+        "in_use": self_channel(user), "ready": ", ".join(ready_channels(user)) or "hakuna",
+        "bridge": bridge, "result": result,
+    })
+
+
 def _handle_message(from_number, text):
     """Act on an approval reply. Returns the confirmation text, or '' to stay silent."""
     from news import live_chat
