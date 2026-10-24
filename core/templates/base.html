@@ -39,6 +39,7 @@
       <div class="nav-section">System</div>
       <a href="{% url 'admin:index' %}" class="side-link"><i class="bi bi-shield-lock"></i> Admin</a>
       <a href="{% url 'whatsapp_qr' %}" class="side-link {% if u == 'whatsapp_qr' %}active{% endif %}"><i class="bi bi-whatsapp"></i> WhatsApp link</a>
+      <a href="{% url 'channels_status' %}" class="side-link {% if u == 'channels_status' %}active{% endif %}"><i class="bi bi-broadcast"></i> Njia za ujumbe</a>
       {% endif %}
       {% else %}
       <a href="{% url 'home' %}" class="side-link"><i class="bi bi-house"></i> Home</a>
