@@ -190,6 +190,11 @@ class Article(models.Model):
         seed = self.pk or 0
         if self.cover_original:   # mhariri amepakia picha yake — usiifunike
             return
+        match = getattr(self, "match", None) if self.pk else None
+        if match and match.fixture_id:   # mechi ya API-Football: nembo halisi za timu, si sanaa ya mfumo
+            from news.football import match_cover
+            self.store_cover(*match_cover(match))
+            return
         png = covers.render(self.title, self.category, day, seed=seed)
         art = covers.thumbnail(covers.render(self.title, self.category, day, seed=seed, with_title=False))
         self.store_cover(png, art)
@@ -208,7 +213,7 @@ class Article(models.Model):
         """On-site image (text-free WebP)."""
         if self.cover_art:
             return self.cover_art.url
-        return reverse("news:cover_thumb", args=[self.pk])
+        return reverse("news:cover_thumb", args=[self.pk]) + self._cover_version
 
     @property
     def srcset(self):
@@ -222,7 +227,12 @@ class Article(models.Model):
         """Share/Discover image (PNG with headline). May be relative — use |abs_url in templates."""
         if self.cover_image:
             return self.cover_image.url
-        return reverse("news:cover", args=[self.pk])
+        return reverse("news:cover", args=[self.pk]) + self._cover_version
+
+    @property
+    def _cover_version(self):
+        """Picha za mechi zinatengenezwa upya (kuanza, matokeo) kwenye anwani ile ile — ?v= inavunja cache."""
+        return f"?v={int(self.updated_at.timestamp())}" if self.origin == "football" and self.updated_at else ""
 
     def publish(self, when=None):
         self.status = "published"
@@ -365,6 +375,8 @@ class LiveMatch(models.Model):
     venue = models.CharField(max_length=120, blank=True)
     city = models.CharField(max_length=80, blank=True)
     seen_events = models.JSONField(default=list, blank=True, editable=False)
+    cover_ok = models.BooleanField(default=False, editable=False,
+                                   help_text="Picha yenye nembo za timu imetengenezwa")
     synced_at = models.DateTimeField(null=True, blank=True, editable=False)
 
     class Meta:

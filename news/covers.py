@@ -151,3 +151,131 @@ def thumbnail(png_bytes, quality=72):
     buf = io.BytesIO()
     img.save(buf, "WEBP", quality=quality, method=6)
     return buf.getvalue()
+
+
+# ── Mechi: picha yenye nembo halisi za timu (news/football.py) ────────────────────────────
+
+PITCH = ((11, 20, 48), (20, 36, 86))
+LIVE_RED = (225, 29, 46)
+
+
+def _logo(data, size):
+    """Nembo ya timu kutoka bytes (PNG ya API), ikiwa na nafasi sawa pande zote; None ikishindikana."""
+    if not data:
+        return None
+    try:
+        img = Image.open(io.BytesIO(data)).convert("RGBA")
+    except Exception:
+        return None
+    img.thumbnail((size, size), Image.LANCZOS)
+    tile = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    tile.paste(img, ((size - img.width) // 2, (size - img.height) // 2), img)
+    return tile
+
+
+def _initials_badge(name, size):
+    tile = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    d = ImageDraw.Draw(tile)
+    d.ellipse((0, 0, size - 1, size - 1), fill=(255, 255, 255, 235))
+    letters = "".join(w[0] for w in name.split()[:2]).upper() or "?"
+    f = _font(True, int(size * .36))
+    d.text(((size - d.textlength(letters, font=f)) / 2, size * .3), letters, font=f, fill=PITCH[0])
+    return tile
+
+
+def _fit(d, text, bold, start, max_width, minimum=22):
+    size = start
+    while size > minimum and d.textlength(text, font=_font(bold, size)) > max_width:
+        size -= 2
+    return _font(bold, size)
+
+
+def render_match(home, away, home_logo=None, away_logo=None, competition="", comp_logo=None,
+                 when_text="", score=None, live=False, with_text=True):
+    """
+    1200x630: uwanja wa giza, nembo za timu mbili, majina, mashindano na saa / matokeo.
+    with_text=False -> toleo la kadi (nembo na VS/matokeo tu; kichwa kiko kwenye maandishi ya kadi).
+    """
+    img = Image.new("RGB", (W, H), PITCH[0])
+    glow = Image.new("RGB", (W, H), PITCH[0])
+    gd = ImageDraw.Draw(glow)
+    gd.ellipse((W / 2 - 520, -380, W / 2 + 520, 420), fill=PITCH[1])
+    gd.ellipse((W - 260, -200, W + 160, 220), fill=(90, 20, 48) if live else PITCH[1])
+    img = Image.blend(img, glow.filter(ImageFilter.GaussianBlur(120)), .85)
+    d = ImageDraw.Draw(img, "RGBA")
+
+    # Mistari ya uwanja: mstari wa kati na duara
+    d.line([(W / 2, 0), (W / 2, H)], fill=(255, 255, 255, 18), width=2)
+    d.ellipse((W / 2 - 120, H / 2 - 120, W / 2 + 120, H / 2 + 120), outline=(255, 255, 255, 18), width=2)
+    d.rectangle((0, 0, 150, H), outline=(255, 255, 255, 10), width=2)
+    d.rectangle((W - 150, 0, W, H), outline=(255, 255, 255, 10), width=2)
+
+    crest = 210 if with_text else 250
+    cy = 150 if with_text else (H - crest) // 2 - 10
+    for name, data, cx in ((home, home_logo, W * .25), (away, away_logo, W * .75)):
+        halo = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        ImageDraw.Draw(halo).ellipse((cx - crest * .72, cy + crest / 2 - crest * .72,
+                                      cx + crest * .72, cy + crest / 2 + crest * .72), fill=(255, 255, 255, 30))
+        img = Image.alpha_composite(img.convert("RGBA"), halo.filter(ImageFilter.GaussianBlur(30)))
+        tile = _logo(data, crest) or _initials_badge(name, crest)
+        img.paste(tile, (int(cx - crest / 2), int(cy)), tile)
+        d = ImageDraw.Draw(img, "RGBA")
+        if with_text:
+            f = _fit(d, name, True, 44, W * .42)
+            d.text((cx - d.textlength(name, font=f) / 2, cy + crest + 26), name, font=f, fill=(255, 255, 255))
+
+    img = img.convert("RGB")                 # rangi zenye uwazi zichanganyike, si kufuta pikseli
+    d = ImageDraw.Draw(img, "RGBA")
+
+    # Katikati: matokeo au VS
+    mid = score if score else "VS"
+    mf = _font(True, 112 if score else 72)
+    my = (cy + crest / 2) - (64 if score else 44)
+    d.text((W / 2 - d.textlength(mid, font=mf) / 2, my), mid, font=mf,
+           fill=(255, 255, 255) if score else (255, 255, 255, 150))
+
+    if not with_text:
+        d.rectangle((0, H - 10, W, H), fill=LIVE_RED if live else (226, 96, 63))
+        buf = io.BytesIO()
+        img.convert("RGB").save(buf, "PNG")
+        return buf.getvalue()
+
+    # Juu: chapa ya wILife kushoto, LIVE / MATOKEO kulia
+    mark = _mark(46)
+    if mark:
+        img.paste(mark, (56, 40), mark)
+        img = img.convert("RGB")
+        d = ImageDraw.Draw(img, "RGBA")
+    d.text((114, 46), "wILife", font=_font(True, 28), fill=(243, 239, 232))
+    tag = "LIVE" if live else ("MATOKEO" if score else "MECHI")
+    tf = _font(True, 24)
+    tw = d.textlength(tag, font=tf)
+    x0 = W - 56 - tw - (58 if live else 36)
+    d.rounded_rectangle((x0, 40, W - 56, 86), radius=10, fill=LIVE_RED if live else (255, 255, 255, 40))
+    if live:
+        d.ellipse((x0 + 18, 56, x0 + 32, 70), fill=(255, 255, 255))
+    d.text((x0 + (44 if live else 18), 50), tag, font=tf, fill=(255, 255, 255))
+
+    # Chini: mashindano (na nembo yake) na saa
+    line = competition.upper()
+    cf = _fit(d, line, True, 26, W - 260)
+    cw = d.textlength(line, font=cf)
+    clogo = _logo(comp_logo, 40)
+    total = cw + (52 if clogo else 0)
+    x = W / 2 - total / 2
+    if clogo:
+        plate = Image.new("RGBA", (48, 48), (0, 0, 0, 0))
+        ImageDraw.Draw(plate).rounded_rectangle((0, 0, 47, 47), radius=8, fill=(255, 255, 255, 240))
+        plate.paste(clogo, (4, 4), clogo)
+        img.paste(plate, (int(x), H - 124), plate)
+        img = img.convert("RGB")
+        d = ImageDraw.Draw(img, "RGBA")
+        x += 60
+    d.text((x, H - 118), line, font=cf, fill=(255, 255, 255, 220))
+    if when_text:
+        wf = _font(False, 22)
+        d.text((W / 2 - d.textlength(when_text, font=wf) / 2, H - 70), when_text, font=wf, fill=(255, 255, 255, 160))
+    d.rectangle((0, H - 10, W, H), fill=LIVE_RED if live else (226, 96, 63))
+    buf = io.BytesIO()
+    img.convert("RGB").save(buf, "PNG", optimize=True)
+    return buf.getvalue()

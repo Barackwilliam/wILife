@@ -1536,8 +1536,8 @@ class FootballAutoLiveTest(TestCase):
         from django.core.cache import cache
         cache.clear()
         self.addCleanup(cache.clear)
-        for target in ("news.models.Article.render_cover", "news.indexnow.submit"):
-            p = mock.patch(target)
+        for target in ("news.models.Article.render_cover", "news.indexnow.submit", "news.football._image"):
+            p = mock.patch(target, return_value=None) if target.endswith("_image") else mock.patch(target)
             p.start()
             self.addCleanup(p.stop)
         self.calls = []
@@ -1737,8 +1737,8 @@ class LiveDeleteTest(TestCase):
         from django.core.cache import cache
         cache.clear()
         self.addCleanup(cache.clear)
-        for target in ("news.models.Article.render_cover", "news.indexnow.submit"):
-            p = mock.patch(target)
+        for target in ("news.models.Article.render_cover", "news.indexnow.submit", "news.football._image"):
+            p = mock.patch(target, return_value=None) if target.endswith("_image") else mock.patch(target)
             p.start()
             self.addCleanup(p.stop)
         self.staff = User.objects.create_user("mhariri", "m@x.com", "p", is_staff=True)
@@ -1801,3 +1801,55 @@ class LiveDeleteTest(TestCase):
         self.assertEqual(Article.objects.count(), 1)
         self.assertEqual(Article.objects.get().status, "rejected")
         self.assertIsNone(LiveMatch.objects.get().home_goals)
+
+
+
+class MatchCoverTest(TestCase):
+    """Mechi za API-Football zinapata picha yenye nembo halisi za timu, si sanaa ya mfumo."""
+
+    def test_automatic_match_cover_uses_team_crests(self):
+        import io
+        from PIL import Image
+        from news import covers, football
+        from news.models import LiveMatch
+        crest = io.BytesIO()
+        Image.new("RGBA", (120, 120), (200, 16, 46, 255)).save(crest, "PNG")
+        a = Article.objects.create(title="Arsenal vs Chelsea LIVE", category="dunia", excerpt="x", body="x",
+                                   status="published", published_at=timezone.now(), origin="football")
+        m = LiveMatch.objects.create(article=a, fixture_id=1, home="Arsenal", away="Chelsea",
+                                     home_logo="https://media.example/42.png", away_logo="https://media.example/49.png",
+                                     competition="Premier League", kickoff=timezone.now())
+        fetched = []
+
+        def fake_image(url):
+            fetched.append(url)
+            return crest.getvalue()
+        with mock.patch("news.football._image", side_effect=fake_image), \
+                mock.patch.object(covers, "render", side_effect=AssertionError("sanaa ya mfumo")), \
+                mock.patch("news.indexnow.submit"):
+            football.refresh_cover(m)
+        a.refresh_from_db()
+        self.assertEqual({u for u in fetched if u}, {"https://media.example/42.png", "https://media.example/49.png"})
+        self.assertTrue(LiveMatch.objects.get().cover_ok)
+        png = bytes(a.cover_png)
+        self.assertEqual(Image.open(io.BytesIO(png)).size, (1200, 630))
+        self.assertEqual(Image.open(io.BytesIO(bytes(a.cover_thumb))).format, "WEBP")
+        # nembo nyekundu iko kwenye picha (upande wa wenyeji)
+        img = Image.open(io.BytesIO(png)).convert("RGB")
+        self.assertEqual(img.getpixel((300, 255)), (200, 16, 46))
+        self.assertIn("?v=", a.art_url)
+
+    def test_missing_logo_falls_back_to_initials_not_ai_art(self):
+        from news import covers
+        png = covers.render_match("Manchester United", "Chelsea", None, None, "Premier League", None, "", score="3 - 1")
+        self.assertTrue(png.startswith(b"\x89PNG"))
+
+    @override_settings()
+    def test_css_link_carries_the_deploy_version(self):
+        import os
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        with mock.patch.dict(os.environ, {"RENDER_GIT_COMMIT": "abc1234def"}):
+            page = self.client.get("/kuhusu/").content.decode()
+        self.assertRegex(page, r"news(\.[0-9a-f]+)?\.css\?v=abc1234d")

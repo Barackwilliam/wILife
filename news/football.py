@@ -21,7 +21,7 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from news import indexnow, live
+from news import covers, indexnow, live
 from news.models import Article, Category, FootballState, LiveMatch
 
 log = logging.getLogger("news.football")
@@ -140,6 +140,45 @@ def _final_body(m, article):
     return "\n\n".join(lines)
 
 
+def _image(url):
+    """Nembo kutoka API (media.api-sports.io) — bytes, au None ikishindikana (picha inatumia herufi za mwanzo)."""
+    if not (url or "").startswith("https://"):
+        return None
+    try:
+        r = requests.get(url, timeout=8)
+        r.raise_for_status()
+        return r.content
+    except requests.RequestException:
+        return None
+
+
+def match_cover(m):
+    """(png ya kushirikisha, webp ya kadi) zenye nembo halisi za timu, mashindano na saa / matokeo."""
+    home, away, comp = _image(m.home_logo), _image(m.away_logo), _image(m.competition_logo)
+    score = f"{m.home_goals} - {m.away_goals}" if m.has_score and (m.is_playing or m.is_finished) else None
+    when = "" if m.is_finished else (_when(m.kickoff) if m.kickoff else "")
+    kw = dict(home=m.home, away=m.away, home_logo=home, away_logo=away, competition=m.competition,
+              comp_logo=comp, when_text=when, score=score, live=m.is_playing)
+    png = covers.render_match(**kw)
+    art = covers.thumbnail(covers.render_match(**kw, with_text=False))
+    return png, art
+
+
+def refresh_cover(m):
+    """Tengeneza upya picha ya mechi (imeundwa, imeanza, imeisha) na uihifadhi."""
+    article = m.article
+    if article.cover_original:
+        return
+    try:
+        article.render_cover()
+    except Exception as exc:          # picha isizuie LIVE
+        log.warning("match cover failed for %s: %s", m, exc)
+        return
+    article.save(update_fields=["cover_image", "cover_art", "cover_png", "cover_thumb", "updated_at"])
+    LiveMatch.objects.filter(pk=m.pk).update(cover_ok=True)
+    m.cover_ok = True
+
+
 def _create_article(m, league):
     article = Article.objects.create(
         title=preview_title(m), category=_category(league), origin="football",
@@ -149,12 +188,7 @@ def _create_article(m, league):
         keywords=", ".join([m.home, m.away, f"{m.home} vs {m.away}", m.competition, "matokeo", "live"])[:300],
         sources=[{"title": "Takwimu za mechi", "url": "https://www.api-football.com/", "publisher": "API-Football"}],
         status="published", published_at=timezone.now())
-    try:
-        article.render_cover()
-        article.save()
-    except Exception:
-        pass
-    return article
+    return article          # picha (nembo za timu) inatengenezwa mechi ikishahifadhiwa — refresh_cover
 
 
 # ── Ratiba ─────────────────────────────────────────────────────────────────────
@@ -208,6 +242,7 @@ def sync_schedule(state, now):
         with transaction.atomic():
             m.article = _create_article(m, item.get("league", {}))
             m.save()
+        refresh_cover(m)
         indexnow.submit([m.article.get_absolute_url()])
         made += 1
         created += 1
@@ -264,6 +299,7 @@ def _whistle(article, m, old):
     if old == "NS" and m.status in LiveMatch.PLAYING:
         live.start(article)
         live.add(article, f"📣 Mechi imeanza! {m.home} dhidi ya {m.away}.", "1'", kind="whistle")
+        refresh_cover(m)                       # picha inapata alama ya LIVE
     elif m.status == "HT":
         live.add(article, f"📣 Mapumziko: {m.score_text}.", "HT", kind="whistle")
     elif old == "HT" and m.status == "2H":
@@ -282,6 +318,7 @@ def _finish(article, m):
                            f"dakika kwa dakika kwenye wILife.")[:300]
         article.body = _final_body(m, article)
         article.save(update_fields=["title", "excerpt", "body", "updated_at"])
+        refresh_cover(m)                       # picha inaonyesha matokeo ya mwisho
     else:
         live.add(article, f"⚠️ Mechi {m.get_status_display().lower()}.", "", kind="whistle")
     live.end(article)
@@ -433,6 +470,9 @@ def run(now=None, deadline=None, dry_run=False):
             state.schedule_at = now           # muda wa jaribio — kosa lisirudiwe kila dakika
             state.save(update_fields=["schedule_at"])
             notes.append(f"ratiba: mpya {sync_schedule(state, now)}")
+        for m in LiveMatch.objects.select_related("article").filter(
+                fixture_id__isnull=False, cover_ok=False, article__status="published")[:3]:
+            refresh_cover(m)                   # mechi za zamani zenye picha za mfumo -> nembo za timu
         if active(now) and (not state.live_at or now - state.live_at >= live_interval(state, now)):
             n = sync_live(state, now)
             out["sent"] = n
