@@ -347,7 +347,9 @@ a:hover .img img, .card:hover .img img { transform: scale(1.045); }
 .card p { color: var(--muted); font-size: .9rem; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 @media (max-width: 760px) {
   .grid4 .card, .grid3 .card.compact { display: grid; grid-template-columns: 112px 1fr; gap: 4px 14px; align-items: start; }
-  .grid4 .card .img, .grid3 .card.compact .img { grid-row: span 3; }
+  .grid4 .card > a:first-child, .grid3 .card.compact > a:first-child { grid-row: span 3; }   /* picha kushoto, maandishi yote kulia */
+  .grid4 .card .img, .grid3 .card.compact .img { border-radius: 10px; }
+  .grid3 .card.compact .ttl { font-size: 1.02rem; line-height: 1.3; }
   .grid4 .card p { display: none; }
   .grid4 .card .ttl { font-size: 1.05rem; }
 }
