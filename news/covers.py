@@ -167,7 +167,8 @@ def _logo(data, size):
         img = Image.open(io.BytesIO(data)).convert("RGBA")
     except Exception:
         return None
-    img.thumbnail((size, size), Image.LANCZOS)
+    scale = size / max(img.width, img.height)      # nembo za API ni ~150px — zikuze zijaze nafasi
+    img = img.resize((max(1, round(img.width * scale)), max(1, round(img.height * scale))), Image.LANCZOS)
     tile = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     tile.paste(img, ((size - img.width) // 2, (size - img.height) // 2), img)
     return tile
@@ -210,9 +211,12 @@ def render_match(home, away, home_logo=None, away_logo=None, competition="", com
     d.rectangle((0, 0, 150, H), outline=(255, 255, 255, 10), width=2)
     d.rectangle((W - 150, 0, W, H), outline=(255, 255, 255, 10), width=2)
 
-    crest = 210 if with_text else 250
-    cy = 150 if with_text else (H - crest) // 2 - 10
-    for name, data, cx in ((home, home_logo, W * .25), (away, away_logo, W * .75)):
+    # Toleo la kadi (with_text=False): nembo kubwa karibu na katikati, matokeo chini yake — linabaki
+    # zima hata kadi ikikata picha kuwa mraba (630x630 ya katikati).
+    crest = 210 if with_text else 230
+    cy = 150 if with_text else 95
+    spots = (W * .25, W * .75) if with_text else (W / 2 - 160, W / 2 + 160)
+    for name, data, cx in ((home, home_logo, spots[0]), (away, away_logo, spots[1])):
         halo = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         ImageDraw.Draw(halo).ellipse((cx - crest * .72, cy + crest / 2 - crest * .72,
                                       cx + crest * .72, cy + crest / 2 + crest * .72), fill=(255, 255, 255, 30))
@@ -229,8 +233,8 @@ def render_match(home, away, home_logo=None, away_logo=None, competition="", com
 
     # Katikati: matokeo au VS
     mid = score if score else "VS"
-    mf = _font(True, 112 if score else 72)
-    my = (cy + crest / 2) - (64 if score else 44)
+    mf = _font(True, 112 if score else 72) if with_text else _font(True, 128 if score else 84)
+    my = (cy + crest / 2) - (64 if score else 44) if with_text else cy + crest + 40
     d.text((W / 2 - d.textlength(mid, font=mf) / 2, my), mid, font=mf,
            fill=(255, 255, 255) if score else (255, 255, 255, 150))
 

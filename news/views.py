@@ -178,7 +178,7 @@ def article(request, category, slug):
     if item.status == "published" and not request.user.is_staff:
         Article.objects.filter(pk=item.pk).update(views=F("views") + 1)
         views += 1
-    related = list(_published().filter(category=item.category).exclude(pk=item.pk)[:4])
+    related = list(_published().select_related("match").filter(category=item.category).exclude(pk=item.pk)[:4])
     service = item.service or JamiiTekService.objects.filter(active=True).order_by("?").first()
     response = render(request, "news/article.html", {
         "article": item,
