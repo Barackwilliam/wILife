@@ -102,7 +102,25 @@ def article_jsonld(context, article):
                       "logo": {"@type": "ImageObject", "url": _abs(request, static("news/brand/logo-600.png")),
                                "width": 600, "height": 466}},
         "isBasedOn": [s.get("url") for s in article.sources if s.get("url", "").startswith("http")] or None,
-    }, {
+    }]
+    if article.live_started_at:
+        # Habari ya LIVE (news/live.py): Google inaweza kuipa alama ya "LIVE" kwenye Top stories
+        updates = list(article.live_updates.all()[:50])
+        data[0].update({
+            "@type": "LiveBlogPosting",
+            "coverageStartTime": article.live_started_at.isoformat(),
+            "coverageEndTime": article.live_ended_at.isoformat() if article.live_ended_at else None,
+            "liveBlogUpdate": [{
+                "@type": "BlogPosting",
+                "headline": (f"{u.label} " if u.label else "") + u.text[:100],
+                "articleBody": u.text,
+                "datePublished": u.created_at.isoformat(),
+                "url": f"{url}#u{u.id}",
+            } for u in updates],
+        })
+        if updates:
+            data[0]["dateModified"] = max(updates[0].created_at, article.updated_at).isoformat()
+    data += [{
         "@context": "https://schema.org",
         "@type": "BreadcrumbList",
         "itemListElement": [

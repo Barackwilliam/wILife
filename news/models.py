@@ -129,6 +129,12 @@ class Article(models.Model):
     cover_png = models.BinaryField(null=True, blank=True, editable=False)
     cover_thumb = models.BinaryField(null=True, blank=True, editable=False, help_text="Text-free 1200px WebP for on-site images")
     views = models.PositiveIntegerField(default=0)
+    # ── LIVE: habari inayosasishwa moja kwa moja (mechi, tukio) — news/live.py ──
+    # Google: LiveBlogPosting -> alama ya "LIVE" kwenye Top stories (Google ndiyo inaamua kuionyesha)
+    live_started_at = models.DateTimeField(null=True, blank=True,
+                                           help_text="Imeanza LIVE lini. Tupu = makala ya kawaida.")
+    live_ended_at = models.DateTimeField(null=True, blank=True, help_text="LIVE imeisha lini")
+    live_score = models.CharField(max_length=80, blank=True, help_text="Mf. Simba 1 - 0 Yanga")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     published_at = models.DateTimeField(null=True, blank=True, db_index=True)
@@ -155,6 +161,10 @@ class Article(models.Model):
 
     def get_absolute_url(self):
         return reverse("news:article", args=[self.category, self.slug])
+
+    @property
+    def is_live(self):
+        return bool(self.live_started_at and not self.live_ended_at)
 
     @property
     def reading_minutes(self):
@@ -304,3 +314,17 @@ class NewsRequest(models.Model):
 
     def __str__(self):
         return f"{self.topic[:60]} ({self.get_status_display()})"
+
+
+class LiveUpdate(models.Model):
+    """Sasisho moja la habari ya LIVE (goli, kadi, tamko…). Mpya juu."""
+    article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name="live_updates")
+    label = models.CharField(max_length=20, blank=True, help_text="Mf. 45' au 14:30")
+    text = models.TextField(max_length=1000)
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"{self.label} {self.text[:40]}".strip()

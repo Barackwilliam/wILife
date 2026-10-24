@@ -1353,3 +1353,75 @@ class IndexingHygieneTest(TestCase):
         for url in ("/index.html", "/index"):
             r = self.client.get(url)
             self.assertEqual((r.status_code, r["Location"]), (301, "/"), url)
+
+
+class LiveCoverageTest(TestCase):
+    """Habari ya LIVE (news/live.py): masasisho, JSON kwa wasomaji, LiveBlogPosting kwa Google."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()                       # ukurasa wa mwanzo uko kwenye cache — usiuachie jaribio jingine
+        self.addCleanup(cache.clear)
+        self.a = Article.objects.create(title="Simba vs Yanga: Kariakoo Derby LIVE", category="tanzania",
+                                        excerpt="Mechi ya watani wa jadi", body="Aya.", keywords="Simba, Yanga",
+                                        status="published", published_at=timezone.now())
+        self.a.render_cover()
+        self.a.save()
+        self.staff = User.objects.create_user("mhariri", "m@x.com", "p", is_staff=True)
+        self.act = f"/habari-admin/live/{self.a.pk}/"
+
+    def _jsonld(self, body):
+        import re
+        return [json.loads(b) for b in re.findall(r'application/ld\+json">(.*?)</script>', body, re.S)]
+
+    def test_staff_runs_live_coverage_and_google_gets_liveblogposting(self):
+        url = self.a.get_absolute_url()
+        self.assertNotIn('id="live"', self.client.get(url).content.decode())        # makala ya kawaida
+        self.assertEqual(self.client.post(self.act, {"action": "start"}).status_code, 302)   # si mhariri
+        self.a.refresh_from_db()
+        self.assertIsNone(self.a.live_started_at)
+
+        self.client.force_login(self.staff)
+        self.assertIn("Anza LIVE", self.client.get(url).content.decode())
+        self.client.post(self.act, {"action": "start"})
+        self.client.post(self.act, {"action": "update", "label": "6'", "text": "GOOOL! Simba wanaongoza.",
+                                    "score": "Simba 1 - 0 Yanga"})
+        self.client.post(self.act, {"action": "update", "label": "52'", "text": "Yanga <b>wanasawazisha</b>.",
+                                    "score": "Simba 1 - 1 Yanga"})
+        self.a.refresh_from_db()
+        self.assertTrue(self.a.is_live)
+        self.assertEqual(self.a.live_score, "Simba 1 - 1 Yanga")
+
+        self.client.logout()
+        page = self.client.get(url).content.decode()
+        self.assertIn('class="lv-badge"><i></i>LIVE', page)
+        self.assertIn("Simba 1 - 1 Yanga", page)
+        self.assertIn("Yanga &lt;b&gt;wanasawazisha&lt;/b&gt;.", page)               # imesafishwa
+        self.assertLess(page.index("52&#x27;"), page.index("6&#x27;"))               # mpya juu
+        live = next(d for block in self._jsonld(page) for d in block if d.get("@type") == "LiveBlogPosting")
+        self.assertIn("coverageStartTime", live)
+        self.assertNotIn("coverageEndTime", live)
+        self.assertEqual(len(live["liveBlogUpdate"]), 2)
+        self.assertTrue(live["liveBlogUpdate"][0]["headline"].startswith("52' Yanga"))
+        self.assertIn('class="live-pill">LIVE', self.client.get("/").content.decode())
+
+        feed = self.client.get(f"/habari/live/{self.a.pk}.json").json()
+        self.assertEqual((feed["live"], feed["score"], len(feed["updates"])), (True, "Simba 1 - 1 Yanga", 2))
+        newest = feed["updates"][0]["id"]
+        self.assertEqual(self.client.get(f"/habari/live/{self.a.pk}.json?after={newest}").json()["updates"], [])
+
+        self.client.force_login(self.staff)
+        self.client.post(self.act, {"action": "end"})
+        self.client.logout()
+        page = self.client.get(url).content.decode()
+        self.assertIn("IMEISHA", page)
+        live = next(d for block in self._jsonld(page) for d in block if d.get("@type") == "LiveBlogPosting")
+        self.assertIn("coverageEndTime", live)
+        self.assertFalse(self.client.get(f"/habari/live/{self.a.pk}.json").json()["live"])
+
+    def test_feed_is_only_for_published_live_articles(self):
+        self.assertEqual(self.client.get(f"/habari/live/{self.a.pk}.json").status_code, 404)
+        self.a.live_started_at = timezone.now()
+        self.a.status = "draft"
+        self.a.save()
+        self.assertEqual(self.client.get(f"/habari/live/{self.a.pk}.json").status_code, 404)

@@ -3,7 +3,7 @@
   {% if lead %}<a href="{{ lead.get_absolute_url }}" class="rv-lead c-{{ lead.category }}">
     <div class="rv-lead-img"><img src="{{ lead.art_url }}"{% if lead.srcset %} srcset="{{ lead.srcset }}" sizes="(max-width: 900px) 100vw, 1100px"{% endif %} fetchpriority="high" decoding="async" width="1200" height="630" alt="{{ lead.title }}"></div>
     <div class="rv-lead-tx">
-      <div class="rv-lead-k"><span class="rv-badge">{% icon "lightning-charge-fill" %} Habari kuu</span><span class="rv-cat">{{ lead.get_category_display }}</span></div>
+      <div class="rv-lead-k"><span class="rv-badge">{% icon "lightning-charge-fill" %} Habari kuu</span>{% if lead.is_live %}<span class="live-pill">LIVE</span>{% endif %}<span class="rv-cat">{{ lead.get_category_display }}</span></div>
       <h2>{{ lead.title }}</h2>
       <p>{{ lead.excerpt }}</p>
       <div class="rv-lead-f"><span>{{ lead.published_at|sw_ago }} · {{ lead.reading_minutes }} dk kusoma · <span class="vw" title="Imesomwa mara {{ lead.views }}">{% icon "eye" %} {{ lead.views|views_short }}</span></span><span class="rv-go">Soma habari {% icon "arrow-right" %}</span></div>

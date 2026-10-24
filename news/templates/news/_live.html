@@ -1,0 +1,108 @@
+{% comment %}
+  Habari ya LIVE (news/live.py): matokeo + masasisho mapya juu. Wasomaji wanapata masasisho
+  mapya bila kurefresh (kila sekunde 30) LIVE ikiendelea. Mhariri anaona fomu ya kuongeza.
+{% endcomment %}
+<style>
+.lv{border:1px solid var(--line);border-radius:14px;margin:4px 0 24px;overflow:hidden;background:var(--paper,transparent)}
+.lv-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line)}
+.lv-badge{display:inline-flex;align-items:center;gap:7px;font-weight:800;font-size:12px;letter-spacing:.08em;color:#fff;background:#dc2626;border-radius:6px;padding:4px 9px}
+.lv-badge i{width:8px;height:8px;border-radius:50%;background:#fff;animation:lvp 1.4s ease-in-out infinite}
+.lv-badge.done{background:var(--muted)}
+.lv-badge.done i{display:none}
+@keyframes lvp{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.lv-badge i{animation:none}}
+.lv-score{font-size:clamp(18px,4.6vw,24px);font-weight:800;color:var(--ink);letter-spacing:-.01em}
+.lv-note{margin-left:auto;font-size:12px;color:var(--muted)}
+.lv-list{list-style:none;margin:0;padding:4px 16px}
+.lv-item{display:grid;grid-template-columns:62px 1fr;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.lv-item:first-child{border-top:none}
+.lv-item.new{animation:lvin .6s ease}
+@keyframes lvin{from{background:var(--brand-soft)}to{background:transparent}}
+.lv-when{font-weight:800;color:var(--brand-ink);font-size:14px;line-height:1.5}
+.lv-when small{display:block;font-weight:500;color:var(--muted);font-size:11.5px}
+.lv-text p{margin:0 0 6px}
+.lv-text p:last-child{margin:0}
+.lv-empty{padding:14px 0;color:var(--muted);font-size:14px}
+.lv-staff{border-top:1px dashed var(--line-strong);padding:14px 16px;background:var(--brand-soft)}
+.lv-staff b{font-size:13px}
+.lv-staff form{margin:8px 0 0;display:grid;gap:8px}
+.lv-row{display:flex;gap:8px;flex-wrap:wrap}
+.lv-staff input,.lv-staff textarea{width:100%;border:1px solid var(--line-strong);border-radius:8px;padding:9px 11px;font:inherit;background:#fff;color:#1d1b24}
+.lv-staff textarea{min-height:76px;resize:vertical}
+.lv-staff .lv-row input{flex:1;min-width:120px}
+.lv-staff button{border:0;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer;background:var(--brand);color:#fff}
+.lv-staff .lv-ghost{background:transparent;color:var(--ink);border:1px solid var(--line-strong)}
+</style>
+
+<section class="lv" id="live" data-feed="{% url 'news:live_feed' article.pk %}" data-live="{{ article.is_live|yesno:'1,0' }}">
+  <div class="lv-top">
+    {% if article.is_live %}<span class="lv-badge"><i></i>LIVE</span>{% else %}<span class="lv-badge done">IMEISHA</span>{% endif %}
+    <span class="lv-score" id="lvScore">{{ article.live_score }}</span>
+    <span class="lv-note">{% if article.is_live %}Masasisho yanaingia yenyewe{% else %}Ilianza {{ article.live_started_at|date:"H:i" }}{% if article.live_ended_at %} · ilimalizika {{ article.live_ended_at|date:"H:i" }}{% endif %}{% endif %}</span>
+  </div>
+
+  {% if user.is_staff %}
+  <div class="lv-staff">
+    {% if article.is_live %}
+    <b>Ongeza sasisho</b>
+    <form method="post" action="{% url 'news:live_action' article.pk %}">
+      {% csrf_token %}<input type="hidden" name="action" value="update">
+      <div class="lv-row">
+        <input name="label" maxlength="20" placeholder="Dakika / saa, mf. 45'">
+        <input name="score" maxlength="80" value="{{ article.live_score }}" placeholder="Matokeo, mf. Simba 1 - 0 Yanga">
+      </div>
+      <textarea name="text" maxlength="1000" placeholder="Kilichotokea, mf. GOOOL! Chama anafunga kwa kichwa."></textarea>
+      <div class="lv-row"><button>Weka sasisho</button></div>
+    </form>
+    <form method="post" action="{% url 'news:live_action' article.pk %}" onsubmit="return confirm('Maliza LIVE?')">
+      {% csrf_token %}<input type="hidden" name="action" value="end"><button class="lv-ghost">Maliza LIVE</button>
+    </form>
+    {% else %}
+    <form method="post" action="{% url 'news:live_action' article.pk %}">
+      {% csrf_token %}<input type="hidden" name="action" value="start"><button>Anza LIVE tena</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <ol class="lv-list" id="lvList">
+    {% for u in updates %}
+    <li class="lv-item" id="u{{ u.id }}" data-id="{{ u.id }}">
+      <div class="lv-when">{{ u.label|default:"" }}<small><time datetime="{{ u.created_at|date:'c' }}">{{ u.created_at|date:"H:i" }}</time></small></div>
+      <div class="lv-text">{{ u.text|linebreaks }}</div>
+    </li>
+    {% empty %}
+    <li class="lv-empty" id="lvEmpty">Masasisho yataanza kuonekana hapa hivi punde.</li>
+    {% endfor %}
+  </ol>
+</section>
+
+<script>
+(function () {
+  var box = document.getElementById('live');
+  if (!box || box.dataset.live !== '1') return;
+  var list = document.getElementById('lvList'), score = document.getElementById('lvScore');
+  function lastId() { var f = list.querySelector('.lv-item'); return f ? f.dataset.id : 0; }
+  function tick() {
+    if (document.hidden) return;
+    fetch(box.dataset.feed + '?after=' + lastId(), {cache: 'no-store'}).then(function (r) { return r.json(); }).then(function (d) {
+      if (d.score !== undefined && score.textContent !== d.score) score.textContent = d.score;
+      var empty = document.getElementById('lvEmpty');
+      d.updates.slice().reverse().forEach(function (u) {
+        if (document.getElementById('u' + u.id)) return;
+        if (empty) { empty.remove(); empty = null; }
+        var li = document.createElement('li');
+        li.className = 'lv-item new'; li.id = 'u' + u.id; li.dataset.id = u.id;
+        var when = document.createElement('div'); when.className = 'lv-when'; when.textContent = u.label || '';
+        var sm = document.createElement('small'); sm.textContent = u.time; when.appendChild(sm);
+        var txt = document.createElement('div'); txt.className = 'lv-text'; txt.innerHTML = u.html;   // html imesafishwa kwenye server
+        li.appendChild(when); li.appendChild(txt);
+        list.insertBefore(li, list.firstChild);
+      });
+      if (!d.live) location.reload();   // LIVE imeisha — onyesha hali ya mwisho
+    }).catch(function () {});
+  }
+  setInterval(tick, 30000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) tick(); });
+})();
+</script>

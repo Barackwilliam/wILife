@@ -13,11 +13,11 @@ from django.templatetags.static import static
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.text import slugify
-from django.views.decorators.cache import cache_control, cache_page
+from django.views.decorators.cache import cache_control, cache_page, never_cache
 from django.views.decorators.gzip import gzip_page
 from django.views.decorators.http import require_POST
 
-from news import indexnow, pipeline
+from news import indexnow, live, pipeline
 from news.writer import enabled as writer_enabled
 from news.models import CATEGORY_BLURBS, Article, Category, JamiiTekService, NewsBatch
 
@@ -182,8 +182,51 @@ def article(request, category, slug):
         "views": views,
         # Makala za JamiiTek (au zinazoitaja) — majina ya huduma yanakuwa viungo vya jamiitek.com
         "jt_links": item.category == Category.JAMIITEK or "jamiitek" in item.body.lower(),
+        "updates": list(item.live_updates.all()[:live.MAX_UPDATES]) if item.live_started_at else [],
     })
     return gzip_page(lambda r: response)(request)
+
+
+@never_cache
+def live_feed(request, pk):
+    """Masasisho mapya ya habari ya LIVE (ukurasa unauliza kila sekunde 30)."""
+    item = get_object_or_404(Article.objects.only("id", "status", "live_started_at", "live_ended_at", "live_score"),
+                             pk=pk, status="published", live_started_at__isnull=False)
+    try:
+        after = int(request.GET.get("after", 0))
+    except ValueError:
+        after = 0
+    return JsonResponse(live.feed(item, after))
+
+
+@staff_member_required
+@require_POST
+def live_action(request, pk):
+    """Mhariri: anza LIVE, ongeza sasisho, badilisha matokeo, maliza LIVE."""
+    item = get_object_or_404(Article.objects.defer(*LIGHT), pk=pk)
+    action = request.POST.get("action")
+    if action == "start":
+        live.start(item)
+        messages.success(request, "LIVE imeanza. Ongeza masasisho hapa chini.")
+    elif action == "end":
+        live.end(item)
+        messages.success(request, "LIVE imeisha. Masasisho yanabaki kwenye makala.")
+    elif action == "update":
+        text = request.POST.get("text", "").strip()
+        score = request.POST.get("score")
+        if score is not None and score.strip() == item.live_score:
+            score = None                  # matokeo hayakubadilika
+        if not text and score is None:
+            messages.error(request, "Andika sasisho.")
+        elif not item.live_started_at:
+            messages.error(request, "Anza LIVE kwanza.")
+        else:
+            if text:
+                live.add(item, text, request.POST.get("label", ""), score=score)
+            else:
+                live.add_score(item, score)
+            messages.success(request, "Sasisho limewekwa.")
+    return redirect(item.get_absolute_url() + "#live")
 
 
 @cache_control(public=True, max_age=604800, immutable=True)
