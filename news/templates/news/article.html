@@ -25,7 +25,8 @@
 {% if is_draft %}<div class="draft">{% icon "eye-slash" %} Rasimu — haionekani kwa umma. <a href="{% url 'news:review' %}" style="margin-left:auto">Rudi kwenye rasimu</a></div>{% endif %}
 <div class="cols c-{{ article.category }}">
   <article>
-    <nav class="crumbs" aria-label="breadcrumb"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><a href="{% url 'news:category' article.category %}">{{ article.get_category_display }}</a></nav>
+    <nav class="crumbs" aria-label="breadcrumb"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span>{% if article.live_started_at or article.match %}<a href="{% url 'news:live_hub' %}">LIVE</a>{% else %}<a href="{% url 'news:category' article.category %}">{{ article.get_category_display }}</a>{% endif %}</nav>
+    {% if article.match %}{% include 'news/_score.html' with a=article big=True %}{% endif %}
     <header class="art-head">
       <h1>{{ article.title }}</h1>
       <p class="dek">{{ article.excerpt }}</p>
@@ -40,9 +41,11 @@
         </div>
       </div>
     </header>
-    <div class="hero-img">{% include 'news/_img.html' with a=article big=True %}</div>
+    {% if article.live_started_at %}{% include 'news/_live.html' %}{% endif %}
+    {% if not article.match %}<div class="hero-img">{% include 'news/_img.html' with a=article big=True %}</div>{% endif %}
 
-    {% if article.live_started_at %}{% include 'news/_live.html' %}
+    {% if article.live_started_at %}
+    {% elif article.match %}<p class="lh-wait">⏱ Mechi bado haijaanza. Ukurasa huu utaanza kusasishwa wenyewe filimbi ikipulizwa.</p>
     {% elif user.is_staff and not is_draft %}
     <form method="post" action="{% url 'news:live_action' article.pk %}" style="margin:0 0 18px">
       {% csrf_token %}<input type="hidden" name="action" value="start">
@@ -88,6 +91,7 @@
 </div>
 {% endblock %}
 {% block extra_scripts %}
+{% if article.match %}{% include 'news/_score_js.html' %}{% endif %}
 <script>
   (function () {
     var bar = document.getElementById('pr'), art = document.querySelector('.prose');

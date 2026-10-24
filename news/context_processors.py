@@ -13,7 +13,19 @@ def news(request):
                      if n in u), "twitter-x" if ("twitter" in u or "x.com" in u) else "link-45deg")
         social.append({"url": url, "icon": name})
     return {
+        "live_now": _live_now(),
         "social_links": social,
         "sw_today": swahili_date(timezone.localdate()),
         "footer_services": JamiiTekService.objects.filter(active=True).only("name", "slug")[:5],
     }
+
+
+def _live_now():
+    """Habari ngapi ziko LIVE sasa — kitufe cha LIVE kwenye menyu kinawaka zikiwepo."""
+    from django.core.cache import cache
+    from news.models import Article
+    n = cache.get("news:live_now")
+    if n is None:
+        n = Article.published.filter(live_started_at__isnull=False, live_ended_at__isnull=True).count()
+        cache.set("news:live_now", n, 60)
+    return n

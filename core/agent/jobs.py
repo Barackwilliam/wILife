@@ -156,6 +156,11 @@ def run_news_photos(now=None, deadline=None, dry_run=False):
     return check_pending(limit=5, dry_run=dry_run)
 
 
+def run_football(now=None, deadline=None, dry_run=False):
+    from news.football import run
+    return run(now=now, deadline=deadline, dry_run=dry_run)
+
+
 def run_news_requests(now=None, deadline=None, dry_run=False):
     from news.commission import run_due
     return run_due(now=now, dry_run=dry_run)
@@ -165,6 +170,7 @@ def run_news_requests(now=None, deadline=None, dry_run=False):
 # time-critical, the rest are not.
 JOBS = {
     "schedule_reminders": run_schedule_reminders,
+    "football": run_football,          # mechi zinazochezwa sasa — muda ni muhimu
     "morning_brief": run_morning_brief,
     "expiry_watch": run_expiry_watch,
     "invoice_watch": run_invoice_watch,

@@ -298,6 +298,17 @@ if not SITE_URL and CSRF_TRUSTED_ORIGINS:
     # site already trusts (prefer it over the *.onrender.com address).
     SITE_URL = next((o for o in CSRF_TRUSTED_ORIGINS if "onrender.com" not in o), CSRF_TRUSTED_ORIGINS[0])
 SITE_URL = SITE_URL.rstrip("/")
+
+# ── LIVE ya kujiendesha: mechi za kimataifa (news/football.py) ──
+# Ufunguo kutoka dashboard.api-football.com (api-sports.io). Tupu = imezimwa.
+API_FOOTBALL_KEY = env("API_FOOTBALL_KEY", "")
+# Ligi kwa kipaumbele: EPL, La Liga, Serie A, Bundesliga, Ligue 1, UEFA Champions League,
+# Europa League, Kombe la Dunia, AFCON, CAF Champions League, CAF Confederation Cup.
+API_FOOTBALL_LEAGUES = [x.strip() for x in env("API_FOOTBALL_LEAGUES", "39,140,135,78,61,2,3,1,6,12,20").split(",") if x.strip()]
+API_FOOTBALL_DAILY_LIMIT = int(env("API_FOOTBALL_DAILY_LIMIT", "100"))      # mpango wa bure: 100
+API_FOOTBALL_LIVE_SECONDS = int(env("API_FOOTBALL_LIVE_SECONDS", "120"))    # kila ngapi kuangalia mechi zinazochezwa
+API_FOOTBALL_SCHEDULE_HOURS = int(env("API_FOOTBALL_SCHEDULE_HOURS", "6"))  # kila ngapi kusoma ratiba ya leo
+API_FOOTBALL_MAX_PER_DAY = int(env("API_FOOTBALL_MAX_PER_DAY", "12"))       # makala mpya za mechi kwa siku
 NEWS_ENABLED = env_bool("NEWS_ENABLED", False)      # turn the daily drafting on
 NEWS_DRAFT_HOUR = int(env("NEWS_DRAFT_HOUR", "5"))  # local hour drafting starts
 NEWS_GIVE_UP_HOUR = int(env("NEWS_GIVE_UP_HOUR", "10"))

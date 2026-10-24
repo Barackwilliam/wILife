@@ -30,6 +30,20 @@ HELP = ("📡 *Amri za LIVE*\n"
         "• live mwisho")
 
 
+def _kind(text):
+    """Ikoni ya sasisho la mhariri kutokana na maneno yake (goli, kadi nyekundu, kadi…)."""
+    t = text.lower()
+    if re.search(r"\bgo{2,}l|\bgoli\b|\bgoal\b|⚽", t):
+        return "goal"
+    if "nyekundu" in t or "🟥" in t:
+        return "red"
+    if "kadi" in t or "🟨" in t:
+        return "card"
+    if "mabadiliko" in t:
+        return "sub"
+    return ""
+
+
 def is_command(text):
     return bool(_CMD.match(text or ""))
 
@@ -60,6 +74,7 @@ def _start(title, user):
     except Exception:
         pass                                   # picha ya mfumo isizuie LIVE kuanza
     live.start(article)
+    live.attach_match(article)
     return f"🔴 LIVE imeanza: {article.title}\n{_url(article)}\n\nTuma masasisho: live 1' Mechi imeanza!"
 
 
@@ -101,6 +116,6 @@ def from_chat(text, user=None):
         label, body = lm.group("label"), lm.group("text").strip()
     if not body:
         return "Andika kilichotokea, mf.: live 45' GOOOL! Chama anafunga"
-    live.add(article, body, label, score=score.strip() if score.strip() else None)
+    live.add(article, body, label, score=score.strip() if score.strip() else None, kind=_kind(body))
     tail = f" ({article.live_score})" if article.live_score else ""
     return f"✅ Sasisho limewekwa{tail}."

@@ -1,14 +1,23 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from news.models import Article, JamiiTekService, LiveUpdate, NewsBatch, EditorSettings, NewsRequest
+from news.models import (Article, EditorSettings, FootballState, JamiiTekService, LiveMatch, LiveUpdate, NewsBatch,
+                         NewsRequest)
 
 
 class LiveUpdateInline(admin.TabularInline):
     """Masasisho ya habari ya LIVE — hapa mhariri anarekebisha au kufuta lililokosewa."""
     model = LiveUpdate
     extra = 0
-    fields = ("label", "text", "created_at")
+    fields = ("label", "kind", "text", "created_at")
+
+
+class LiveMatchInline(admin.StackedInline):
+    """Ubao wa matokeo wa mechi (timu, magoli, hali) — unajazwa wenyewe kwa mechi za API-Football."""
+    model = LiveMatch
+    extra = 0
+    fields = (("home", "home_goals", "away_goals", "away"), ("status", "minute", "kickoff"),
+              ("competition", "round"), ("venue", "city"), "fixture_id")
 
 
 @admin.register(Article)
@@ -19,7 +28,7 @@ class ArticleAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("title",)}
     readonly_fields = ("photo_info", "views", "created_at", "updated_at", "batch", "slot")
     actions = ["publish_selected", "reprocess_photos"]
-    inlines = [LiveUpdateInline]
+    inlines = [LiveMatchInline, LiveUpdateInline]
 
     BADGE = {"hd": ("#15803d", "HD"), "sd": ("#2563eb", "Kawaida"), "low": ("#b45309", "Ndogo"),
              "generated": ("#6b7280", "Ya mfumo"), "error": ("#b91c1c", "Imeshindikana")}
@@ -126,3 +135,10 @@ class NewsRequestAdmin(admin.ModelAdmin):
 class EditorSettingsAdmin(admin.ModelAdmin):
     list_display = ("__str__", "ai_model", "sports_slot", "updated_at")
     list_editable = ("ai_model",)
+
+
+@admin.register(FootballState)
+class FootballStateAdmin(admin.ModelAdmin):
+    """Maombi ya API-Football kwa siku — kikomo cha bure ni 100."""
+    list_display = ("day", "requests", "remaining", "schedule_at", "live_at", "error")
+    readonly_fields = ("day", "requests", "remaining", "schedule_at", "live_at", "error")

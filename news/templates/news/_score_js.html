@@ -1,0 +1,26 @@
+<script>
+/* Ubao wa matokeo: magoli na dakika mpya kila sekunde 30 bila kurefresh (news.views.live_scores) */
+(function () {
+  if (!document.querySelector('[data-match]')) return;
+  function tick() {
+    if (document.hidden) return;
+    fetch('{% url "news:live_scores" %}', {cache: 'no-store'}).then(function (r) { return r.json(); }).then(function (d) {
+      d.matches.forEach(function (m) {
+        document.querySelectorAll('[data-match="' + m.id + '"]').forEach(function (el) {
+          var s = el.querySelector('[data-score]'), c = el.querySelector('[data-clock]');
+          var txt = (m.hg === null || m.ag === null) ? null : m.hg + '-' + m.ag;
+          if (s && txt && s.textContent.replace(/\s/g, '') !== txt) {
+            s.innerHTML = m.hg + '<i>-</i>' + m.ag;
+            el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+          }
+          if (c && c.textContent !== m.clock) c.textContent = m.clock;
+          el.classList.toggle('is-on', m.playing);
+          el.classList.toggle('is-ft', m.finished);
+        });
+      });
+    }).catch(function () {});
+  }
+  setInterval(tick, 30000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) tick(); });
+})();
+</script>

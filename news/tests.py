@@ -1499,3 +1499,189 @@ class LiveFromChatTest(TestCase):
         self.assertIn("LIVE imeanza: Azam vs Namungo", sent[0])
         self.assertIn("Azam 1-0 Namungo", sent[1])
         self.assertEqual(Article.objects.get().live_updates.get().label, "12'")
+
+
+def _fixture(fid=101, status="NS", elapsed=None, hg=None, ag=None, events=None, league=39, kickoff=None):
+    """Mechi moja kama API-Football inavyoirudisha (/fixtures)."""
+    kickoff = kickoff or (timezone.now() + timedelta(minutes=1))
+    return {
+        "fixture": {"id": fid, "date": kickoff.isoformat(), "status": {"short": status, "elapsed": elapsed},
+                    "venue": {"name": "Emirates Stadium", "city": "London"}},
+        "league": {"id": league, "name": "Premier League", "country": "England", "logo": "https://media.example/39.png",
+                   "round": "Regular Season - 9"},
+        "teams": {"home": {"id": 42, "name": "Arsenal", "logo": "https://media.example/42.png"},
+                  "away": {"id": 49, "name": "Chelsea", "logo": "https://media.example/49.png"}},
+        "goals": {"home": hg, "away": ag},
+        "events": events or [],
+    }
+
+
+class _Resp:
+    def __init__(self, items, errors=None, remaining="90"):
+        self.items, self.errors, self.headers = items, errors, {"x-ratelimit-requests-remaining": remaining}
+
+    def raise_for_status(self):
+        pass
+
+    def json(self):
+        return {"errors": self.errors or [], "response": self.items}
+
+
+@override_settings(API_FOOTBALL_KEY="test-key", API_FOOTBALL_LEAGUES=["39"], API_FOOTBALL_DAILY_LIMIT=100,
+                   API_FOOTBALL_LIVE_SECONDS=0, SITE_URL="https://www.wlife.online")
+class FootballAutoLiveTest(TestCase):
+    """Njia A: mechi za kimataifa zinajiendesha kutoka API-Football (news/football.py)."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        for target in ("news.models.Article.render_cover", "news.indexnow.submit"):
+            p = mock.patch(target)
+            p.start()
+            self.addCleanup(p.stop)
+        self.calls = []
+
+    def run_with(self, *responses):
+        from news import football
+        queue = list(responses)
+
+        def fake_get(url, params=None, headers=None, timeout=None):
+            self.calls.append(params)
+            self.assertEqual(headers["x-apisports-key"], "test-key")
+            return queue.pop(0)
+        with mock.patch("news.football.requests.get", side_effect=fake_get):
+            return football.run()
+
+    def test_a_match_runs_itself_from_preview_to_final_score(self):
+        from news.models import FootballState, LiveMatch
+        # Ratiba (ligi 140 haikuchaguliwa), kisha mechi inakaribia kuanza — inaangaliwa tick ile ile
+        out = self.run_with(_Resp([_fixture(), _fixture(fid=999, league=140)]), _Resp([_fixture()]))
+        self.assertEqual(out["failed"], 0, out)
+        a = Article.objects.get()
+        self.assertEqual(a.title, "Arsenal vs Chelsea LIVE: Matokeo na Matukio Yote — Premier League")
+        self.assertEqual((a.status, a.category, a.origin), ("published", "dunia", "football"))
+        self.assertIn("Emirates Stadium, London", a.body)
+        self.assertIsNone(a.live_started_at)
+
+        hub = self.client.get("/live/").content.decode()
+        self.assertIn("Mechi zijazo", hub)
+        self.assertIn('data-match="%d"' % a.pk, hub)
+        self.assertIn('"@type": "CollectionPage"', hub)
+        page = self.client.get(a.get_absolute_url()).content.decode()
+        self.assertIn("sb sb-big", page)
+        self.assertIn("Mechi bado haijaanza", page)
+
+        goal = {"time": {"elapsed": 23, "extra": None}, "team": {"id": 42, "name": "Arsenal"},
+                "player": {"id": 7, "name": "B. Saka"}, "assist": {"id": 8, "name": "M. Ødegaard"},
+                "type": "Goal", "detail": "Normal Goal"}
+        card = {"time": {"elapsed": 30, "extra": None}, "team": {"id": 49, "name": "Chelsea"},
+                "player": {"id": 9, "name": "M. Caicedo"}, "assist": {}, "type": "Card", "detail": "Yellow Card"}
+        self.run_with(_Resp([_fixture(status="1H", elapsed=31, hg=1, ag=0, events=[goal, card])]))
+        a.refresh_from_db()
+        self.assertTrue(a.is_live)
+        self.assertEqual(a.live_score, "Arsenal 1 - 0 Chelsea")
+        texts = list(a.live_updates.order_by("created_at", "id").values_list("label", "kind", "text"))
+        self.assertEqual(texts[0][:2], ("1'", "whistle"))
+        self.assertEqual(texts[1], ("23'", "goal", "⚽ GOLI! B. Saka anaifungia Arsenal. Pasi: M. Ødegaard. "
+                                                   "(Arsenal 1-0 Chelsea)"))
+        self.assertEqual(texts[2], ("30'", "card", "🟨 Kadi ya njano kwa M. Caicedo (Chelsea)."))
+
+        # Ombi lile lile tena: hakuna sasisho linalorudiwa
+        self.run_with(_Resp([_fixture(status="1H", elapsed=33, hg=1, ag=0, events=[goal, card])]))
+        self.assertEqual(a.live_updates.count(), 3)
+        scores = self.client.get("/live/matokeo.json").json()
+        self.assertEqual((scores["live"], scores["matches"][0]["hg"], scores["matches"][0]["clock"]), (1, 1, "33'"))
+        from django.core.cache import cache
+        cache.clear()                             # idadi ya LIVE kwenye menyu inakaa sekunde 60
+        self.assertIn('class="nav-live on is-on"><i></i>LIVE<span class="n">1</span>',
+                      self.client.get("/live/").content.decode())
+
+        self.run_with(_Resp([_fixture(status="FT", elapsed=90, hg=2, ag=0, events=[goal, card, dict(
+            goal, time={"elapsed": 88, "extra": None}, player={"id": 11, "name": "G. Martinelli"}, assist={},
+            detail="Penalty")])]))
+        a.refresh_from_db()
+        self.assertFalse(a.is_live)
+        self.assertEqual(a.title, "Arsenal 2-0 Chelsea: Matokeo, Magoli na Matukio Yote — Premier League")
+        self.assertIn("## Magoli", a.body)
+        self.assertIn("G. Martinelli anaifungia Arsenal kwa penalti", a.body)
+        self.assertEqual(LiveMatch.objects.get().status, "FT")
+        page = self.client.get(a.get_absolute_url()).content.decode()
+        event = next(d.get("about") for block in LiveCoverageTest._jsonld(None, page) for d in block
+                     if d.get("@type") == "LiveBlogPosting")
+        self.assertEqual((event["@type"], event["homeTeam"]["name"], event["location"]["name"]),
+                         ("SportsEvent", "Arsenal", "Emirates Stadium"))
+        cache.clear()
+        self.assertIn("Matokeo ya karibuni", self.client.get("/live/").content.decode())
+        self.assertEqual(FootballState.objects.get().requests, 5)
+        self.assertEqual(self.calls[1]["ids"], "101")
+
+    def test_a_match_first_seen_finished_still_gets_its_goals(self):
+        from news import football
+        from news.models import LiveMatch
+        m = LiveMatch(article=None)
+        football._fill(m, _fixture())
+        m.article = football._create_article(m, _fixture()["league"])
+        m.save()
+        goal = {"time": {"elapsed": 50, "extra": None}, "team": {"id": 49, "name": "Chelsea"},
+                "player": {"id": 10, "name": "C. Palmer"}, "assist": {}, "type": "Goal", "detail": "Normal Goal"}
+        football.apply(_fixture(status="FT", elapsed=90, hg=0, ag=1, events=[goal]), m)
+        a = Article.objects.get()
+        self.assertFalse(a.is_live)
+        self.assertTrue(a.title.startswith("Arsenal 0-1 Chelsea"))
+        self.assertIn("C. Palmer anaifungia Chelsea", a.body)
+
+    def test_no_key_does_nothing_and_api_errors_are_recorded(self):
+        from news import football
+        from news.models import FootballState
+        with override_settings(API_FOOTBALL_KEY=""):
+            self.assertIn("haijawekwa", football.run()["detail"])
+        out = self.run_with(_Resp([], errors={"plan": "Free plans do not have access to this season"}))
+        self.assertEqual(out["failed"], 1)
+        self.assertIn("Free plans", FootballState.objects.get().error)
+        self.assertFalse(Article.objects.exists())
+
+    @override_settings(API_FOOTBALL_DAILY_LIMIT=3)
+    def test_daily_quota_is_never_exceeded(self):
+        from news.models import FootballState
+        FootballState.objects.create(day=timezone.now().astimezone(dt_tz.utc).date(), requests=1)
+        out = self.run_with()                     # hakuna jibu lililoandaliwa: ombi lolote lingevunja jaribio
+        self.assertIn("yameisha", out["detail"])
+        self.assertEqual(self.calls, [])
+
+
+class LiveHubTest(TestCase):
+    """Ukurasa wa /live/ na ubao wa matokeo kwa mechi za mhariri."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+    def test_editor_match_gets_scoreboard_hub_menu_and_sitemap(self):
+        from news import live, live_chat
+        with mock.patch("news.models.Article.render_cover"), mock.patch("news.indexnow.submit"):
+            live_chat.from_chat("live anza Simba vs Yanga")
+            live_chat.from_chat("live 6' GOOOL! Chama anafunga | Simba 1-0 Yanga")
+        a = Article.objects.get()
+        self.assertEqual((a.match.home, a.match.away, a.match.home_goals, a.match.away_goals), ("Simba", "Yanga", 1, 0))
+        self.assertEqual(a.live_updates.get().kind, "goal")
+        page = self.client.get(a.get_absolute_url()).content.decode()
+        self.assertIn("sb sb-big is-on", page)
+        self.assertIn('"@type": "SportsEvent"', page)
+        hub = self.client.get("/live/").content.decode()
+        self.assertIn("Matokeo ya Mpira Leo", hub)
+        self.assertIn('data-match="%d"' % a.pk, hub)
+        home = self.client.get("/").content.decode()
+        self.assertIn('class="ls"', home)
+        self.assertIn('href="/live/"', home)
+        self.assertIn("/live/</loc>", self.client.get("/sitemap.xml").content.decode())
+        with mock.patch("news.indexnow.submit"):
+            live.end(a)
+        a.match.refresh_from_db()
+        self.assertEqual(a.match.status, "FT")
+
+    def test_empty_hub_still_renders(self):
+        page = self.client.get("/live/")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn("Mechi zikianza", page.content.decode())

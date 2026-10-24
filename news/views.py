@@ -131,7 +131,14 @@ def home(request):
         "topics": _topics(),
         "services": JamiiTekService.objects.filter(active=True)[:6],
         "ticker": latest[:10],
+        "live_strip": _live_strip(),
     })
+
+
+def _live_strip():
+    on, soon, done = _live_sets()
+    items = on + soon
+    return items[:10] if items else done[:4]
 
 
 @public_page
@@ -185,6 +192,51 @@ def article(request, category, slug):
         "updates": list(item.live_updates.all()[:live.MAX_UPDATES]) if item.live_started_at else [],
     })
     return gzip_page(lambda r: response)(request)
+
+
+def _live_page(view):
+    """Ukurasa wa LIVE: gzip, na nakala ya sekunde 30 kwa wageni (matokeo yanabadilika haraka)."""
+    cached = cache_page(30)(view)
+
+    @wraps(view)
+    def wrapper(request, *args, **kwargs):
+        if request.user.is_authenticated:
+            return view(request, *args, **kwargs)
+        return cached(request, *args, **kwargs)
+    return gzip_page(wrapper)
+
+
+def _live_sets(now=None):
+    """(zinaendelea sasa, zinakuja, zilizoisha) kwa ukurasa wa LIVE na ukurasa wa mwanzo."""
+    now = now or timezone.now()
+    base = _published().select_related("match")
+    on = list(base.filter(live_started_at__isnull=False, live_ended_at__isnull=True).order_by("-live_started_at")[:30])
+    soon = list(base.filter(live_started_at__isnull=True, match__status="NS",
+                            match__kickoff__gte=now - timedelta(hours=1), match__kickoff__lte=now + timedelta(hours=36))
+                .order_by("match__kickoff")[:30])
+    done = list(base.filter(live_ended_at__isnull=False, live_ended_at__gte=now - timedelta(days=7))
+                .order_by("-live_ended_at")[:24])
+    return on, soon, done
+
+
+@_live_page
+def live_hub(request):
+    on, soon, done = _live_sets()
+    return render(request, "news/live_hub.html", {
+        "on_matches": [a for a in on if hasattr(a, "match")],
+        "on_other": [a for a in on if not hasattr(a, "match")],
+        "soon": soon,
+        "done": done,
+        "live_count": len(on),
+    })
+
+
+@never_cache
+def live_scores(request):
+    """Matokeo ya sasa ya mechi zote za LIVE na zinazokuja — ukurasa wa LIVE na wa mwanzo unauliza kila sekunde 30."""
+    on, soon, _ = _live_sets()
+    return JsonResponse({"matches": [a.match.as_json() for a in on + soon if hasattr(a, "match")],
+                         "live": len(on)})
 
 
 @never_cache
