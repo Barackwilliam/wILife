@@ -1,5 +1,5 @@
 {% extends 'news/base.html' %}
-{% load news_tags %}
+{% load static news_tags %}
 {% block title %}{% if article.title|length > 52 %}{{ article.title }}{% else %}{{ article.title }} | wILife{% endif %}{% endblock %}
 {% block description %}{{ article.excerpt }}{% endblock %}
 {% block robots %}{% if is_draft %}<meta name="robots" content="noindex, nofollow">{% else %}<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">{% endif %}{% endblock %}
@@ -26,10 +26,10 @@
 <div class="cols c-{{ article.category }}">
   <article>
     <nav class="crumbs" aria-label="breadcrumb"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span>{% if article.live_started_at or article.match %}<a href="{% url 'news:live_hub' %}">LIVE</a>{% else %}<a href="{% url 'news:category' article.category %}">{{ article.get_category_display }}</a>{% endif %}</nav>
-    {% if article.match %}{% include 'news/_score.html' with a=article big=True %}{% endif %}
+    {% if article.match %}<div id="mz-board" data-zone>{% include 'news/_score.html' with a=article big=True %}</div>{% endif %}
     <header class="art-head">
-      <h1>{{ article.title }}</h1>
-      <p class="dek">{{ article.excerpt }}</p>
+      <h1 id="mz-title" data-zone>{{ article.title }}</h1>
+      <p class="dek" id="mz-dek" data-zone>{{ article.excerpt }}</p>
       <div class="byline">
         <div class="who">{% include 'partials/brand_mark.html' %}<div><strong>Dawati la Habari, wILife</strong><small>{% if article.published_at %}<time datetime="{{ article.published_at|date:'c' }}">{{ article.published_at|sw_date }}, {{ article.published_at|time:"H:i" }}</time> · {% endif %}{{ article.reading_minutes }} dk kusoma · <span class="vw" title="Imesomwa mara {{ views }}">{% icon "eye" %} {{ views|views_short }}</span></small></div></div>
         {% absolute article.get_absolute_url as share_url %}
@@ -41,6 +41,9 @@
         </div>
       </div>
     </header>
+    {% if page_v %}<div id="mz-body" data-zone data-v="{{ page_v }}" data-feed="{% url 'news:live_feed' article.pk %}"
+         data-active="{{ page_active|yesno:'1,0' }}">{% endif %}
+    {% if article.match %}{% include 'news/_match_panel.html' %}{% endif %}
     {% if article.live_started_at %}{% include 'news/_live.html' %}{% endif %}
     {% if not article.match %}<div class="hero-img">{% include 'news/_img.html' with a=article big=True %}</div>{% endif %}
 
@@ -52,6 +55,14 @@
       {% csrf_token %}<input type="hidden" name="action" value="start">
       <button class="btn btn-ghost" title="Kwa habari inayoendelea: mechi, tukio, tangazo kubwa">🔴 Anza LIVE kwenye habari hii</button>
     </form>
+    {% endif %}
+    {% if page_v %}</div>{% endif %}
+
+    {% if other_matches %}
+    <section class="om" aria-label="Mechi nyingine za leo">
+      <div class="sh"><h2>Mechi nyingine za leo</h2><a href="{% url 'news:live_hub' %}">LIVE zote {% icon "arrow-right" %}</a></div>
+      <div class="lh-grid">{% for a in other_matches %}{% include 'news/_score.html' %}{% endfor %}</div>
+    </section>
     {% endif %}
 
     <div class="prose">{% if jt_links %}{{ article.body|render_body:"jamiitek" }}{% else %}{{ article.body|render_body }}{% endif %}</div>
@@ -92,7 +103,8 @@
 </div>
 {% endblock %}
 {% block extra_scripts %}
-{% if article.match %}{% include 'news/_score_js.html' %}{% endif %}
+{% if article.match or other_matches %}{% include 'news/_score_js.html' %}{% endif %}
+{% if page_v %}<script src="{% static 'news/match.js' %}" defer></script>{% endif %}
 <script>
   (function () {
     var bar = document.getElementById('pr'), art = document.querySelector('.prose');

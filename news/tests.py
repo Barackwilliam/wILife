@@ -1562,7 +1562,7 @@ class FootballAutoLiveTest(TestCase):
         out = self.run_with(_Resp([_fixture(), _fixture(fid=999, league=140)]), _Resp([_fixture()]))
         self.assertEqual(out["failed"], 0, out)
         a = Article.objects.get()
-        self.assertEqual(a.title, "Arsenal vs Chelsea LIVE: Matokeo na Matukio Yote — Premier League")
+        self.assertEqual(a.title, "Arsenal vs Chelsea LIVE: Matokeo, Kikosi na Takwimu — Premier League")
         self.assertEqual((a.status, a.category, a.origin), ("published", "dunia", "football"))
         self.assertIn("Emirates Stadium, London", a.body)
         self.assertIsNone(a.live_started_at)
@@ -1605,7 +1605,7 @@ class FootballAutoLiveTest(TestCase):
             detail="Penalty")])]))
         a.refresh_from_db()
         self.assertFalse(a.is_live)
-        self.assertEqual(a.title, "Arsenal 2-0 Chelsea: Matokeo, Magoli na Matukio Yote — Premier League")
+        self.assertEqual(a.title, "Arsenal 2-0 Chelsea: Matokeo, Magoli na Takwimu — Premier League")
         self.assertIn("## Magoli", a.body)
         self.assertIn("G. Martinelli anaifungia Arsenal kwa penalti", a.body)
         self.assertEqual(LiveMatch.objects.get().status, "FT")
@@ -1910,9 +1910,10 @@ class HighlightlyProviderTest(TestCase):
             p = mock.patch(target)
             p.start()
             self.addCleanup(p.stop)
-        p = mock.patch("news.football._image", return_value=None)
-        p.start()
-        self.addCleanup(p.stop)
+        for target in ("news.football._image", "news.enrich.run"):      # taarifa za ziada: MatchEnrichmentTest
+            p = mock.patch(target, return_value=None if target.endswith("_image") else 0)
+            p.start()
+            self.addCleanup(p.stop)
         self.calls = []
 
     def run_with(self, *responses):
@@ -1937,7 +1938,8 @@ class HighlightlyProviderTest(TestCase):
         self.assertTrue(self.calls[0][0].endswith("/matches"))
         self.assertEqual(self.calls[0][1]["date"], timezone.localdate().isoformat())
         a = Article.objects.get()                          # Premier League ya Kenya haikuchaguliwa
-        self.assertEqual(a.title, "Arsenal vs Chelsea LIVE: Matokeo na Matukio Yote — Premier League")
+        self.assertEqual(a.sources[0]["publisher"], "Highlightly")
+        self.assertEqual(a.title, "Arsenal vs Chelsea LIVE: Matokeo, Kikosi na Takwimu — Premier League")
         m = LiveMatch.objects.get()
         self.assertEqual((m.home_logo, m.venue, m.status), ("https://hl.example/1.png", "Emirates Stadium", "NS"))
         self.assertIn('"Arsenal"', FootballState.objects.get().sample)
@@ -2029,3 +2031,210 @@ class ProviderSwitchTest(TestCase):
         self.assertIn("IMEKATIKA", highlightly.last_scan_note())
         highlightly._scan.update(pages=9, total=870, rows=870)
         self.assertEqual(highlightly.last_scan_note(), "kurasa 9, mechi 870/870")
+
+
+def _hl_game(h, a, hg, ag, date="2026-09-01T18:00:00Z", hid=1, aid=2):
+    return {"id": 9, "date": date, "league": {"name": "Premier League"}, "homeTeam": {"id": hid, "name": h},
+            "awayTeam": {"id": aid, "name": a}, "state": {"description": "Finished", "score": {"current": f"{hg} - {ag}"}}}
+
+
+@override_settings(HIGHLIGHTLY_API_KEY="hl-key", API_FOOTBALL_KEY="", HIGHLIGHTLY_LEAGUES=["England:Premier League"])
+class MatchEnrichmentTest(TestCase):
+    """Takwimu, vikosi, uso kwa uso, fomu na video kwa ukurasa wa mechi (news/enrich.py)."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from news.models import FootballState, LiveMatch
+        cache.clear()
+        self.addCleanup(cache.clear)
+        for target in ("news.models.Article.render_cover", "news.indexnow.submit"):
+            p = mock.patch(target)
+            p.start()
+            self.addCleanup(p.stop)
+        self.a = Article.objects.create(title="Arsenal vs Chelsea LIVE: Matokeo, Kikosi na Takwimu — Premier League",
+                                        category="dunia", excerpt="x", body="Awali.", status="published",
+                                        published_at=timezone.now(), origin="football")
+        self.m = LiveMatch.objects.create(article=self.a, fixture_id=1340772559, provider="highlightly",
+                                          home="Arsenal", away="Chelsea", competition="Premier League",
+                                          kickoff=timezone.now() + timedelta(hours=3),
+                                          extra={"home_id": 1, "away_id": 2, "league_id": 33973})
+        self.state = FootballState.objects.create(day=timezone.now().astimezone(dt_tz.utc).date())
+        self.calls = []
+
+    def serve(self, routes):
+        def fake_get(url, params=None, headers=None, timeout=None):
+            path = url.split(".net", 1)[1]
+            self.calls.append((path, params))
+            for prefix, resp in routes.items():
+                if path.startswith(prefix):
+                    return resp
+            return _HLResp({"message": "Not found"}, status=404)
+        return mock.patch("news.highlightly.requests.get", side_effect=fake_get)
+
+    def test_match_details_bring_stats_referee_and_weather(self):
+        from news import football, highlightly
+        raw = _hl(mid=1340772559, desc="Second half", clock=70, score="1 - 0", events=[])
+        raw.update(referee={"name": "Michael Oliver"}, forecast={"temperature": "14°C", "status": "Mawingu"},
+                   statistics=[{"team": {"id": 2}, "statistics": [{"displayName": "Possession", "value": 0.38},
+                                                                  {"displayName": "Expected Goals", "value": 0.7},
+                                                                  {"displayName": "Corners", "value": 3}]},
+                               {"team": {"id": 1}, "statistics": [{"displayName": "Possession", "value": 0.62},
+                                                                  {"displayName": "Expected Goals", "value": 1.91},
+                                                                  {"displayName": "Corners", "value": 7}]}])
+        with mock.patch("news.football._image", return_value=None):
+            football.apply(highlightly.normalize(raw), self.m)
+        self.m.refresh_from_db()
+        x = self.m.extra
+        self.assertEqual(x["referee"], "Michael Oliver")
+        self.assertEqual(x["stats"][0], {"name": "Umiliki wa mpira", "home": "62%", "away": "38%", "pct": 62})
+        self.assertEqual(x["stats"][1]["name"], "Nafasi za kufunga (xG)")
+        self.assertEqual((x["stats"][1]["home"], x["stats"][1]["away"]), ("1.91", "0.7"))
+        self.assertIn("Arsenal wanamiliki mpira zaidi (62% dhidi ya 38%).", self.m.insights)
+        page = self.client.get(self.a.get_absolute_url()).content.decode()
+        for text in ("Uchambuzi wa wILife", "Takwimu", "Umiliki wa mpira", "Michael Oliver", "14°C"):
+            self.assertIn(text, page)
+
+    def test_pre_match_head_to_head_and_form_become_analysis(self):
+        from news import enrich
+        h2h = _HLResp([_hl_game("Arsenal", "Chelsea", 2, 0), _hl_game("Chelsea", "Arsenal", 1, 1, hid=2, aid=1),
+                       _hl_game("Chelsea", "Arsenal", 2, 1, hid=2, aid=1)])
+        home5 = _HLResp([_hl_game("Arsenal", "X", 3, 0), _hl_game("Y", "Arsenal", 0, 0, hid=9, aid=1)])
+        away5 = _HLResp([_hl_game("Chelsea", "Z", 0, 1, hid=2, aid=8)])
+        responses = iter([home5, away5])
+        with self.serve({"/head-2-head": h2h, "/last-five-games": None}) as get:
+            def route(url, params=None, headers=None, timeout=None):
+                path = url.split(".net", 1)[1]
+                self.calls.append((path, params))
+                return h2h if path.startswith("/head-2-head") else next(responses)
+            get.side_effect = route
+            spent = enrich.run(self.state, timezone.now())
+        self.assertEqual(spent, 3)
+        self.assertEqual(self.calls[0][1], {"teamIdOne": 1, "teamIdTwo": 2})
+        self.m.refresh_from_db()
+        x = self.m.extra
+        self.assertEqual(x["h2h_tally"], {"W": 1, "D": 1, "L": 1})
+        self.assertEqual((x["form_home"], x["form_away"]), (["W", "D"], ["L"]))
+        tips = self.m.insights
+        self.assertIn("Katika mechi 3 za mwisho walizokutana, Arsenal wameshinda 1, Chelsea wameshinda 1 na sare ni 1.", tips)
+        self.assertIn("Arsenal: ushindi 1 katika mechi 2 zilizopita (ushindi, sare).", tips)
+        self.a.refresh_from_db()
+        self.assertIn("## Uchambuzi kabla ya mechi", self.a.body)
+        self.assertIn("2026-09-01: Arsenal 2 - 0 Chelsea", self.a.body)
+        page = self.client.get(self.a.get_absolute_url()).content.decode()
+        self.assertIn("Uso kwa uso", page)
+        self.assertIn('class="f-W"', page)
+
+    def test_lineups_near_kickoff_and_highlights_after_full_time(self):
+        from news import enrich
+        self.m.kickoff = timezone.now() + timedelta(minutes=40)
+        self.m.extra = {**self.m.extra, "h2h_done": True}
+        self.m.save()
+        lineup = _HLResp({"homeTeam": {"formation": "4-3-3", "initialLineup": [[{"name": "D. Raya", "number": 22,
+                          "position": "Goalkeeper"}], [{"name": "W. Saliba", "number": 2}]],
+                          "substitutes": [{"name": "K. Havertz", "number": 29}]},
+                          "awayTeam": {"formation": "4-2-3-1", "initialLineup": [[{"name": "R. Sánchez", "number": 1}]]}})
+        with self.serve({"/lineups/1340772559": lineup}):
+            enrich.run(self.state, timezone.now())
+        self.m.refresh_from_db()
+        lu = self.m.extra["lineups"]
+        self.assertEqual((lu["home"]["formation"], [p["name"] for p in lu["home"]["start"]]), ("4-3-3", ["D. Raya", "W. Saliba"]))
+        self.assertEqual(lu["home"]["subs"][0]["name"], "K. Havertz")
+
+        self.m.status = "FT"
+        self.m.save()
+        clips = _HLResp({"data": [{"title": "Arsenal 2-0 Chelsea | Highlights", "url": "https://youtu.be/abc",
+                                   "embedUrl": "https://www.youtube.com/embed/abc", "imgUrl": "https://img.example/a.jpg",
+                                   "type": "VERIFIED", "source": "youtube"},
+                                  {"title": "bad", "url": "javascript:alert(1)"}]})
+        with self.serve({"/highlights": clips}):
+            enrich.run(self.state, timezone.now())
+        self.m.refresh_from_db()
+        self.assertEqual([v["url"] for v in self.m.extra["highlights"]], ["https://youtu.be/abc"])
+        self.assertEqual(self.calls[-1][1]["matchId"], 1340772559)
+        page = self.client.get(self.a.get_absolute_url()).content.decode()
+        self.assertIn("▶ Video", page)
+        self.assertIn('"@type": "VideoObject"', page)
+        self.assertIn("https://www.youtube.com/embed/abc", page)
+        self.assertIn("4-3-3", page)
+
+    def test_a_missing_endpoint_is_switched_off_not_retried(self):
+        from news import enrich
+        self.m.kickoff = timezone.now() + timedelta(minutes=40)
+        self.m.extra = {**self.m.extra, "h2h_done": True}
+        self.m.save()
+        with self.serve({}):
+            enrich.run(self.state, timezone.now())
+            self.m.refresh_from_db()
+            self.assertIn("404", self.m.extra["lineups_error"])
+            self.m.extra.pop("lineups_try", None)         # hata muda wa kujaribu ukifika: njia imezimwa
+            self.m.save()
+            enrich.run(self.state, timezone.now())
+        self.assertEqual(len(self.calls), 1)
+
+
+class SelfUpdatingPagesTest(TestCase):
+    """Ukurasa wa mechi, /live/ na ukurasa wa mwanzo vinajibadilisha bila kurefresh."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from news.models import LiveMatch
+        cache.clear()
+        self.addCleanup(cache.clear)
+        p = mock.patch("news.indexnow.submit")
+        p.start()
+        self.addCleanup(p.stop)
+        self.a = Article.objects.create(title="Arsenal vs Chelsea LIVE", category="dunia", excerpt="x", body="x",
+                                        status="published", published_at=timezone.now(), origin="football")
+        self.m = LiveMatch.objects.create(article=self.a, fixture_id=1340772559, provider="highlightly", home="Arsenal",
+                                          away="Chelsea", kickoff=timezone.now() + timedelta(hours=2))
+        self.b = Article.objects.create(title="Real Madrid vs Barcelona LIVE", category="dunia", excerpt="x", body="x",
+                                        status="published", published_at=timezone.now(), origin="football")
+        LiveMatch.objects.create(article=self.b, fixture_id=1340772560, provider="highlightly", home="Real Madrid",
+                                 away="Barcelona", kickoff=timezone.now() + timedelta(hours=3))
+
+    def feed(self):
+        return self.client.get(f"/habari/live/{self.a.pk}.json").json()
+
+    def test_match_page_knows_when_to_reload_its_zones(self):
+        page = self.client.get(self.a.get_absolute_url()).content.decode()
+        self.assertIn('id="mz-body" data-zone data-v="', page)
+        self.assertIn('data-active="1"', page)
+        self.assertIn("news/match.", page)
+        self.assertIn("Mechi nyingine za leo", page)                   # viungo vya ndani
+        self.assertIn("Real Madrid", page)
+        v1 = self.feed()["v"]                                          # mechi haijaanza bado ina feed
+        self.assertEqual(v1, self.feed()["v"])                         # hakuna kilichobadilika
+        self.m.extra = {"lineups": {"home": {"start": [{"name": "D. Raya"}]}}}
+        self.m.save()
+        v2 = self.feed()["v"]
+        self.assertNotEqual(v1, v2)                                    # vikosi vimefika -> sehemu zibadilike
+        from news import live
+        live.start(self.a)
+        self.assertNotEqual(v2, self.feed()["v"])                      # mechi imeanza
+
+    def test_zone_reload_does_not_count_as_a_new_reader(self):
+        self.client.get(self.a.get_absolute_url())
+        self.client.get(self.a.get_absolute_url() + "?_=123")
+        self.a.refresh_from_db()
+        self.assertEqual(self.a.views, 1)
+
+    def test_live_lists_carry_a_version(self):
+        from news.models import LiveMatch
+        hub = self.client.get("/live/").content.decode()
+        self.assertIn('id="lv-zone" data-v="', hub)
+        self.assertIn('id="lv-zone" data-v="', self.client.get("/").content.decode())
+        v1 = self.client.get("/live/matokeo.json").json()["v"]
+        LiveMatch.objects.filter(pk=self.m.pk).update(status="1H")
+        from news import live
+        live.start(self.a)
+        self.assertNotEqual(v1, self.client.get("/live/matokeo.json").json()["v"])
+
+    def test_old_finished_article_stops_asking(self):
+        from news import live
+        self.m.kickoff = timezone.now() - timedelta(days=2)
+        self.m.status = "FT"
+        self.m.save()
+        live.start(self.a)
+        Article.objects.filter(pk=self.a.pk).update(live_ended_at=timezone.now() - timedelta(days=2))
+        page = self.client.get(self.a.get_absolute_url()).content.decode()
+        self.assertIn('data-active="0"', page)

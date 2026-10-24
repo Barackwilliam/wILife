@@ -218,7 +218,73 @@ def normalize(raw):
     }
     if "events" in raw:
         item["events"] = [_event(e, raw) for e in raw.get("events") or [] if isinstance(e, dict)]
+    extra = {"home_id": home.get("id"), "away_id": away.get("id"), "league_id": league.get("id"),
+             "season": league.get("season")}
+    if raw.get("statistics"):
+        extra["stats"] = stats(raw["statistics"], home.get("id"))
+    ref = raw.get("referee")
+    if isinstance(ref, dict) and ref.get("name"):
+        extra["referee"] = ref["name"]
+    fc = raw.get("forecast")
+    if isinstance(fc, dict) and (fc.get("temperature") or fc.get("status")):
+        extra["forecast"] = {"temperature": str(fc.get("temperature") or ""), "status": str(fc.get("status") or "")}
+    item["_extra"] = {k: v for k, v in extra.items() if v not in (None, "", [])}
     return item
+
+
+STAT_SW = {
+    "possession": "Umiliki wa mpira", "ball possession": "Umiliki wa mpira",
+    "expected goals": "Nafasi za kufunga (xG)", "total shots": "Mashuti yote", "shots": "Mashuti yote",
+    "shots on target": "Mashuti yaliyolenga lango", "shots off target": "Mashuti nje ya lango",
+    "blocked shots": "Mashuti yaliyozuiwa", "corners": "Kona", "corner kicks": "Kona", "fouls": "Faulo",
+    "offsides": "Kuotea", "yellow cards": "Kadi za njano", "red cards": "Kadi nyekundu",
+    "saves": "Kuokoa (kipa)", "goalkeeper saves": "Kuokoa (kipa)", "successful passes": "Pasi zilizofika",
+    "total passes": "Pasi zote", "passes": "Pasi zote", "pass accuracy": "Usahihi wa pasi",
+    "big chances": "Nafasi kubwa", "free kicks": "Mipira ya adhabu", "throw-ins": "Mirusho",
+}
+STAT_ORDER = ["Umiliki wa mpira", "Nafasi za kufunga (xG)", "Mashuti yote", "Mashuti yaliyolenga lango",
+              "Nafasi kubwa", "Kona", "Pasi zilizofika", "Usahihi wa pasi", "Faulo", "Kuotea", "Kadi za njano",
+              "Kadi nyekundu", "Kuokoa (kipa)"]
+
+
+def _num(v):
+    if isinstance(v, (int, float)):
+        return v
+    m = re.match(r"\s*(-?\d+(?:\.\d+)?)", str(v or ""))
+    return float(m.group(1)) if m else None
+
+
+def stats(raw, home_id=None):
+    """[{team, statistics:[{displayName, value}]} x2] -> [{name, home, away, pct}] kwa Kiswahili."""
+    if not isinstance(raw, list) or len(raw) < 2:
+        return []
+    a, b = raw[0] or {}, raw[1] or {}
+    if home_id is not None and (b.get("team") or {}).get("id") == home_id:
+        a, b = b, a
+    def table(side):
+        out = {}
+        for s in side.get("statistics") or []:
+            if isinstance(s, dict) and s.get("displayName"):
+                out[s["displayName"].strip()] = s.get("value")
+        return out
+    ha, aw = table(a), table(b)
+    rows = []
+    for name in ha:
+        if name not in aw:
+            continue
+        hv, av = _num(ha[name]), _num(aw[name])
+        if hv is None or av is None:
+            continue
+        pct_stat = "possession" in name.lower() or "accuracy" in name.lower()
+        if pct_stat and hv <= 1 and av <= 1:
+            hv, av = round(hv * 100), round(av * 100)
+        fmt = (lambda x: f"{x:g}%") if pct_stat else (lambda x: f"{round(x, 2):g}")
+        total = hv + av
+        rows.append({"name": STAT_SW.get(name.lower(), name), "home": fmt(hv), "away": fmt(av),
+                     "pct": round(hv / total * 100) if total else 50})
+    rank = {n: i for i, n in enumerate(STAT_ORDER)}
+    rows.sort(key=lambda r: rank.get(r["name"], 99))
+    return rows[:14]
 
 
 # ── Maombi ────────────────────────────────────────────────────────────────────

@@ -130,11 +130,11 @@ def _when(dt):
 
 
 def preview_title(m):
-    return f"{m.home} vs {m.away} LIVE: Matokeo na Matukio Yote — {m.competition}"[:200]
+    return f"{m.home} vs {m.away} LIVE: Matokeo, Kikosi na Takwimu — {m.competition}"[:200]
 
 
 def final_title(m):
-    return f"{m.home} {m.home_goals}-{m.away_goals} {m.away}: Matokeo, Magoli na Matukio Yote — {m.competition}"[:200]
+    return f"{m.home} {m.home_goals}-{m.away_goals} {m.away}: Matokeo, Magoli na Takwimu — {m.competition}"[:200]
 
 
 def _preview_body(m):
@@ -200,6 +200,12 @@ def refresh_cover(m):
     m.cover_ok = True
 
 
+SOURCES = {
+    "api-football": {"title": "Takwimu za mechi", "url": "https://www.api-football.com/", "publisher": "API-Football"},
+    "highlightly": {"title": "Takwimu za mechi", "url": "https://highlightly.net/", "publisher": "Highlightly"},
+}
+
+
 def _create_article(m, league):
     article = Article.objects.create(
         title=preview_title(m), category=_category(league), origin="football",
@@ -207,7 +213,7 @@ def _create_article(m, league):
                  f"{m.competition} dakika kwa dakika kwenye wILife.")[:300],
         body=_preview_body(m),
         keywords=", ".join([m.home, m.away, f"{m.home} vs {m.away}", m.competition, "matokeo", "live"])[:300],
-        sources=[{"title": "Takwimu za mechi", "url": "https://www.api-football.com/", "publisher": "API-Football"}],
+        sources=[SOURCES.get(provider(), SOURCES["api-football"])],
         status="published", published_at=timezone.now())
     return article          # picha (nembo za timu) inatengenezwa mechi ikishahifadhiwa — refresh_cover
 
@@ -233,7 +239,10 @@ def _fill(m, item):
     if fx.get("date"):
         m.kickoff = datetime.fromisoformat(fx["date"].replace("Z", "+00:00"))
     venue = fx.get("venue") or {}
-    m.venue, m.city = (venue.get("name") or "")[:120], (venue.get("city") or "")[:80]
+    if venue.get("name"):                   # orodha ya ratiba haina uwanja; maelezo ya mechi yanayo
+        m.venue, m.city = (venue.get("name") or "")[:120], (venue.get("city") or "")[:80]
+    if item.get("_extra"):
+        m.extra = {**(m.extra or {}), **item["_extra"]}
     return old
 
 
@@ -533,6 +542,11 @@ def run(now=None, deadline=None, dry_run=False):
             n = sync_live(state, now)
             out["sent"] = n
             notes.append(f"live: masasisho {n}")
+        if provider() == "highlightly":       # baada ya mechi zinazochezwa: taarifa za ziada
+            from news import enrich
+            n = enrich.run(state, now)
+            if n:
+                notes.append(f"ziada: maombi {n}")
         if state.error:
             state.error = ""
             state.save(update_fields=["error"])

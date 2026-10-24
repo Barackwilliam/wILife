@@ -92,32 +92,4 @@
   </ol>
 </section>
 
-<script>
-(function () {
-  var box = document.getElementById('live');
-  if (!box || box.dataset.live !== '1') return;
-  var list = document.getElementById('lvList'), score = document.getElementById('lvScore');
-  function lastId() { var f = list.querySelector('.lv-item'); return f ? f.dataset.id : 0; }
-  function tick() {
-    if (document.hidden) return;
-    fetch(box.dataset.feed + '?after=' + lastId(), {cache: 'no-store'}).then(function (r) { return r.json(); }).then(function (d) {
-      if (d.score !== undefined && score.textContent !== d.score) score.textContent = d.score;
-      var empty = document.getElementById('lvEmpty');
-      d.updates.slice().reverse().forEach(function (u) {
-        if (document.getElementById('u' + u.id)) return;
-        if (empty) { empty.remove(); empty = null; }
-        var li = document.createElement('li');
-        li.className = 'lv-item new' + (u.kind ? ' k-' + u.kind : ''); li.id = 'u' + u.id; li.dataset.id = u.id;
-        var when = document.createElement('div'); when.className = 'lv-when'; when.textContent = u.label || '';
-        var sm = document.createElement('small'); sm.textContent = u.time; when.appendChild(sm);
-        var txt = document.createElement('div'); txt.className = 'lv-text'; txt.innerHTML = u.html;   // html imesafishwa kwenye server
-        li.appendChild(when); li.appendChild(txt);
-        list.insertBefore(li, list.firstChild);
-      });
-      if (!d.live) location.reload();   // LIVE imeisha — onyesha hali ya mwisho
-    }).catch(function () {});
-  }
-  setInterval(tick, 30000);
-  document.addEventListener('visibilitychange', function () { if (!document.hidden) tick(); });
-})();
-</script>
+

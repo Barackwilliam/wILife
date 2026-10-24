@@ -3,14 +3,14 @@
   data-match: JS ya ukurasa inabadilisha magoli na dakika bila kurefresh (/live/matokeo.json).
 {% endcomment %}{% with m=a.match %}
 <div class="sb{% if big %} sb-big{% endif %}{% if m.is_playing %} is-on{% elif m.is_finished %} is-ft{% endif %}" data-match="{{ a.pk }}">
-  <div class="sb-comp">{% if m.competition_logo %}<img src="{{ m.competition_logo }}" alt="" width="18" height="18" loading="lazy" referrerpolicy="no-referrer">{% endif %}<span>{{ m.competition|default:"Mechi" }}{% if big and m.round %} · {{ m.round }}{% endif %}</span></div>
+  <div class="sb-comp">{% if m.competition_logo %}<img src="{{ m.competition_logo }}" alt="{{ m.competition }}" width="18" height="18" loading="lazy" referrerpolicy="no-referrer">{% endif %}<span>{{ m.competition|default:"Mechi" }}{% if big and m.round %} · {{ m.round }}{% endif %}</span></div>
   <div class="sb-row">
-    <div class="sb-team"><span class="sb-logo">{% if m.home_logo %}<img src="{{ m.home_logo }}" alt="" width="48" height="48" loading="lazy" referrerpolicy="no-referrer">{% else %}{{ m.home|slice:":1"|upper }}{% endif %}</span><b>{{ m.home }}</b></div>
+    <div class="sb-team"><span class="sb-logo">{% if m.home_logo %}<img src="{{ m.home_logo }}" alt="Nembo ya {{ m.home }}" width="48" height="48" loading="lazy" referrerpolicy="no-referrer">{% else %}{{ m.home|slice:":1"|upper }}{% endif %}</span><b>{{ m.home }}</b></div>
     <div class="sb-mid">
       <span class="sb-score" data-score>{% if m.has_score %}{{ m.home_goals }}<i>-</i>{{ m.away_goals }}{% else %}<small>vs</small>{% endif %}</span>
       <span class="sb-clock" data-clock>{{ m.clock }}</span>
     </div>
-    <div class="sb-team"><span class="sb-logo">{% if m.away_logo %}<img src="{{ m.away_logo }}" alt="" width="48" height="48" loading="lazy" referrerpolicy="no-referrer">{% else %}{{ m.away|slice:":1"|upper }}{% endif %}</span><b>{{ m.away }}</b></div>
+    <div class="sb-team"><span class="sb-logo">{% if m.away_logo %}<img src="{{ m.away_logo }}" alt="Nembo ya {{ m.away }}" width="48" height="48" loading="lazy" referrerpolicy="no-referrer">{% else %}{{ m.away|slice:":1"|upper }}{% endif %}</span><b>{{ m.away }}</b></div>
   </div>
   {% if big %}{% if m.venue or m.kickoff %}<div class="sb-meta">{% if m.kickoff %}<time datetime="{{ m.kickoff|date:'c' }}">{{ m.kickoff|sw_date }}, {{ m.kickoff|time:"H:i" }}</time>{% endif %}{% if m.venue %} · {{ m.venue }}{% if m.city %}, {{ m.city }}{% endif %}{% endif %}</div>{% endif %}
   {% else %}<a class="sb-link" href="{{ a.get_absolute_url }}"><span class="sr-only">{{ a.title }}</span></a>

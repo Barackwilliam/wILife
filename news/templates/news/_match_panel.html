@@ -1,0 +1,85 @@
+{% comment %}
+  Paneli ya mechi (LiveMatch.extra — news/enrich.py): uchambuzi, takwimu, vikosi, uso kwa uso,
+  fomu na video. Kichupo kisicho na data hakionyeshwi. Takwimu zinasasishwa zenyewe mechi ikiendelea.
+{% endcomment %}{% with m=article.match x=article.match.x %}
+{% if m.venue or x.referee or x.forecast %}
+<div class="mp-meta">
+  {% if m.venue %}<span><b>Uwanja</b>{{ m.venue }}{% if m.city %}, {{ m.city }}{% endif %}</span>{% endif %}
+  {% if x.referee %}<span><b>Mwamuzi</b>{{ x.referee }}</span>{% endif %}
+  {% if x.forecast %}<span><b>Hali ya hewa</b>{{ x.forecast.temperature }}{% if x.forecast.status %} · {{ x.forecast.status }}{% endif %}</span>{% endif %}
+</div>
+{% endif %}
+
+{% with tips=m.insights %}{% if tips %}
+<section class="mp-ai" aria-label="Uchambuzi">
+  <h2><span>✦</span> Uchambuzi wa wILife</h2>
+  <ul>{% for t in tips %}<li>{{ t }}</li>{% endfor %}</ul>
+</section>
+{% endif %}{% endwith %}
+
+{% if x.stats or x.lineups or x.h2h or x.form_home or x.form_away or x.highlights %}
+<section class="mp" id="mp" data-first="{% if x.highlights and m.is_finished %}video{% elif x.stats %}stats{% endif %}" data-feed="{% url 'news:live_feed' article.pk %}" data-live="{{ m.is_playing|yesno:'1,0' }}">
+  <div class="mp-tabs" role="tablist">
+    {% if x.highlights %}<button role="tab" data-tab="video">▶ Video</button>{% endif %}
+    {% if x.stats %}<button role="tab" data-tab="stats">Takwimu</button>{% endif %}
+    {% if x.lineups %}<button role="tab" data-tab="lineups">Vikosi</button>{% endif %}
+    {% if x.h2h %}<button role="tab" data-tab="h2h">Uso kwa uso</button>{% endif %}
+    {% if x.form_home or x.form_away %}<button role="tab" data-tab="form">Fomu</button>{% endif %}
+  </div>
+
+  {% if x.highlights %}
+  <div class="mp-pane" data-pane="video">
+    <div class="mp-vids">{% for v in x.highlights %}
+      <a class="mp-vid" href="{{ v.url }}" target="_blank" rel="noopener nofollow">
+        <span class="mp-thumb">{% if v.img %}<img src="{{ v.img }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% endif %}<i>▶</i></span>
+        <span class="mp-vt"><b>{{ v.title }}</b>{% if v.source %}<small>{{ v.source }}</small>{% endif %}</span>
+      </a>{% endfor %}
+    </div>
+    <p class="mp-note">Video zinafunguka kwa mmiliki wake rasmi. wILife haionyeshi mechi nzima moja kwa moja.</p>
+  </div>
+  {% endif %}
+
+  {% if x.stats %}
+  <div class="mp-pane" data-pane="stats">
+    <div class="mp-teams"><span>{{ m.home }}</span><span>{{ m.away }}</span></div>
+    <div id="mpStats">{% for r in x.stats %}
+      <div class="mp-stat" data-stat="{{ r.name }}">
+        <div class="mp-sh"><b data-h>{{ r.home }}</b><span>{{ r.name }}</span><b data-a>{{ r.away }}</b></div>
+        <div class="mp-bar"><i style="width:{{ r.pct }}%"></i></div>
+      </div>{% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if x.lineups %}
+  <div class="mp-pane" data-pane="lineups">
+    <div class="mp-lu">
+      {% include 'news/_lineup.html' with name=m.home team=x.lineups.home %}
+      {% include 'news/_lineup.html' with name=m.away team=x.lineups.away %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if x.h2h %}
+  <div class="mp-pane" data-pane="h2h">
+    {% if x.h2h_tally %}<div class="mp-tally">
+      <div><b>{{ x.h2h_tally.W }}</b><span>{{ m.home }}</span></div>
+      <div><b>{{ x.h2h_tally.D }}</b><span>Sare</span></div>
+      <div><b>{{ x.h2h_tally.L }}</b><span>{{ m.away }}</span></div>
+    </div>{% endif %}
+    <ul class="mp-list">{% for g in x.h2h %}<li><time>{{ g.date }}</time><span>{{ g.home }}</span><b>{{ g.score }}</b><span>{{ g.away }}</span></li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+
+  {% if x.form_home or x.form_away %}
+  <div class="mp-pane" data-pane="form">
+    <div class="mp-form"><b>{{ m.home }}</b><span>{% for r in x.form_home %}<i class="f-{{ r }}" title="{% if r == 'W' %}Ushindi{% elif r == 'D' %}Sare{% else %}Kipigo{% endif %}">{% if r == 'W' %}U{% elif r == 'D' %}S{% else %}K{% endif %}</i>{% endfor %}</span></div>
+    <ul class="mp-list">{% for g in x.form_home_games %}<li><time>{{ g.date }}</time><span>{{ g.home }}</span><b>{{ g.score }}</b><span>{{ g.away }}</span></li>{% endfor %}</ul>
+    <div class="mp-form"><b>{{ m.away }}</b><span>{% for r in x.form_away %}<i class="f-{{ r }}" title="{% if r == 'W' %}Ushindi{% elif r == 'D' %}Sare{% else %}Kipigo{% endif %}">{% if r == 'W' %}U{% elif r == 'D' %}S{% else %}K{% endif %}</i>{% endfor %}</span></div>
+    <ul class="mp-list">{% for g in x.form_away_games %}<li><time>{{ g.date }}</time><span>{{ g.home }}</span><b>{{ g.score }}</b><span>{{ g.away }}</span></li>{% endfor %}</ul>
+    <p class="mp-note">U = ushindi · S = sare · K = kipigo (mpya kushoto)</p>
+  </div>
+  {% endif %}
+</section>
+
+{% endif %}{% endwith %}

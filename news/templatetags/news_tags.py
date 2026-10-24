@@ -123,6 +123,15 @@ def article_jsonld(context, article):
     match = getattr(article, "match", None)
     if match:
         data[0]["about"] = sports_event(match, url)
+        data[0]["about"]["image"] = abs_url(context, article.og_url)
+        data[0]["isAccessibleForFree"] = True
+        videos = [{
+            "@type": "VideoObject", "name": v["title"], "description": f"{match.home} vs {match.away} — {v['title']}",
+            "thumbnailUrl": [v["img"]], "uploadDate": (match.kickoff or article.updated_at).isoformat(),
+            **({"embedUrl": v["embed"]} if v.get("embed") else {"contentUrl": v["url"]}),
+        } for v in (match.extra or {}).get("highlights") or [] if v.get("img")]
+        if videos:
+            data[0]["video"] = videos[:5]
     data += [{
         "@context": "https://schema.org",
         "@type": "BreadcrumbList",
@@ -142,7 +151,7 @@ EVENT_STATUS = {"PST": "EventPostponed", "CANC": "EventCancelled", "ABD": "Event
 def sports_event(match, url):
     """Mechi kama `SportsEvent` (schema.org) — timu, muda, uwanja na hali."""
     def team(name, logo):
-        return {"@type": "SportsTeam", "name": name, **({"logo": logo} if logo else {})}
+        return {"@type": "SportsTeam", "name": name, "sport": "Soccer", **({"logo": logo} if logo else {})}
     home, away = team(match.home, match.home_logo), team(match.away, match.away_logo)
     event = {
         "@type": "SportsEvent",
