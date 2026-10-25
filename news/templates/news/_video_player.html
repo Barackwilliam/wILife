@@ -6,11 +6,11 @@ h = Highlight; heading = kichwa cha sehemu (hiari). src inatoka scorebat.parse �
   <div class="vx-h">
     <span class="vx-badge">▶ Video za magoli</span>
     <h2 class="vx-t">{% if heading %}{{ heading }}{% else %}{{ h.name }}: Highlights{% endif %}</h2>
-    {% if h.competition %}<span class="vx-comp">{{ h.competition }} · {{ h.date|sw_date }}</span>{% endif %}
+    {% if h.competition %}<span class="vx-comp">{{ h.league }} · {{ h.date|sw_date }}</span>{% endif %}
   </div>
   <div class="vx-stage" data-vx>
     <button class="vx-play" type="button" data-src="{{ v.src }}" aria-label="Cheza video: {{ h.name }} — {{ v.title }}">
-      {% if h.thumbnail %}<img src="{{ h.thumbnail }}" alt="{{ h.name }}: video za magoli" loading="lazy" referrerpolicy="no-referrer">{% endif %}
+      {% if h.thumbnail %}<img src="{{ h.thumbnail }}" alt="{{ h.name }}: video za magoli" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}
       <span class="vx-btn" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span>
       <span class="vx-cap"><b>{{ v.title }}</b><small>Bonyeza kucheza</small></span>
     </button>

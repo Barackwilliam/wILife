@@ -338,8 +338,11 @@ def video_hub(request):
     if league:
         qs = qs.filter(competition=league)
     items = list(qs[:48])
+    for row in leagues:                       # 'ENGLAND: Premier League' -> 'Premier League · England'
+        row["label"] = Highlight(competition=row["competition"]).league
     return render(request, "news/videos.html", {"items": items, "first": items[0] if items else None,
-                                                "rest": items[1:], "leagues": leagues, "league": league})
+                                                "rest": items[1:], "leagues": leagues, "league": league,
+                                                "league_label": Highlight(competition=league).league})
 
 
 def video_detail(request, slug):

@@ -1,11 +1,15 @@
 """
 Video za magoli na highlights kutoka ScoreBat (scorebat.com/video-api) — bure, halali kwa embed.
 
-    SCOREBAT_TOKEN   ufunguo wa bure kutoka ukurasa wa video-api wa ScoreBat (bila huo kipengele kimezimwa)
-    SCOREBAT_FEED    anwani ya feed (default: v3)
+    SCOREBAT_TOKEN          token kutoka scorebat.com/video-api (tab ya "access"). Bila hiyo kipengele kimezimwa.
+    SCOREBAT_FEED           free-feed (mpango wa bure: ligi chache, mechi za zamani kidogo, matangazo + nembo
+                            ya ScoreBat kwenye video) au featured-feed (mipango ya kulipia).
+    SCOREBAT_EVERY_MINUTES  kila ngapi kusoma feed. Kwa masharti ya ScoreBat kila ombi la API = credits 5 na kila
+                            video inayotazamwa = credit 1 (Starter: 5,000 kwa mwezi) — kwa hiyo si mara nyingi.
 
-Kila mzunguko wa wakala (core/agent/jobs.py, kila SCOREBAT_EVERY): feed inasomwa mara moja, kila mechi
-inahifadhiwa kama `Highlight`, na kurasa (mechi, /video/) zinasoma database — si ScoreBat — kila msomaji.
+Kila mzunguko wa wakala (core/agent/jobs.py): feed inasomwa mara moja kwa kipindi, kila mechi inahifadhiwa
+kama `Highlight`, na kurasa (mechi, /video/) zinasoma database — si ScoreBat — kila msomaji. Player
+anapakia iframe msomaji akibonyeza tu, ili credits zitumike kwa video zinazotazamwa kweli.
 
 Usalama: HTML ya embed kutoka API haiwekwi kwenye ukurasa. Tunachukua `src` ya iframe tu, na tu kama ni
 https://www.scorebat.com/... — kisha iframe yetu wenyewe ndiyo inaonyeshwa (news/_video_player.html).
@@ -25,7 +29,7 @@ from django.utils.text import slugify
 
 log = logging.getLogger("news.scorebat")
 
-DEFAULT_FEED = "https://www.scorebat.com/video-api/v3/feed/"
+DEFAULT_FEED = "https://www.scorebat.com/video-api/v3/free-feed/"
 KEEP_DAYS = 60
 ALLOWED_HOSTS = {"www.scorebat.com", "scorebat.com"}
 _SRC = re.compile(r"""src\s*=\s*['"]([^'"]+)['"]""", re.I)
@@ -62,10 +66,11 @@ def _https(url):
 
 
 def _teams(raw):
-    """(wenyeji, wageni): kutoka side1/side2 (v1) au kichwa "A - B" (v3)."""
-    s1, s2 = raw.get("side1") or {}, raw.get("side2") or {}
-    if isinstance(s1, dict) and isinstance(s2, dict) and s1.get("name") and s2.get("name"):
-        return s1["name"].strip(), s2["name"].strip()
+    """(wenyeji, wageni): homeTeam/awayTeam (v3), side1/side2 (v1), au kichwa "A - B"."""
+    for a, b in (("homeTeam", "awayTeam"), ("side1", "side2")):
+        s1, s2 = raw.get(a) or {}, raw.get(b) or {}
+        if isinstance(s1, dict) and isinstance(s2, dict) and s1.get("name") and s2.get("name"):
+            return str(s1["name"]).strip(), str(s2["name"]).strip()
     title = str(raw.get("title") or "")
     if " - " in title:
         home, _, away = title.partition(" - ")
@@ -144,7 +149,7 @@ def fetch():
 
 
 def run(now=None, deadline=None, dry_run=False):
-    """Kazi ya tick: soma feed mara moja kila nusu saa, hifadhi video mpya, futa za zamani."""
+    """Kazi ya tick: soma feed mara moja kila SCOREBAT_EVERY_MINUTES, hifadhi video mpya, futa za zamani."""
     from news.models import DailyCount, Highlight
     out = {"job": "football_video", "sent": 0, "failed": 0, "detail": ""}
     if not token():
@@ -155,9 +160,10 @@ def run(now=None, deadline=None, dry_run=False):
         return out
     now = now or timezone.now()
     utc = now.astimezone(dt_timezone.utc)
-    slot = f"scorebat:{utc:%H}:{utc.minute // 30}"     # database, si cache: kila process inaiona
+    every = max(15, int(getattr(settings, "SCOREBAT_EVERY_MINUTES", 120)))
+    slot = f"scorebat:{(utc.hour * 60 + utc.minute) // every}"   # database, si cache: kila process inaiona
     if DailyCount.get(slot, day=utc.date()):
-        out["detail"] = "imeshasomwa nusu saa hii"
+        out["detail"] = "imeshasomwa kipindi hiki"
         return out
     DailyCount.bump(slot, day=utc.date())
     try:

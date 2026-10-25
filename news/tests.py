@@ -2975,7 +2975,7 @@ def _sb_item(title="Arsenal - Chelsea", comp="ENGLAND: Premier League", hours_ag
             "videos": videos if videos is not None else [{"id": "v1", "title": "Highlights", "embed": src}]}
 
 
-@override_settings(SCOREBAT_TOKEN="sb-token", SCOREBAT_FEED="https://www.scorebat.com/video-api/v3/feed/",
+@override_settings(SCOREBAT_TOKEN="sb-token", SCOREBAT_FEED="https://www.scorebat.com/video-api/v3/free-feed/",
                    SITE_URL="https://www.wlife.online")
 class ScoreBatVideoTest(TestCase):
     """Video za magoli (ScoreBat): feed -> Highlight -> /video/, ukurasa wa video na kurasa za mechi."""
@@ -3010,13 +3010,13 @@ class ScoreBatVideoTest(TestCase):
                               "date": "2026-10-24T18:00:00+0000", "url": "https://www.scorebat.com/x/"}])
         self.assertEqual((v1[0]["home_key"], v1[0]["away_key"]), ("atletico madrid", "real betis"))
 
-    def test_sync_stores_once_per_half_hour_and_needs_token(self):
+    def test_sync_stores_once_per_period_and_needs_token(self):
         from news.models import Highlight
         out, get = self._sync([_sb_item(), _sb_item(title="Liverpool - Brighton")])
         self.assertEqual(out["sent"], 2, out)
         self.assertEqual(get.call_args.kwargs["params"], {"token": "sb-token"})
         out, get = self._sync([_sb_item()])
-        get.assert_not_called()                                     # nusu saa hii imeshasomwa
+        get.assert_not_called()                                     # kipindi hiki (saa 2) kimeshasomwa
         self.assertEqual(Highlight.objects.count(), 2)
         self.assertTrue(Highlight.objects.get(home="Arsenal").slug.startswith("arsenal-vs-chelsea-"))
         with self.settings(SCOREBAT_TOKEN=""):

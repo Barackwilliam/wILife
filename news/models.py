@@ -668,3 +668,9 @@ class Highlight(models.Model):
     @property
     def name(self):
         return f"{self.home} vs {self.away}" if self.home and self.away else self.title
+
+    @property
+    def league(self):
+        """'ENGLAND: Premier League' -> 'Premier League · England' (kwa kuonyesha)."""
+        country, sep, name = (self.competition or "").partition(": ")
+        return f"{name} · {country.title()}" if sep and name else self.competition
