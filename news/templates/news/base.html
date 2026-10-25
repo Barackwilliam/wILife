@@ -61,7 +61,7 @@
         <a href="{% url 'news:home' %}" class="{% if u == 'home' %}on{% endif %}">Mwanzo</a>
         <a href="{% url 'news:live_hub' %}" class="nav-live{% if u == 'live_hub' %} on{% endif %}{% if live_now %} is-on{% endif %}"><i></i>LIVE{% if live_now %}<span class="n">{{ live_now }}</span>{% endif %}</a>
         <a href="{% url 'news:matches_today' %}" class="{% if u == 'matches_today' or u == 'results_yesterday' or u == 'matches_day' %}on{% endif %}">Mechi za leo</a>
-        <a href="{% url 'news:predictions' %}" class="{% if u == 'predictions' %}on{% endif %}">Makadirio</a>
+        <a href="{% url 'news:predictions' %}" class="{% if u == 'predictions' %}on{% endif %}">Utabiri wa matokeo</a>
         <a href="{% url 'news:category' 'tanzania' %}" class="{% if c == 'tanzania' %}on{% endif %}">Tanzania</a>
         <a href="{% url 'news:category' 'afrika' %}" class="{% if c == 'afrika' %}on{% endif %}">Afrika</a>
         <a href="{% url 'news:category' 'dunia' %}" class="{% if c == 'dunia' %}on{% endif %}">Dunia</a>
@@ -90,10 +90,10 @@
       <nav class="dr-nav" aria-label="Makundi ya habari">
         <a href="{% url 'news:home' %}" class="{% if u == 'home' %}on{% endif %}"><span class="dr-ic">{% icon "newspaper" %}</span>Mwanzo{% icon "chevron-right" %}</a>
         <a href="{% url 'news:latest' %}" class="{% if u == 'latest' %}on{% endif %}"><span class="dr-ic">{% icon "lightning-charge-fill" %}</span>Habari mpya{% icon "chevron-right" %}</a>
-        <a href="{% url 'news:live_hub' %}" class="dr-live{% if u == 'live_hub' %} on{% endif %}{% if live_now %} is-on{% endif %}"><span class="dr-ic"><i></i></span>LIVE: matokeo ya mpira{% if live_now %}<span class="n">{{ live_now }}</span>{% endif %}{% icon "chevron-right" %}</a>
+        <a href="{% url 'news:live_hub' %}" class="dr-live{% if u == 'live_hub' %} on{% endif %}{% if live_now %} is-on{% endif %}"><span class="dr-ic"><i></i></span>Matokeo ya mechi mubashara{% if live_now %}<span class="n">{{ live_now }}</span>{% endif %}{% icon "chevron-right" %}</a>
         <a href="{% url 'news:matches_today' %}" class="{% if u == 'matches_today' %}on{% endif %}"><span class="dr-ic">{% icon "calendar3" %}</span>Mechi za leo{% icon "chevron-right" %}</a>
         <a href="{% url 'news:results_yesterday' %}" class="{% if u == 'results_yesterday' %}on{% endif %}"><span class="dr-ic">{% icon "check2-circle" %}</span>Matokeo ya jana{% icon "chevron-right" %}</a>
-        <a href="{% url 'news:predictions' %}" class="{% if u == 'predictions' %}on{% endif %}"><span class="dr-ic">{% icon "graph-up-arrow" %}</span>Makadirio ya mechi{% icon "chevron-right" %}</a>
+        <a href="{% url 'news:predictions' %}" class="{% if u == 'predictions' %}on{% endif %}"><span class="dr-ic">{% icon "graph-up-arrow" %}</span>Utabiri wa mechi{% icon "chevron-right" %}</a>
         <a href="{% url 'news:category' 'tanzania' %}" class="c-tanzania{% if dc == 'tanzania' %} on{% endif %}"><span class="dr-dot"></span>Tanzania{% icon "chevron-right" %}</a>
         <a href="{% url 'news:category' 'afrika' %}" class="c-afrika{% if dc == 'afrika' %} on{% endif %}"><span class="dr-dot"></span>Afrika{% icon "chevron-right" %}</a>
         <a href="{% url 'news:category' 'dunia' %}" class="c-dunia{% if dc == 'dunia' %} on{% endif %}"><span class="dr-dot"></span>Dunia{% icon "chevron-right" %}</a>
@@ -131,7 +131,7 @@
           <p>Habari za Tanzania, Afrika na Dunia kwa Kiswahili — kwa ufupi, kwa uhakika. Inaendeshwa na <a href="{% url 'news:services' %}" style="display:inline;color:#f4b25a">JamiiTek Digital Agency</a>.</p>
           {% if social_links %}<div class="soc-row">{% for s in social_links %}<a href="{{ s.url }}" target="_blank" rel="noopener me" aria-label="{{ s.icon }}">{% icon s.icon %}</a>{% endfor %}</div>{% endif %}
         </div>
-        <div><h2>Habari</h2><a href="{% url 'news:category' 'tanzania' %}">Tanzania</a><a href="{% url 'news:category' 'afrika' %}">Afrika</a><a href="{% url 'news:category' 'dunia' %}">Dunia</a><a href="{% url 'news:category' 'jamiitek' %}">Teknolojia &amp; Biashara</a><a href="{% url 'news:latest' %}">Habari mpya zote</a><a href="{% url 'news:live_hub' %}">LIVE: matokeo ya mpira</a><a href="{% url 'news:matches_today' %}">Mechi za leo</a><a href="{% url 'news:results_yesterday' %}">Matokeo ya jana</a><a href="{% url 'news:predictions' %}">Makadirio ya mechi</a></div>
+        <div><h2>Habari</h2><a href="{% url 'news:category' 'tanzania' %}">Tanzania</a><a href="{% url 'news:category' 'afrika' %}">Afrika</a><a href="{% url 'news:category' 'dunia' %}">Dunia</a><a href="{% url 'news:category' 'jamiitek' %}">Teknolojia &amp; Biashara</a><a href="{% url 'news:latest' %}">Habari mpya zote</a><a href="{% url 'news:live_hub' %}">Matokeo ya mechi mubashara</a><a href="{% url 'news:matches_today' %}">Mechi za leo</a><a href="{% url 'news:results_yesterday' %}">Matokeo ya jana</a><a href="{% url 'news:predictions' %}">Utabiri wa mechi</a></div>
         <div><h2>JamiiTek</h2><a href="{% url 'news:services' %}">Huduma zote</a>{% for s in footer_services %}<a href="{{ s.get_absolute_url }}">{{ s.name }}</a>{% endfor %}</div>
         <div><h2>wILife</h2><a href="{% url 'news:about' %}">Kuhusu sisi</a><a href="{% url 'news:about' %}#sera">Sera ya uhariri</a><a href="{% url 'home' %}">wILife App</a><a href="{% url 'news:rss' %}">RSS</a><a href="{% url 'news:sitemap' %}">Sitemap</a></div>
       </div>

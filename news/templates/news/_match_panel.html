@@ -25,8 +25,8 @@
     {% if x.highlights %}<button role="tab" data-tab="video">▶ Video</button>{% endif %}
     {% if x.stats %}<button role="tab" data-tab="stats">Takwimu</button>{% endif %}
     {% if x.lineups %}<button role="tab" data-tab="lineups">Vikosi</button>{% endif %}
-    {% if x.h2h %}<button role="tab" data-tab="h2h">Uso kwa uso</button>{% endif %}
-    {% if x.form_home or x.form_away %}<button role="tab" data-tab="form">Fomu</button>{% endif %}
+    {% if x.h2h %}<button role="tab" data-tab="h2h">Historia ya kukutana</button>{% endif %}
+    {% if x.form_home or x.form_away %}<button role="tab" data-tab="form">Mwelekeo wa matokeo ya hivi karibuni</button>{% endif %}
   </div>
 
   {% if x.highlights %}
@@ -37,7 +37,7 @@
         <span class="mp-vt"><b>{{ v.title }}</b>{% if v.source %}<small>{{ v.source }}</small>{% endif %}</span>
       </a>{% endfor %}
     </div>
-    <p class="mp-note">Video zinafunguka kwa mmiliki wake rasmi. wILife haionyeshi mechi nzima moja kwa moja.</p>
+    <p class="mp-note">Video hufunguliwa kupitia chanzo rasmi cha mwenye haki zake. wILife haionyeshi mechi nzima moja kwa moja.</p>
   </div>
   {% endif %}
 
@@ -79,7 +79,7 @@
     <ul class="mp-list">{% for g in x.form_home_games %}<li><time>{{ g.date }}</time><span>{{ g.home }}</span><b>{{ g.score }}</b><span>{{ g.away }}</span></li>{% endfor %}</ul>
     <div class="mp-form"><b>{{ m.away }}</b><span>{% for r in x.form_away %}<i class="f-{{ r }}" title="{% if r == 'W' %}Ushindi{% elif r == 'D' %}Sare{% else %}Kipigo{% endif %}">{% if r == 'W' %}U{% elif r == 'D' %}S{% else %}K{% endif %}</i>{% endfor %}</span></div>
     <ul class="mp-list">{% for g in x.form_away_games %}<li><time>{{ g.date }}</time><span>{{ g.home }}</span><b>{{ g.score }}</b><span>{{ g.away }}</span></li>{% endfor %}</ul>
-    <p class="mp-note">U = ushindi · S = sare · K = kipigo (mpya kushoto)</p>
+    <p class="mp-note">U = ushindi · S = sare · K = kipigo (mechi ya karibuni huonekana kushoto)</p>
   </div>
   {% endif %}
 </section>

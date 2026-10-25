@@ -12,7 +12,7 @@
 <div id="lv-zone" data-v="{{ live_v }}">{% if live_strip %}
 <section class="ls" aria-label="LIVE sasa">
   <div class="ls-top"><a class="ls-head" href="{% url 'news:live_hub' %}"><span class="lh-badge{% if not live_now %} off{% endif %}"><i></i>LIVE</span><b>{% if live_now %}Zinaendelea sasa{% else %}Matokeo ya mpira{% endif %}</b><span>Zote {% icon "arrow-right" %}</span></a>
-  <nav class="ls-links" aria-label="Michezo"><a href="{% url 'news:matches_today' %}">Mechi za leo</a><a href="{% url 'news:results_yesterday' %}">Matokeo ya jana</a><a href="{% url 'news:predictions' %}">Makadirio</a></nav></div>
+  <nav class="ls-links" aria-label="Michezo"><a href="{% url 'news:matches_today' %}">Mechi za leo</a><a href="{% url 'news:results_yesterday' %}">Matokeo ya jana</a><a href="{% url 'news:predictions' %}">Utabiri</a></nav></div>
   <div class="ls-row">{% for a in live_strip %}{% if a.match %}{% include 'news/_score.html' %}{% else %}
     <a class="ls-blog" href="{{ a.get_absolute_url }}">{% if a.is_live %}<span class="live-pill">LIVE</span>{% endif %}<b>{{ a.title }}</b>{% if a.live_score %}<span>{{ a.live_score }}</span>{% endif %}</a>{% endif %}{% endfor %}</div>
 </section>

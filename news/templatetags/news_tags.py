@@ -212,9 +212,9 @@ def predictions_jsonld(context, matches):
     for m in matches:
         link = _abs(request, m.article.get_absolute_url())
         items.append({"@type": "ListItem", "position": len(items) + 1, "url": link, "item": sports_event(m, link)})
-    return _script(_collection(request, page, "Makadirio ya Mechi za Leo",
+    return _script(_collection(request, page, "Utabiri wa Mechi za Leo",
                                "Uwezekano wa matokeo ya mechi kubwa kutoka fomu na rekodi za timu.",
-                               items, [("Mwanzo", "/"), ("LIVE", "/live/"), ("Makadirio", request.path)]))
+                               items, [("Mwanzo", "/"), ("LIVE", "/live/"), ("Utabiri", request.path)]))
 
 
 @register.simple_tag
@@ -252,8 +252,8 @@ def live_hub_jsonld(context, *groups):
     data = [{
         "@context": "https://schema.org",
         "@type": "CollectionPage",
-        "name": "Matokeo ya Mpira Leo — Mechi Moja kwa Moja",
-        "description": "Matokeo ya mpira leo na mechi zinazoendelea sasa kwa Kiswahili.",
+        "name": "Matokeo ya soka leo — mechi zinazoendelea",
+        "description": "Matokeo ya soka ya leo na mechi zinazoendelea sasa kwa Kiswahili.",
         "url": url,
         "inLanguage": "sw",
         "isPartOf": {"@type": "WebSite", "name": "wILife", "url": _abs(request, "/")},

@@ -1,9 +1,9 @@
 {% extends 'news/base.html' %}
 {% load news_tags %}
-{% block title %}Makadirio ya Mechi za Leo: Uwezekano wa Ushindi, Sare na Magoli | wILife{% endblock %}
-{% block description %}Makadirio ya mechi za leo kwa Kiswahili: asilimia za ushindi, sare na magoli kutoka fomu na rekodi za timu{% if record.total %} — yamepatia {{ record.hits }} kati ya {{ record.total }} siku 30 zilizopita{% endif %}. Si uhakika; 18+.{% endblock %}
-{% block og_title %}Makadirio ya Mechi za Leo | wILife{% endblock %}
-{% block og_description %}Uwezekano wa matokeo ya mechi kubwa za leo, pamoja na rekodi ya wazi ya makadirio yetu.{% endblock %}
+{% block title %}Utabiri wa Mechi za Leo: Uwezekano wa Ushindi, Sare na Magoli | wILife{% endblock %}
+{% block description %}Utabiri wa mechi za leo kwa Kiswahili: asilimia za ushindi, sare na magoli zinazokokotolewa kwa takwimu halisi za timu{% if record.total %} — utabiri {{ record.hits }} kati ya {{ record.total }} ulikuwa sahihi siku 30 zilizopita{% endif %}. Si uhakika; 18+.{% endblock %}
+{% block og_title %}Utabiri wa Mechi za Leo | wILife{% endblock %}
+{% block og_description %}Uwezekano wa matokeo ya mechi kubwa za leo, pamoja na rekodi ya wazi ya utabiri wetu.{% endblock %}
 {% block jsonld %}{% predictions_jsonld upcoming %}{% endblock %}
 
 {% block content %}{% endblock %}
@@ -11,30 +11,30 @@
 {% block fullbleed %}
 <section class="lh-hero dy-hero" aria-labelledby="pr-title">
   <div class="wrap">
-    <nav class="crumbs lh-crumbs" aria-label="breadcrumb"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><a href="{% url 'news:live_hub' %}">LIVE</a><span>/</span><span>Makadirio</span></nav>
+    <nav class="crumbs lh-crumbs" aria-label="breadcrumb"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><a href="{% url 'news:live_hub' %}">LIVE</a><span>/</span><span>Utabiri</span></nav>
     <div class="lh-head">
-      <span class="lh-badge off"><i></i>MAKADIRIO</span>
-      <h1 id="pr-title">Makadirio ya Mechi za Leo</h1>
-      <p class="lh-sub">Uwezekano wa matokeo kutoka data halisi — na rekodi ya wazi ya tulivyopatia na kukosea.</p>
+      <span class="lh-badge off"><i></i>UTABIRI</span>
+      <h1 id="pr-title">Utabiri wa Mechi za Leo</h1>
+      <p class="lh-sub">Uwezekano wa matokeo unaokokotolewa kwa kutumia takwimu halisi, pamoja na rekodi ya wazi ya utabiri uliofanikiwa na uliokosewa.</p>
     </div>
     <div class="pr-rec">
-      <div><b>{% if week.total %}{{ week.pct }}%{% else %}—{% endif %}</b><span>Siku 7: {{ week.hits }}/{{ week.total }} zilipatiwa</span></div>
-      <div><b>{% if record.total %}{{ record.pct }}%{% else %}—{% endif %}</b><span>Siku 30: {{ record.hits }}/{{ record.total }} zilipatiwa</span></div>
-      <div><b>{{ record.exact }}</b><span>Magoli kamili yalipatiwa (siku 30)</span></div>
+      <div><b>{% if week.total %}{{ week.pct }}%{% else %}—{% endif %}</b><span>Siku 7: {{ week.hits }}/{{ week.total }} zilitabiriwa kwa usahihi</span></div>
+      <div><b>{% if record.total %}{{ record.pct }}%{% else %}—{% endif %}</b><span>Siku 30: {{ record.hits }}/{{ record.total }} zilitabiriwa kwa usahihi</span></div>
+      <div><b>{{ record.exact }}</b><span>Utabiri sahihi wa idadi ya magoli (siku 30)</span></div>
     </div>
     <nav class="dy-days" aria-label="Siku">
       <a href="{% url 'news:results_yesterday' %}">Jana</a>
       <a href="{% url 'news:matches_today' %}">Mechi za leo</a>
-      <a href="{% url 'news:predictions' %}" class="on" aria-current="page">Makadirio</a>
+      <a href="{% url 'news:predictions' %}" class="on" aria-current="page">Utabiri</a>
     </nav>
   </div>
 </section>
 
 <div class="wrap lh-body dy-body">
-  <p class="pr-warn"><b>18+</b> Haya ni makadirio ya kihesabu, si uhakika wala ushauri wa kubeti. Kama unabeti, beti kiasi unachoweza kupoteza.</p>
+  <p class="pr-warn"><b>18+</b> Huu ni utabiri unaotokana na hesabu, si uhakika wala ushauri wa kubeti. Ukiamua kubeti, tumia kiasi ambacho uko tayari kupoteza.</p>
 
   <section>
-    <div class="sh"><h2>Mechi zijazo</h2><a href="{% url 'news:matches_today' %}">Mechi zote za leo {% icon "arrow-right" %}</a></div>
+    <div class="sh"><h2>Mechi zinazofuata</h2><a href="{% url 'news:matches_today' %}">Mechi zote za leo {% icon "arrow-right" %}</a></div>
     {% if upcoming %}
     <div class="pr-grid">{% for m in upcoming %}
       <article class="pr-card">
@@ -46,17 +46,17 @@
       </article>{% endfor %}
     </div>
     {% else %}
-    <div class="dy-empty"><b>Makadirio ya mechi zijazo bado hayajawa tayari.</b><span>Yanatengenezwa saa chache kabla ya mechi kubwa, fomu ya timu ikishapatikana. Angalia <a href="{% url 'news:matches_today' %}">mechi za leo</a>.</span></div>
+    <div class="dy-empty"><b>Utabiri wa mechi zijazo bado haujawa tayari.</b><span>Huandaliwa saa chache kabla ya mechi kubwa kuanza, takwimu za timu zikishapatikana. Angalia <a href="{% url 'news:matches_today' %}">mechi za leo</a>.</span></div>
     {% endif %}
   </section>
 
   {% if record.recent %}
   <section>
-    <div class="sh"><h2>Rekodi: makadirio yaliyopita</h2></div>
+    <div class="sh"><h2>Rekodi ya utabiri: utabiri uliopita</h2></div>
     <div class="pr-hist">{% for m in record.recent %}
       <a href="{{ m.article.get_absolute_url }}" class="{% if m.x.prediction_hit %}ok{% else %}no{% endif %}">
         <i>{% if m.x.prediction_hit %}✓{% else %}✗{% endif %}</i>
-        <span><b>{{ m.home }} {{ m.home_goals }}-{{ m.away_goals }} {{ m.away }}</b><small>{{ m.kickoff|sw_daydate }} · tulikadiria {% if m.x.prediction.pick == '1' %}ushindi wa {{ m.home }}{% elif m.x.prediction.pick == '2' %}ushindi wa {{ m.away }}{% else %}sare{% endif %} ({{ m.x.prediction.score }})</small></span>
+        <span><b>{{ m.home }} {{ m.home_goals }}-{{ m.away_goals }} {{ m.away }}</b><small>{{ m.kickoff|sw_daydate }} · {% if m.x.prediction.pick == '1' %}Tulitabiri {{ m.home }} ishinde{% elif m.x.prediction.pick == '2' %}Tulitabiri {{ m.away }} ishinde{% else %}Tulitabiri sare{% endif %} ({{ m.x.prediction.score }})</small></span>
       </a>{% endfor %}
     </div>
   </section>
@@ -65,9 +65,9 @@
   {% include 'news/_wa_join.html' %}
 
   <section class="lh-about">
-    <h2>Makadirio haya yanapatikanaje?</h2>
-    <p>Kwa kila mechi kubwa tunachukua magoli ambayo kila timu imefunga na kufungwa katika mechi zake 5 zilizopita, na matokeo ya mechi zao walipokutana. Kutoka hapo tunakadiria magoli yanayotarajiwa kwa kila timu (pamoja na faida ndogo ya kucheza nyumbani), kisha mgawanyo wa Poisson unatoa uwezekano wa ushindi wa nyumbani, sare, ushindi wa ugenini, magoli 3 au zaidi na timu zote kufunga.</p>
-    <p>Makadirio yanafungwa mechi ikianza, na baada ya filimbi ya mwisho tunayapima wazi — yaliyopatia na yaliyokosea yote yanaonekana hapa juu. Hakuna "uhakika 100%": hata makadirio bora hukosea mara nyingi. Makadirio haya ni kwa burudani na uchambuzi tu.</p>
+    <h2>Utabiri huu hutengenezwaje?</h2>
+    <p>Kwa kila mechi kubwa, tunachambua magoli ambayo kila timu imefunga na kufungwa katika mechi zake tano zilizopita, pamoja na matokeo ya mechi walizokutana. Kutokana na hayo tunakadiria magoli yanayotarajiwa kwa kila timu (pamoja na faida ndogo ya kucheza nyumbani), kisha tunatumia mfumo wa kihesabu wa Poisson kupata uwezekano wa ushindi wa nyumbani, sare, ushindi wa ugenini, magoli 3 au zaidi na timu zote kufunga.</p>
+    <p>Utabiri hufungwa mechi inapoanza, na baada ya filimbi ya mwisho tunaupima wazi — utabiri uliofanikiwa na uliokosewa wote unaonekana hapa juu. Hakuna "uhakika wa 100%": hata utabiri bora hukosea mara nyingi. Utabiri huu ni kwa burudani na uchambuzi tu.</p>
   </section>
 </div>
 {% endblock %}

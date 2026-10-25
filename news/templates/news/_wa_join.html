@@ -1,15 +1,15 @@
 {% load static news_tags %}{% join_options as j %}{% if j.wa or j.email or j.channel %}
-<aside class="waj" aria-label="Pata matokeo kila siku">
+<aside class="waj" aria-label="Pata ratiba na matokeo kila siku">
   <span class="waj-ic">{% icon "whatsapp" %}</span>
-  <div class="waj-txt"><b>Pata mechi za leo na matokeo kila siku — bure</b><span>Ujumbe mmoja kwa siku: matokeo ya jana, mechi za leo na makadirio.{% if j.wa %} WhatsApp: tuma <strong>JIUNGE</strong>, ACHA kusitisha.{% endif %}</span></div>
+  <div class="waj-txt"><b>Pata ratiba ya mechi za leo na matokeo kila siku — bila malipo</b><span>Utapokea ujumbe mmoja kwa siku wenye matokeo ya jana, mechi za leo na utabiri wa mechi.{% if j.wa %} WhatsApp: tuma <strong>JIUNGE</strong>; tuma ACHA kusitisha.{% endif %}</span></div>
   <div class="waj-act">
-    {% if j.channel %}<a class="waj-btn waj-ch" href="{{ j.channel }}" target="_blank" rel="noopener"><img src="{% static 'news/brand/soka360-96.webp' %}" alt="" width="24" height="24">Fuata {{ j.channel_name }}</a>{% endif %}
-    {% if j.wa %}<a class="waj-btn{% if j.channel %} alt{% endif %}" href="{{ j.wa }}" target="_blank" rel="noopener">Jiunge WhatsApp</a>{% endif %}
+    {% if j.channel %}<a class="waj-btn waj-ch" href="{{ j.channel }}" target="_blank" rel="noopener"><img src="{% static 'news/brand/soka360-96.webp' %}" alt="" width="24" height="24">Fuatilia {{ j.channel_name }}</a>{% endif %}
+    {% if j.wa %}<a class="waj-btn{% if j.channel %} alt{% endif %}" href="{{ j.wa }}" target="_blank" rel="noopener">Jiunge kupitia WhatsApp</a>{% endif %}
   </div>
   {% if j.email %}<form class="waj-mail" method="post" action="{% url 'news:digest_join' %}">
-    <label class="sr-only" for="waj-e-{{ request.path|slugify }}">Email yako</label>
-    <input id="waj-e-{{ request.path|slugify }}" type="email" name="email" required placeholder="Au email yako…" autocomplete="email">
+    <label class="sr-only" for="waj-e-{{ request.path|slugify }}">Barua pepe yako</label>
+    <input id="waj-e-{{ request.path|slugify }}" type="email" name="email" required placeholder="Weka barua pepe yako…" autocomplete="email">
     <input type="text" name="website" tabindex="-1" autocomplete="off" class="waj-hp" aria-hidden="true">
-    <button type="submit">Jiunge kwa email</button>
+    <button type="submit">Jiunge kwa kutumia barua pepe</button>
   </form>{% endif %}
 </aside>{% endif %}

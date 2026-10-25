@@ -130,7 +130,7 @@ def _when(dt):
 
 
 def preview_title(m):
-    return f"{m.home} vs {m.away} LIVE: Matokeo, Kikosi na Takwimu — {m.competition}"[:200]
+    return f"{m.home} dhidi ya {m.away} LIVE: Matokeo, Kikosi na Takwimu — {m.competition}"[:200]
 
 
 def final_title(m):
@@ -138,22 +138,22 @@ def final_title(m):
 
 
 def _preview_body(m):
-    where = f" kwenye uwanja wa {m.venue}" + (f", {m.city}" if m.city else "") if m.venue else ""
+    where = f", kwenye uwanja wa {m.venue}" + (f", {m.city}" if m.city else "") if m.venue else ""
     rnd = f" ({m.round})" if m.round else ""
     return (
         f"{m.home} watakuwa wenyeji wa {m.away} katika mchezo wa {m.competition}{rnd}. "
-        f"Mechi imepangwa kuanza {_when(m.kickoff)} kwa saa za Afrika Mashariki{where}.\n\n"
+        f"Mechi itaanza {_when(m.kickoff)} kwa saa za Afrika Mashariki{where}.\n\n"
         "## Jinsi ya kufuatilia mechi hii\n\n"
-        "Ukurasa huu unasasishwa wenyewe mechi ikianza: kila goli, kadi, mabadiliko ya wachezaji na uamuzi "
-        "wa VAR unaonekana hapa dakika kwa dakika bila kurefresh. Matokeo ya mwisho na matukio yote "
-        "yanabaki hapa baada ya filimbi ya mwisho.\n\n"
+        "Ukurasa huu hujisasisha mechi inapoanza. Kila goli, kadi, mabadiliko ya wachezaji na uamuzi "
+        "wa VAR utaonekana hapa dakika baada ya dakika bila kupakia ukurasa upya. Matokeo ya mwisho na "
+        "matukio yote yanabaki hapa baada ya filimbi ya mwisho.\n\n"
         f"Mechi zote zinazoendelea sasa ziko kwenye ukurasa wa LIVE wa wILife."
     )
 
 
 def _final_body(m, article):
     goals = [u for u in article.live_updates.filter(kind="goal").order_by("created_at", "id")]
-    lines = [f"Mechi ya {m.competition} kati ya {m.home} na {m.away} imemalizika kwa matokeo ya "
+    lines = [f"Mechi ya {m.competition} kati ya {m.home} na {m.away} imekamilika kwa matokeo ya "
              f"{m.home} {m.home_goals}-{m.away_goals} {m.away}."]
     if goals:
         lines.append("## Magoli\n\n" + "\n\n".join(f"{u.label} {u.text.lstrip('⚽ ')}" for u in goals))
@@ -320,17 +320,17 @@ def event_text(ev, m):
     score = f" ({m.home} {m.home_goals}-{m.away_goals} {m.away})" if m.has_score else ""
     if typ == "goal":
         if detail == "Missed Penalty":
-            return "miss", f"❌ {player} ({team}) akosa penalti."
+            return "miss", f"❌ {player} wa {team} amekosa penalti."
         if detail == "Own Goal":
-            return "goal", f"⚽ GOLI! {player} anajifunga — goli kwa {team}.{score}"
-        how = " kwa penalti" if detail == "Penalty" else ""
-        helper = f" Pasi: {assist}." if assist and not how else ""
-        return "goal", f"⚽ GOLI! {player} anaifungia {team}{how}.{helper}{score}"
+            return "goal", f"⚽ GOLI! {player} amejifunga na kuipa {team} goli.{score}"
+        how = " kwa mkwaju wa penalti" if detail == "Penalty" else ""
+        helper = f" Pasi ya mwisho: {assist}." if assist and not how else ""
+        return "goal", f"⚽ GOLI! {player} ameifungia {team}{how}.{helper}{score}"
     if typ == "card":
         if "Red" in detail or "Second Yellow" in detail:
-            extra = " (njano ya pili)" if "Second Yellow" in detail else ""
-            return "red", f"🟥 Kadi nyekundu kwa {player} ({team}){extra}."
-        return "card", f"🟨 Kadi ya njano kwa {player} ({team})."
+            extra = " baada ya kupata kadi ya pili ya njano" if "Second Yellow" in detail else ""
+            return "red", f"🟥 Kadi nyekundu ameonyeshwa {player} ({team}){extra}."
+        return "card", f"🟨 Kadi ya njano ameonyeshwa {player} ({team})."
     if typ == "subst":
         return "sub", f"🔁 Mabadiliko {team}: {player} ↔ {assist}." if assist else f"🔁 Mabadiliko {team}: {player}."
     if typ == "var":
@@ -347,18 +347,18 @@ def _whistle(article, m, old):
         live.add(article, f"📣 Mechi imeanza! {m.home} dhidi ya {m.away}.", "1'", kind="whistle")
         refresh_cover(m)                       # picha inapata alama ya LIVE
     elif m.status == "HT":
-        live.add(article, f"📣 Mapumziko: {m.score_text}.", "HT", kind="whistle")
+        live.add(article, f"📣 Mapumziko ya kipindi cha kwanza: {m.score_text}.", "HT", kind="whistle")
     elif old == "HT" and m.status == "2H":
         live.add(article, "📣 Kipindi cha pili kimeanza.", "46'", kind="whistle")
     elif m.status in ("ET",) and old != "ET":
-        live.add(article, "📣 Muda wa ziada umeanza.", "90'", kind="whistle")
+        live.add(article, "📣 Muda wa nyongeza umeanza.", "90'", kind="whistle")
     elif m.status == "P" and old != "P":
         live.add(article, "📣 Mikwaju ya penalti inaanza.", "120'", kind="whistle")
 
 
 def _finish(article, m):
     if m.status in LiveMatch.FINISHED:
-        live.add(article, f"🏁 Mechi imeisha: {m.score_text}.", "FT", kind="whistle")
+        live.add(article, f"🏁 Mechi imekamilika: {m.score_text}.", "FT", kind="whistle")
         article.title = final_title(m)
         article.excerpt = (f"{m.score_text} ({m.competition}). Magoli, kadi na matukio yote ya mechi "
                            f"dakika kwa dakika kwenye wILife.")[:300]
@@ -403,7 +403,7 @@ def apply(item, m=None):
         _finish(article, m)
     if m.is_finished:
         from news import predict
-        predict.settle(m)                     # makadirio yalipatia? (rekodi ya wazi kwenye /makadirio/)
+        predict.settle(m)                     # makadirio yalipatia? (rekodi ya wazi kwenye /utabiri/)
     return new
 
 

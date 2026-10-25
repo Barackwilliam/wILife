@@ -348,9 +348,10 @@ class LiveMatch(models.Model):
     (live anza Simba vs Yanga) au yenyewe kutoka API-Football (news/football.py).
     Ukurasa unaitumia kuonyesha ubao wa matokeo, na Google inapewa `SportsEvent`.
     """
-    STATUS = [("NS", "Bado"), ("1H", "Kipindi cha 1"), ("HT", "Mapumziko"), ("2H", "Kipindi cha 2"),
-              ("ET", "Muda wa ziada"), ("BT", "Mapumziko (ziada)"), ("P", "Penalti"), ("FT", "Imeisha"),
-              ("AET", "Imeisha (ziada)"), ("PEN", "Imeisha (penalti)"), ("PST", "Imeahirishwa"),
+    STATUS = [("NS", "Bado haijaanza"), ("1H", "Kipindi cha kwanza"), ("HT", "Mapumziko"), ("2H", "Kipindi cha pili"),
+              ("ET", "Muda wa nyongeza"), ("BT", "Mapumziko (muda wa nyongeza)"), ("P", "Mikwaju ya penalti"),
+              ("FT", "Imekamilika"), ("AET", "Imekamilika (muda wa nyongeza)"), ("PEN", "Imekamilika (penalti)"),
+              ("PST", "Imeahirishwa"),
               ("CANC", "Imefutwa"), ("ABD", "Imesimamishwa"), ("SUSP", "Imesimamishwa"), ("INT", "Imesimama"),
               ("LIVE", "Inaendelea")]
     PLAYING = {"1H", "HT", "2H", "ET", "BT", "P", "LIVE", "INT", "SUSP"}
