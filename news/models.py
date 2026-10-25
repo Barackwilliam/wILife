@@ -438,6 +438,11 @@ class LiveMatch(models.Model):
         return f"{self.home} {self.home_goals} - {self.away_goals} {self.away}"
 
     @property
+    def analysis(self):
+        from news.enrich import analysis
+        return analysis(self)
+
+    @property
     def insights(self):
         from news.enrich import insight_items
         return insight_items(self, with_prediction=False)

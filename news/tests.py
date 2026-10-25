@@ -2126,6 +2126,9 @@ class MatchEnrichmentTest(TestCase):
         self.assertIn("2026-09-01: Arsenal 2 - 0 Chelsea", self.a.body)
         page = self.client.get(self.a.get_absolute_url()).content.decode()
         self.assertIn("Historia ya kukutana", page)
+        self.assertIn("Mechi 2 za mwisho za Arsenal", page)                    # jedwali la wapinzani
+        self.assertIn("<td>Y<small>Ugenini</small></td>", page)
+        self.assertIn("- 01/09/26: Arsenal 3-0 X (Nyumbani) — Ushindi", self.a.body)
         self.assertIn('class="f-W"', page)
 
     def test_lineups_near_kickoff_and_highlights_after_full_time(self):

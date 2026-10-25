@@ -218,6 +218,59 @@ def insight_items(m, with_prediction=True):
     return out
 
 
+RESULT_SW = {"W": "Ushindi", "D": "Sare", "L": "Kipigo"}
+
+
+def _short_date(value):
+    """'2026-03-21' -> '21/03/26'."""
+    parts = str(value or "")[:10].split("-")
+    return f"{parts[2]}/{parts[1]}/{parts[0][2:]}" if len(parts) == 3 and len(parts[0]) == 4 else str(value or "")
+
+
+def form_rows(games, team):
+    """Mechi za mwisho za timu kwa mtazamo wake: mpinzani, nyumbani/ugenini, magoli yake-ya mpinzani, U/S/K."""
+    rows = []
+    for g in games or []:
+        sc = predict._goals(g.get("score"))
+        if not sc:
+            continue
+        if g.get("home") == team:
+            opp, venue, gf, ga = g.get("away") or "", "Nyumbani", sc[0], sc[1]
+        elif g.get("away") == team:
+            opp, venue, gf, ga = g.get("home") or "", "Ugenini", sc[1], sc[0]
+        else:
+            continue
+        res = "W" if gf > ga else ("D" if gf == ga else "L")
+        rows.append({"date": _short_date(g.get("date")), "opponent": opp, "venue": venue, "gf": gf, "ga": ga,
+                     "result": res, "result_sw": RESULT_SW[res], "league": g.get("league") or ""})
+    return rows
+
+
+def analysis(m):
+    """
+    Uchambuzi wa ukurasa kwa majedwali: muhtasari wa timu mbili (walipokutana + mechi 5 za mwisho),
+    mechi za mwisho za kila timu na wapinzani wake, na takwimu nyingine (umiliki, xG) wakati wa mechi.
+    """
+    x = m.extra or {}
+    t = x.get("h2h_tally") or {}
+    n = sum(t.values()) if t else 0
+    sides = {}
+    for side in ("home", "away"):
+        team = getattr(m, side)
+        rows = form_rows(x.get(f"form_{side}_games"), team)
+        letters = [r["result"] for r in rows] or x.get(f"form_{side}") or []
+        if letters:
+            w, d, l = _count(letters)
+            sides[side] = {"team": team, "logo": getattr(m, f"{side}_logo", ""), "rows": rows,
+                           "letters": letters, "w": w, "d": d, "l": l}
+    other = [i for i in insight_items(m, with_prediction=False)
+             if i["label"] != "Walipokutana wao kwa wao" and not i["label"].startswith("Mechi ")]
+    if not n and not sides and not other:
+        return None
+    return {"h2h": t if n else None, "h2h_n": n, "home": sides.get("home"), "away": sides.get("away"),
+            "sides": [sides[k] for k in ("home", "away") if k in sides], "other": other}
+
+
 def insights(m, with_prediction=True):
     """Uchambuzi kama sentensi kamili (kichwa: maelezo) — kwa makala na majaribio."""
     return [i["text"] if i["text"].startswith(i["label"]) else f"{i['label']}: {i['text']}"
@@ -235,6 +288,13 @@ def _body_block(m):
         rows = [f"- {g['date']}: {g['home']} {g['score']} {g['away']}" for g in x["h2h"][:5] if g.get("score")]
         if rows:
             parts.append("## Matokeo ya mechi zilizopita kati yao\n\n" + "\n".join(rows))
+    for side in ("home", "away"):
+        team = getattr(m, side)
+        rows = form_rows(x.get(f"form_{side}_games"), team)
+        if rows:
+            parts.append(f"## Mechi {len(rows)} za mwisho za {team}\n\n" + "\n".join(
+                f"- {r['date']}: {team} {r['gf']}-{r['ga']} {r['opponent']} ({r['venue']}) — {r['result_sw']}"
+                for r in rows))
     return "\n\n".join(parts)
 
 
