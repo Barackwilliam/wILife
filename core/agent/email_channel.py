@@ -64,13 +64,14 @@ def newsletter_ready():
         getattr(settings, "NEWS_EMAIL_FROM", "") or getattr(settings, "AGENT_EMAIL_FROM", ""))
 
 
-def send_email(to, text, subject=None, retries=2, timeout=10, headers=None, newsletter=False):
+def send_email(to, text, subject=None, retries=2, timeout=10, headers=None, newsletter=False, html=None):
     """
     Send one message. Returns the Resend message id.
     Raises EmailError if delivery failed after all attempts.
 
     newsletter=True: an email to a reader (not to William) — sent from NEWS_EMAIL_FROM when set,
-    and allowed without EMAIL_CHANNEL_ENABLED. `headers` adds e.g. List-Unsubscribe.
+    and allowed without EMAIL_CHANNEL_ENABLED. `headers` adds e.g. List-Unsubscribe; `html` replaces
+    the agent's generic design (news/templates/news/email/).
     """
     if not settings.AGENT_ENABLED:
         log.info("agent disabled — would have emailed %s: %s", to, text[:80])
@@ -90,7 +91,7 @@ def send_email(to, text, subject=None, retries=2, timeout=10, headers=None, news
         "from": sender,
         "to": [to],
         "subject": subject or _subject_from(text),
-        "html": to_html(text),
+        "html": html or to_html(text),
         "text": text,
     }
     if headers:

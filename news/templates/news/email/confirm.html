@@ -1,0 +1,20 @@
+{% extends 'news/email/_base.html' %}
+{% block title %}Thibitisha kujiunga na wILife Michezo{% endblock %}
+{% block preheader %}Bofya kitufe kimoja kuanza kupokea mechi za leo na matokeo kila asubuhi.{% endblock %}
+{% block hero %}
+  <h1 style="margin:22px 0 6px;font-family:Georgia,'Times New Roman',serif;font-size:28px;line-height:1.2;color:#ffffff;font-weight:700;">Karibu wILife Michezo ⚽</h1>
+  <p style="margin:0;font-size:15px;color:#c9cfe6;">Hatua moja tu imebaki.</p>
+{% endblock %}
+{% block content %}
+  <p style="margin:22px 0 14px;font-size:15px;line-height:1.65;color:#1d1b24;">Bofya kitufe hapa chini kuthibitisha <b>{{ email }}</b>. Kuanzia hapo, kila asubuhi utapokea:</p>
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;">
+    <tr><td style="padding:4px 10px 4px 0;font-size:18px;">📅</td><td style="font-size:14px;color:#4a4552;">Mechi za leo kwa saa za Afrika Mashariki</td></tr>
+    <tr><td style="padding:4px 10px 4px 0;font-size:18px;">✅</td><td style="font-size:14px;color:#4a4552;">Matokeo ya jana ya ligi kubwa</td></tr>
+    <tr><td style="padding:4px 10px 4px 0;font-size:18px;">🔮</td><td style="font-size:14px;color:#4a4552;">Makadirio ya mechi kubwa</td></tr>
+  </table>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="center">
+    <a href="{{ link }}" style="display:inline-block;padding:15px 30px;border-radius:12px;background:#e2603f;color:#ffffff;font-size:16px;font-weight:800;text-decoration:none;">Thibitisha email yangu</a>
+  </td></tr></table>
+  <p style="margin:20px 0 0;font-size:12px;line-height:1.6;color:#8a8494;">Kitufe kisipofanya kazi, nakili link hii: <br><a href="{{ link }}" style="color:#e2603f;word-break:break-all;">{{ link }}</a></p>
+{% endblock %}
+{% block footer %}Kama hukuomba hivi, puuza email hii — hutatumiwa kitu.<br>{% endblock %}
