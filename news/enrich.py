@@ -178,14 +178,18 @@ def highlights(state, m):
 FORM_SW = {"W": "ushindi", "D": "sare", "L": "kipigo"}
 
 
-def insights(m):
-    """Sentensi za uchambuzi kutokana na data — zinaonekana juu ya ukurasa na kwenye makala."""
+def insights(m, with_prediction=True):
+    """
+    Sentensi za uchambuzi kutokana na data — juu ya ukurasa na kwenye makala. Kwenye ukurasa utabiri
+    una kisanduku chake, kwa hiyo hapo sentensi ya utabiri hairudiwi (with_prediction=False).
+    """
     x, out = m.extra or {}, []
     t = x.get("h2h_tally")
     if t and sum(t.values()):
         n = sum(t.values())
+        draws = f"na mechi {t['D']} zimeisha kwa sare" if t["D"] else "na hakuna mechi iliyoisha kwa sare"
         out.append(f"Katika mechi {n} za mwisho walizokutana, {m.home} wameshinda {t['W']}, "
-                   f"{m.away} wameshinda {t['L']}, na mechi {t['D']} zimeisha kwa sare.")
+                   f"{m.away} wameshinda {t['L']}, {draws}.")
     for side in ("home", "away"):
         letters = x.get(f"form_{side}") or []
         if letters:
@@ -193,7 +197,7 @@ def insights(m):
             w = letters.count("W")
             out.append(f"{team}: imeshinda mechi {w} kati ya {len(letters)} zilizopita "
                        f"({', '.join(FORM_SW[l] for l in letters)}).")
-    guess = predict.sentence(m)
+    guess = predict.sentence(m) if with_prediction else ""
     if guess:
         out.append(guess)
     poss = next((r for r in x.get("stats") or [] if r["name"] == "Umiliki wa mpira"), None)
@@ -221,14 +225,15 @@ def _body_block(m):
 
 
 def _refresh_body(m):
-    """Weka uchambuzi kwenye makala ya mechi (kabla haijaanza) — mara moja."""
-    from news.football import _preview_body
+    """Weka uchambuzi (na kichwa cha sasa) kwenye makala ya mechi kabla haijaanza."""
+    from news.football import _preview_body, preview_title
     block = _body_block(m)
     if not block or m.status != "NS":
         return
     article = m.article
     article.body = _preview_body(m) + "\n\n" + block
-    article.save(update_fields=["body", "updated_at"])
+    article.title = preview_title(m)
+    article.save(update_fields=["body", "title", "updated_at"])
 
 
 # ── Kazi ya tick ──────────────────────────────────────────────────────────────
@@ -241,8 +246,11 @@ def run(state, now):
         kickoff__gte=now - timedelta(hours=6), kickoff__lte=now + timedelta(hours=24)).order_by("kickoff"))
     for m in matches:
         x = m.extra or {}
-        if m.status == "NS" and x.get("h2h_done") and "prediction" not in x and predict.ensure(m):
-            _refresh_body(m)                     # fomu ilipatikana kabla makadirio hayajakuwepo
+        if m.status == "NS" and x.get("h2h_done"):
+            before = x.get("prediction")
+            after = predict.ensure(m)              # fomu mpya / hesabu iliyoboreshwa: utabiri unasasishwa
+            if after and after != before:
+                _refresh_body(m)
         if spent >= PER_TICK or _left(state) <= 5:
             break
         x = m.extra or {}

@@ -2344,7 +2344,8 @@ class PredictionTest(TestCase):
         self.m = LiveMatch.objects.create(article=self.a, fixture_id=55, provider="highlightly", home="Arsenal",
                                           away="Chelsea", competition="Premier League",
                                           kickoff=timezone.now() + timedelta(hours=5),
-                                          extra={"form_home_games": strong, "form_away_games": weak})
+                                          extra={"form_home_games": strong, "form_away_games": weak,
+                                                 "form_home": ["W", "W", "W", "W"], "form_away": ["L", "L", "L", "D"]})
 
     def test_compute_favours_the_team_in_form_and_sums_to_100(self):
         from news import predict
@@ -2353,7 +2354,26 @@ class PredictionTest(TestCase):
         self.assertGreater(p["home"], 60)
         self.assertEqual(p["pick"], "1")
         self.assertRegex(p["score"], r"^\d-\d$")
-        self.assertIn("Utabiri wa wILife", " ".join(self.m.insights))
+        from news.enrich import insights
+        self.assertIn("Utabiri wa wILife", " ".join(insights(self.m)))          # kwenye makala
+        self.assertNotIn("Utabiri wa wILife", " ".join(self.m.insights))        # ukurasani una kisanduku chake
+
+    def test_home_side_with_better_results_and_record_is_not_the_underdog(self):
+        """Wenyeji wenye matokeo bora na historia bora hawawi "wanyonge" kwa sababu wageni walishinda 4-0 mara moja."""
+        from news import predict
+        liv = [("1 - 0", 1), ("2 - 1", 1), ("1 - 0", 1), ("1 - 3", 1), ("2 - 1", 1)]
+        bri = [("2 - 2", 1), ("3 - 1", 1), ("4 - 0", 1), ("2 - 1", 1), ("3 - 0", 1)]
+        h2h = [("Brighton", "2 - 1", "Liverpool"), ("Liverpool", "3 - 0", "Brighton"), ("Liverpool", "2 - 0", "Brighton"),
+               ("Brighton", "3 - 2", "Liverpool"), ("Liverpool", "2 - 1", "Brighton"), ("Brighton", "2 - 3", "Liverpool")]
+        self.m.home, self.m.away = "Liverpool", "Brighton"
+        self.m.extra = {
+            "form_home_games": [{"home": "Liverpool", "away": f"T{i}", "score": sc} for i, (sc, _) in enumerate(liv)],
+            "form_away_games": [{"home": "Brighton", "away": f"U{i}", "score": sc} for i, (sc, _) in enumerate(bri)],
+            "form_home": ["W", "W", "W", "L", "W"], "form_away": ["D", "W", "W", "W", "W"],
+            "h2h": [{"home": h, "away": a, "score": sc} for h, sc, a in h2h], "h2h_tally": {"W": 4, "D": 0, "L": 2}}
+        p = predict.compute(self.m)
+        self.assertGreater(p["home"], p["away"])
+        self.assertEqual(p["home"] + p["draw"] + p["away"], 100)
 
     def test_not_enough_games_means_no_prediction(self):
         from news import predict

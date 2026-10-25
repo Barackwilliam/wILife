@@ -440,7 +440,7 @@ class LiveMatch(models.Model):
     @property
     def insights(self):
         from news.enrich import insights
-        return insights(self)
+        return insights(self, with_prediction=False)
 
     @property
     def x(self):
