@@ -408,13 +408,19 @@ class LiveMatch(models.Model):
                     and obj.status not in LiveMatch.FINISHED | LiveMatch.OFF
                     and timezone.now() - obj.kickoff > LiveMatch.STALE_AFTER)
 
+    @staticmethod
+    def not_started(obj):
+        """Hali ya "inaendelea" kwa mechi iliyopangwa kuanza zaidi ya dakika 15 baadaye ni data iliyokosewa."""
+        return bool(obj.kickoff and obj.kickoff > timezone.now() + timedelta(minutes=15))
+
     @property
     def is_stale(self):
         return LiveMatch.stale(self)
 
     @property
     def is_playing(self):
-        return self.status in self.PLAYING and not self.is_stale
+        return (self.status in self.PLAYING and not self.is_stale
+                and not (self.kickoff and LiveMatch.not_started(self)))
 
     @property
     def is_finished(self):
@@ -425,6 +431,8 @@ class LiveMatch(models.Model):
         """Kinachoonyeshwa juu ya ubao: 67', HT, FT, au saa ya kuanza."""
         if LiveMatch.stale(self):
             return "Inasubiri matokeo"
+        if self.status in LiveMatch.PLAYING and self.kickoff and LiveMatch.not_started(self):
+            return timezone.localtime(self.kickoff).strftime("%H:%M")   # data ya API iliyokosewa: bado haijaanza
         if self.status in ("1H", "2H", "ET", "LIVE") and self.minute:
             return f"{self.minute}'"
         if self.status == "NS" and self.kickoff:
@@ -498,6 +506,8 @@ class Fixture(models.Model):
     away_goals = models.PositiveSmallIntegerField(null=True, blank=True)
     status = models.CharField(max_length=5, default="NS")
     minute = models.PositiveSmallIntegerField(null=True, blank=True)
+    extra = models.JSONField(default=dict, blank=True,
+                             help_text="Maelezo ya mechi yaliyoombwa msomaji alipofungua ukurasa wake: matukio, takwimu, uwanja")
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -517,7 +527,8 @@ class Fixture(models.Model):
 
     @property
     def is_playing(self):
-        return self.status in LiveMatch.PLAYING and not LiveMatch.stale(self)
+        return (self.status in LiveMatch.PLAYING and not LiveMatch.stale(self)
+                and not (self.kickoff and LiveMatch.not_started(self)))
 
     @property
     def clock(self):
@@ -525,6 +536,14 @@ class Fixture(models.Model):
 
     def get_status_display(self):
         return dict(LiveMatch.STATUS).get(self.status, self.status)
+
+    @property
+    def x(self):
+        return self.extra or {}
+
+    def get_absolute_url(self):
+        slug = slugify(f"{self.home} vs {self.away}")[:80] or "mechi"
+        return reverse("news:fixture", args=[self.day.isoformat(), self.pk, slug])
 
 
 class Subscriber(models.Model):

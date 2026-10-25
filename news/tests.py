@@ -2623,3 +2623,64 @@ class OverdueMatchTest(TestCase):
         self.assertEqual((self.m.status, self.m.home_goals, self.m.away_goals), ("FT", 2, 1))
         self.assertIsNotNone(self.a.live_ended_at)
         self.assertNotIn("matokeo ya mwisho", again["detail"])
+
+
+@override_settings(HIGHLIGHTLY_API_KEY="hl-key", API_FOOTBALL_KEY="", HIGHLIGHTLY_LEAGUES=["*:CAF Confederation Cup"],
+                   SITE_URL="https://www.wlife.online", FOOTBALL_ONDEMAND_MAX=1)
+class FixturePageTest(TestCase):
+    """Kila mechi ya ratiba ina ukurasa: matokeo, matukio na takwimu zinaombwa msomaji akiufungua (ndani ya bajeti)."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from news.models import Fixture
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.f = Fixture.objects.create(fixture_id=9100, day=timezone.localdate(), home="USM Alger", away="Panthers",
+                                        competition="CAF Confederation Cup", status="NS",
+                                        kickoff=timezone.now() - timedelta(minutes=50))
+
+    def test_unknown_state_without_clock_is_not_shown_as_live(self):
+        from news import highlightly
+        raw = _hl(desc="Time to be defined")
+        self.assertEqual(highlightly._status(raw), "NS")
+        self.assertEqual(highlightly._status(_hl(desc="Delayed")), "NS")
+        self.assertEqual(highlightly._status(_hl(desc="In progress", clock=12)), "LIVE")
+
+    def test_row_links_to_fixture_page_which_fetches_details_once_within_budget(self):
+        from news.models import Fixture
+        page = self.client.get("/mechi-za-leo/").content.decode()
+        url = self.f.get_absolute_url()
+        self.assertIn(f'href="{url}"', page)
+        goal = {"type": "Goal", "time": "23", "team": {"id": 1, "name": "USM Alger"}, "player": "A. Mehdi"}
+        raw = _hl(mid=9100, desc="Second half", clock=61, score="1 - 0", events=[goal],
+                  league="CAF Confederation Cup", country="Africa", kickoff=self.f.kickoff)
+        raw["homeTeam"]["name"], raw["awayTeam"]["name"] = "USM Alger", "Panthers"
+        raw.update(referee={"name": "J. Gomes"})
+        with mock.patch("news.highlightly.requests.get", return_value=_HLResp([raw])) as get:
+            body = self.client.get(url).content.decode()
+            from django.core.cache import cache
+            cache.clear()
+            self.client.get(url)                                    # chini ya dakika 10: haiombwi tena
+        self.assertEqual(get.call_count, 1)
+        for text in ("USM Alger dhidi ya Panthers", "Matukio ya mechi", "GOLI! A. Mehdi", "J. Gomes",
+                     '"@type": "SportsEvent"'):
+            self.assertIn(text, body)
+        f = Fixture.objects.get()
+        self.assertEqual((f.status, f.home_goals, f.away_goals), ("2H", 1, 0))
+
+    def test_budget_reached_means_no_request(self):
+        from news.models import DailyCount
+        DailyCount.bump("fixture-detail")
+        with mock.patch("news.highlightly.requests.get") as get:
+            body = self.client.get(self.f.get_absolute_url()).content.decode()
+        get.assert_not_called()
+        self.assertIn("hazipatikani kwa sasa", body)
+
+    def test_fixture_with_live_coverage_redirects_to_its_article(self):
+        from news.models import LiveMatch
+        a = Article.objects.create(title="USM Alger LIVE", category="afrika", excerpt="x", body="b",
+                                   status="published", published_at=timezone.now(), origin="football")
+        with mock.patch("news.models.Article.render_cover"):
+            LiveMatch.objects.create(article=a, fixture_id=9100, provider="highlightly", home="USM Alger", away="Panthers")
+        r = self.client.get(self.f.get_absolute_url())
+        self.assertRedirects(r, a.get_absolute_url(), fetch_redirect_response=False)

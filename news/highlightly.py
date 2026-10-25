@@ -106,7 +106,7 @@ def rank(raw):
 def _status(raw):
     st = raw.get("state") or {}
     d = (st.get("description") or "").strip().lower()
-    if not d or d in ("not started", "to be announced", "tba"):
+    if not d or d in ("not started", "to be announced", "tba", "tbd", "scheduled") or "delay" in d or "defined" in d:
         return "NS"
     if "finished" in d or d in ("ended", "full time", "after penalties", "after extra time"):
         if "penalt" in d:
@@ -128,11 +128,15 @@ def _status(raw):
         return "BT"
     if "extra" in d:
         return "ET"
+    if "award" in d or "walkover" in d:
+        return "AWD"
     if "first" in d or d == "1st half":
         return "1H"
     if "second" in d or d == "2nd half":
         return "2H"
-    return "LIVE"
+    if "progress" in d or "live" in d or "playing" in d or _clock(st.get("clock")):
+        return "LIVE"
+    return "NS"          # hali isiyojulikana bila dakika: si "inaendelea" (ingeonekana LIVE kimakosa)
 
 
 def _score(raw):

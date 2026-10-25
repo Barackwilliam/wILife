@@ -1036,3 +1036,17 @@ a.fx:hover { background: var(--brand-soft); }
 .ai-key span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 .ai-sum td.ai-won { font-weight: 700; font-size: .9rem; line-height: 1.35; }
 .ai-sum td.ai-won b { font-size: 1.15rem; }
+
+/* Ukurasa wa mechi ya ratiba (fixture.html) */
+.fxd-title { font-family: var(--font-display); font-size: clamp(1.6rem, 4.4vw, 2.4rem); line-height: 1.15; margin: 4px 0 6px; }
+.fxd-dek { color: var(--muted); margin: 0 0 18px; font-weight: 600; }
+.fxd-sec { margin: 0 0 26px; }
+.fxd-sec h2 { font-size: .9rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 10px; }
+.fxd-ev { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); overflow: hidden; }
+.fxd-ev li { display: grid; grid-template-columns: 54px 1fr; gap: 10px; padding: 11px 14px; border-top: 1px solid var(--line); }
+.fxd-ev li:first-child { border-top: 0; }
+.fxd-ev b { color: var(--brand-ink); font-variant-numeric: tabular-nums; }
+.fxd-ev .k-goal { background: linear-gradient(90deg, rgba(22,163,74,.12), transparent 70%); font-weight: 700; }
+.fxd-ev .k-red { box-shadow: inset 4px 0 #dc2626; }
+.fxd-ev .k-card { box-shadow: inset 4px 0 #eab308; }
+.fxd-more { font-weight: 800; color: var(--brand-ink); display: inline-flex; align-items: center; gap: 6px; }
