@@ -20,6 +20,8 @@ log = logging.getLogger("news.fixtures")
 REFRESH_EVERY = timedelta(hours=3)
 MATCH_LENGTH = timedelta(minutes=135)      # dakika 90 + mapumziko + nyongeza
 MAX_LEAGUES = 6                            # maombi ya juu kabisa kwa usasishaji mmoja
+PER_MATCH_MAX = 8                          # mechi zinazoombwa moja moja kwa mzunguko (ligi isiposaidia)
+BACKFILL_MIN_LEFT = 60                     # siku iliyokosa ratiba inasomwa tu maombi yakiwa mengi
 
 
 def _set(f, item):
@@ -63,13 +65,25 @@ def store(items, day):
 def _stale(now):
     """Mechi zilizopaswa kuisha lakini hazina matokeo ya mwisho, na hazina LIVE (LIVE inajisasisha)."""
     live_ids = set(LiveMatch.objects.filter(fixture_id__isnull=False).values_list("fixture_id", flat=True))
-    rows = Fixture.objects.filter(kickoff__lte=now - MATCH_LENGTH, kickoff__gte=now - timedelta(days=2),
+    rows = Fixture.objects.filter(kickoff__lte=now - MATCH_LENGTH, kickoff__gte=now - timedelta(days=3),
                                   provider="highlightly").exclude(status__in=LiveMatch.FINISHED | LiveMatch.OFF)
     return [f for f in rows if f.fixture_id not in live_ids]
 
 
+def _apply_raw(f, raw):
+    from news import highlightly
+    rank = f.rank
+    _set(f, highlightly.normalize(raw))
+    f.rank = rank
+    f.save()
+
+
 def refresh_results(state, now, left):
-    """Matokeo ya jioni kwa mechi zisizo na LIVE. Inarudisha maombi yaliyotumika."""
+    """
+    Matokeo ya mechi zisizo na LIVE zilizopaswa kuisha. Kwanza ombi 1 kwa kila ligi (leagueId); zile
+    ambazo bado hazina matokeo (API haikuheshimu leagueId, au ligi haina namba) zinaombwa moja moja,
+    hadi PER_MATCH_MAX kwa mzunguko. Inarudisha maombi yaliyotumika.
+    """
     from django.core.cache import cache
     from news import highlightly
     if cache.get("fixtures:refresh") or left <= 15:
@@ -82,7 +96,7 @@ def refresh_results(state, now, left):
     for f in stale:
         if f.competition_id:
             groups.setdefault((f.day, f.competition_id), []).append(f)
-    spent = 0
+    spent, done = 0, set()
     for (day, league_id), rows in sorted(groups.items(), key=lambda kv: min(f.rank for f in kv[1]))[:MAX_LEAGUES]:
         try:
             data = highlightly._get("/matches", {"date": day.isoformat(), "leagueId": league_id,
@@ -97,11 +111,54 @@ def refresh_results(state, now, left):
         for raw in found or []:
             f = wanted.get(raw.get("id")) if isinstance(raw, dict) else None
             if f:                                    # leagueId isipoheshimiwa, tunasasisha tulizoziomba tu
-                rank = f.rank
-                _set(f, highlightly.normalize(raw))
-                f.rank = rank
+                _apply_raw(f, raw)
+                if f.status in LiveMatch.FINISHED | LiveMatch.OFF:
+                    done.add(f.pk)
+    for f in [f for f in stale if f.pk not in done][:PER_MATCH_MAX]:
+        if left - spent <= 10:
+            break
+        spent += 1
+        try:
+            for item in highlightly.match(state, f):
+                _set(f, item)
                 f.save()
+        except Exception as exc:
+            log.warning("fixture result %s failed: %s", f.fixture_id, exc)
+            break
+    state.save(update_fields=["requests", "remaining"])
     return spent
+
+
+def backfill(state, now, left):
+    """
+    Siku iliyopita isiyo na ratiba kabisa (mf. kabla kipengele hiki hakijaanza, au seva ililala asubuhi):
+    isomwe mara moja ili ukurasa wake uwe na matokeo. Siku 1 kwa mzunguko, maombi yakiwa mengi tu.
+    """
+    from news import highlightly
+    from news.models import DailyCount
+    today = timezone.localtime(now).date()
+    if left <= BACKFILL_MIN_LEFT or not Fixture.objects.filter(day=today).exists():
+        return 0                                   # ratiba ya leo kwanza (inaonyesha usomaji unafanya kazi)
+    for back in range(1, getattr(settings, "FOOTBALL_BACKFILL_DAYS", 3) + 1):
+        day = today - timedelta(days=back)
+        key = f"backfill:{day.isoformat()}"
+        if Fixture.objects.filter(day=day).exists() or DailyCount.get(key, day=day):
+            continue
+        DailyCount.bump(key, day=day)                # jaribio moja tu kwa siku hiyo
+        before = state.requests
+        try:
+            store(highlightly.schedule(state, day), day)
+        except Exception as exc:
+            log.warning("backfill %s failed: %s", day, exc)
+        state.save(update_fields=["requests", "remaining"])
+        return state.requests - before
+    return 0
+
+
+def has_day(day):
+    start, end = _bounds(day)
+    return Fixture.objects.filter(day=day).exists() or LiveMatch.objects.filter(
+        article__status="published", kickoff__gte=start, kickoff__lt=end).exists()
 
 
 class Row:

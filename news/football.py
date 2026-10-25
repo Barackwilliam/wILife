@@ -138,27 +138,54 @@ def final_title(m):
     return f"{m.home} {m.home_goals}-{m.away_goals} {m.away}: Matokeo, Magoli na Takwimu — {m.competition}"[:200]
 
 
-def _preview_body(m):
-    where = f", kwenye uwanja wa {m.venue}" + (f", {m.city}" if m.city else "") if m.venue else ""
+HOWTO_SOON = ("Ukurasa huu hujisasisha mechi inapoanza. Kila goli, kadi, mabadiliko ya wachezaji na uamuzi "
+              "wa VAR utaonekana hapa dakika baada ya dakika bila kupakia ukurasa upya. Matokeo ya mwisho na "
+              "matukio yote yanabaki hapa baada ya filimbi ya mwisho.")
+HOWTO_LIVE = ("Mechi inaendelea sasa na ukurasa huu unajisasisha wenyewe: kila goli, kadi, mabadiliko ya wachezaji "
+              "na uamuzi wa VAR unaonekana hapa dakika baada ya dakika bila kupakia ukurasa upya.")
+
+
+def _where(m):
+    return f", kwenye uwanja wa {m.venue}" + (f", {m.city}" if m.city else "") if m.venue else ""
+
+
+def _preview_intro(m):
     rnd = f" ({m.round})" if m.round else ""
+    return (f"{m.home} watakuwa wenyeji wa {m.away} katika mchezo wa {m.competition}{rnd}. "
+            f"Mechi itaanza {_when(m.kickoff)} kwa saa za Afrika Mashariki{_where(m)}.")
+
+
+def _live_intro(m):
+    rnd = f" ({m.round})" if m.round else ""
+    return (f"{m.home} ni wenyeji wa {m.away} katika mchezo wa {m.competition}{rnd} unaoendelea sasa. "
+            f"Mechi ilianza {_when(m.kickoff)} kwa saa za Afrika Mashariki{_where(m)}.")
+
+
+def _preview_body(m):
     return (
-        f"{m.home} watakuwa wenyeji wa {m.away} katika mchezo wa {m.competition}{rnd}. "
-        f"Mechi itaanza {_when(m.kickoff)} kwa saa za Afrika Mashariki{where}.\n\n"
+        f"{_preview_intro(m)}\n\n"
         "## Jinsi ya kufuatilia mechi hii\n\n"
-        "Ukurasa huu hujisasisha mechi inapoanza. Kila goli, kadi, mabadiliko ya wachezaji na uamuzi "
-        "wa VAR utaonekana hapa dakika baada ya dakika bila kupakia ukurasa upya. Matokeo ya mwisho na "
-        "matukio yote yanabaki hapa baada ya filimbi ya mwisho.\n\n"
+        f"{HOWTO_SOON}\n\n"
         f"Mechi zote zinazoendelea sasa ziko kwenye ukurasa wa LIVE wa wILife."
     )
+
+
+def _live_body(m, body):
+    """Mechi imeanza: maneno ya "itaanza" yanakuwa "inaendelea" (uchambuzi wa kabla ya mechi unabaki)."""
+    return body.replace(_preview_intro(m), _live_intro(m), 1).replace(HOWTO_SOON, HOWTO_LIVE, 1)
 
 
 def _final_body(m, article):
     goals = [u for u in article.live_updates.filter(kind="goal").order_by("created_at", "id")]
     lines = [f"Mechi ya {m.competition} kati ya {m.home} na {m.away} imekamilika kwa matokeo ya "
              f"{m.home} {m.home_goals}-{m.away_goals} {m.away}."]
+    rnd = f" ({m.round})" if m.round else ""
+    lines.append(f"Mchezo huo wa {m.competition}{rnd} ulichezwa {_when(m.kickoff)} kwa saa za Afrika "
+                 f"Mashariki{_where(m)}.")
     if goals:
         lines.append("## Magoli\n\n" + "\n\n".join(f"{u.label} {u.text.lstrip('⚽ ')}" for u in goals))
-    lines.append(_preview_body(m).split("\n\n", 1)[1])
+    lines.append("## Matukio ya mechi\n\nMatukio yote ya mechi hii — magoli, kadi, mabadiliko ya wachezaji na "
+                 "maamuzi ya VAR — yameorodheshwa hapa juu kwa mpangilio wa dakika, pamoja na takwimu za mechi.")
     return "\n\n".join(lines)
 
 
@@ -344,6 +371,10 @@ def _whistle(article, m, old):
     if old == m.status:
         return
     if old == "NS" and m.status in LiveMatch.PLAYING:
+        body = _live_body(m, article.body)
+        if body != article.body:
+            article.body = body
+            article.save(update_fields=["body", "updated_at"])
         live.start(article)
         live.add(article, f"📣 Mechi imeanza! {m.home} dhidi ya {m.away}.", "1'", kind="whistle")
         refresh_cover(m)                       # picha inapata alama ya LIVE
@@ -591,6 +622,9 @@ def run(now=None, deadline=None, dry_run=False):
                 n = fixtures.refresh_results(state, now, daily_limit() - state.requests)
                 if n:
                     notes.append(f"matokeo ya ratiba: maombi {n}")
+                n = fixtures.backfill(state, now, daily_limit() - state.requests)
+                if n:
+                    notes.append(f"ratiba ya siku iliyokosekana: maombi {n}")
         if state.error:
             state.error = ""
             state.save(update_fields=["error"])

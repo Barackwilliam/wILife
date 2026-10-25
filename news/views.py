@@ -260,15 +260,26 @@ def _day_page(request, day, kind):
     from news.pipeline import swahili_date
     today = timezone.localdate()
     rows = fixtures.day_rows(day)
+    if day < today:              # siku iliyopita: matokeo ya mwisho tu — mechi isiyo na matokeo haionyeshwi
+        rows = [r for r in rows if r.is_finished or r.is_off]
     if kind == "siku" and not rows:
         raise Http404
     counts = {"on": sum(r.is_playing for r in rows), "done": sum(r.is_finished for r in rows),
               "soon": sum(r.status == "NS" for r in rows)}
     canonical = {today: "news:matches_today", today - timedelta(days=1): "news:results_yesterday"}.get(day)
+    groups = fixtures.groups(rows)
+    names = [name for name, _, _ in groups]
+    leagues = ", ".join(names[:5])
+    if len(names) > 1:                       # "A, B na C" — ligi zilizochezwa kweli siku hiyo
+        leagues = ", ".join(names[:min(len(names), 5) - 1]) + " na " + names[min(len(names), 5) - 1]
+    if len(names) > 5:
+        leagues += " pamoja na mashindano mengine"
     return render(request, "news/day.html", {
-        "kind": kind, "day": day, "date_text": swahili_date(day), "rows": rows, "groups": fixtures.groups(rows),
+        "kind": kind, "day": day, "date_text": swahili_date(day), "rows": rows, "groups": groups, "leagues": leagues,
+        "has_pages": any(r.article for r in rows),
         "counts": counts, "is_today": day == today, "is_past": day < today,
-        "prev_day": day - timedelta(days=1), "next_day": day + timedelta(days=1) if day + timedelta(days=2) < today else None,   # jana/leo zina vitufe vyao
+        "prev_day": day - timedelta(days=1) if fixtures.has_day(day - timedelta(days=1)) else None,   # siku isiyo na data haina kitufe
+        "next_day": day + timedelta(days=1) if day + timedelta(days=2) < today else None,   # jana/leo zina vitufe vyao
         "canonical": reverse(canonical) if canonical else request.path,
         "page_v": _day_version(rows), "has_live": bool(counts["on"]),
         "record": predict.record(30),
