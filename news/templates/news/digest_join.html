@@ -1,0 +1,48 @@
+{% extends 'news/base.html' %}
+{% load news_tags %}
+{% block title %}Jiunge na wILife Michezo: Mechi za Leo na Matokeo Kila Siku | wILife{% endblock %}
+{% block description %}Pata mechi za leo, matokeo ya jana na makadirio ya mechi kubwa kila asubuhi kwa email au WhatsApp — bure, na unaweza kujiondoa wakati wowote.{% endblock %}
+{% block robots %}<meta name="robots" content="{% if state %}noindex, nofollow{% else %}index, follow{% endif %}">{% endblock %}
+{% block content %}
+<section class="dj">
+  <nav class="crumbs" aria-label="breadcrumb"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><a href="{% url 'news:matches_today' %}">Mechi za leo</a></nav>
+  {% if state == 'confirmed' %}
+    <h1>✅ Umejiunga!</h1>
+    <p>Kuanzia kesho asubuhi, <b>{{ email }}</b> itapokea mechi za leo, matokeo ya jana na makadirio. Kila email ina link ya kujiondoa.</p>
+  {% elif state == 'sent' %}
+    <h1>Angalia email yako</h1>
+    <p>Tumetuma link ya kuthibitisha{% if email %} kwa <b>{{ email }}</b>{% endif %}. Ibofye ili kuanza kupokea ujumbe. Kama haionekani, angalia Spam au Promotions.</p>
+  {% elif state == 'already' %}
+    <h1>Tayari umejiunga</h1>
+    <p><b>{{ email }}</b> tayari inapokea ujumbe wa michezo wa wILife kila siku.</p>
+  {% elif state == 'wait' %}
+    <h1>Link imeshatumwa</h1>
+    <p>Tulituma link ya kuthibitisha kwa <b>{{ email }}</b> muda mfupi uliopita. Angalia inbox, Spam au Promotions.</p>
+  {% elif state == 'leave' %}
+    <h1>Kujiondoa</h1>
+    <p>Bofya hapa chini ili <b>{{ email }}</b> isipokee tena ujumbe wa michezo wa wILife.</p>
+    <form method="post" action="{% url 'news:digest_leave' token %}"><button class="dj-btn" type="submit">Ndiyo, niondoe</button></form>
+  {% elif state == 'left' %}
+    <h1>Umejiondoa</h1>
+    <p><b>{{ email }}</b> haitapokea tena ujumbe wa michezo. Unaweza kujiunga tena hapa chini wakati wowote.</p>
+  {% else %}
+    <h1>Jiunge na wILife Michezo</h1>
+    <p>Kila asubuhi: matokeo ya jana, mechi za leo kwa saa za Afrika Mashariki, na makadirio ya mechi kubwa. Bure, na unaweza kujiondoa wakati wowote.</p>
+  {% endif %}
+
+  {% if state == 'invalid' %}<p class="dj-err">Email hiyo si sahihi. Jaribu tena.</p>{% endif %}
+  {% if state == 'failed' %}<p class="dj-err">Hatukuweza kutuma email sasa hivi. Jaribu tena baadaye kidogo.</p>{% endif %}
+  {% if state == 'slow' %}<p class="dj-err">Majaribio mengi kutoka mtandao wako. Jaribu tena baada ya saa moja.</p>{% endif %}
+  {% if state == 'off' %}<p class="dj-err">Usajili wa email haupatikani kwa sasa.</p>{% endif %}
+
+  {% if state in 'invalid failed slow left' or not state %}{% if email_ready %}
+  <form class="dj-form" method="post" action="{% url 'news:digest_join' %}">
+    <label for="dj-email">Email yako</label>
+    <div><input id="dj-email" type="email" name="email" required value="{{ email }}" placeholder="jina@mfano.com" autocomplete="email">
+    <input type="text" name="website" tabindex="-1" autocomplete="off" class="waj-hp" aria-hidden="true">
+    <button class="dj-btn" type="submit">Jiunge kwa email</button></div>
+  </form>{% endif %}{% endif %}
+  {% if channel and state != 'leave' %}<p class="dj-alt">Unapendelea WhatsApp? <a href="{{ channel }}" target="_blank" rel="noopener">Fuata WhatsApp Channel ya wILife Michezo</a>.</p>{% endif %}
+  <p class="dj-alt"><a href="{% url 'news:matches_today' %}">Mechi za leo</a> · <a href="{% url 'news:results_yesterday' %}">Matokeo ya jana</a> · <a href="{% url 'news:predictions' %}">Makadirio</a></p>
+</section>
+{% endblock %}

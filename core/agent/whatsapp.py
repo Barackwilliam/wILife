@@ -211,3 +211,34 @@ def resolve_recipient(user):
     if profile is not None:
         number = getattr(profile, "whatsapp_number", "") or ""
     return number or settings.AGENT_DEFAULT_RECIPIENT or ""
+
+
+def channel_jid(value, timeout=15):
+    """
+    WhatsApp Channel: '120363...@newsletter' kama ilivyo, au link ya mwaliko
+    (https://whatsapp.com/channel/CODE) -> JID kupitia bridge (/channel).
+    """
+    value = (value or "").strip()
+    if re.fullmatch(r"\d+@newsletter", value):
+        return value
+    base = getattr(settings, "WHATSAPP_BRIDGE_URL", "")
+    key = getattr(settings, "WHATSAPP_BRIDGE_KEY", "")
+    if not value or not base or not key:
+        raise WhatsAppError("WHATSAPP_CHANNEL au bridge haijawekwa")
+    response = requests.get(base.rstrip("/") + "/channel", params={"invite": value},
+                            headers={"X-Bridge-Key": key}, timeout=timeout)
+    if response.status_code != 200:
+        raise WhatsAppError(f"bridge HTTP {response.status_code}: {response.text[:300]}")
+    jid = response.json().get("id") or ""
+    if not jid.endswith("@newsletter"):
+        raise WhatsAppError(f"channel haikupatikana: {response.text[:200]}")
+    return jid
+
+
+def send_channel(channel, text):
+    """Chapisha ujumbe kwenye WhatsApp Channel (namba ya bridge lazima iwe mmiliki/admin wa channel)."""
+    if not settings.AGENT_ENABLED or not settings.WHATSAPP_ENABLED:
+        return "disabled"
+    if provider() != "baileys":
+        raise WhatsAppError("WhatsApp Channel inahitaji bridge ya Baileys")
+    return _send_via_bridge(channel_jid(channel), text, retries=1)

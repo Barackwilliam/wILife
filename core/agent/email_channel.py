@@ -58,22 +58,31 @@ def to_html(text):
     return email_html(text)
 
 
-def send_email(to, text, subject=None, retries=2, timeout=10):
+def newsletter_ready():
+    """Ujumbe wa michezo kwa wasomaji (news/digest.py): unahitaji Resend tu, si EMAIL_CHANNEL_ENABLED ya wakala."""
+    return bool(getattr(settings, "RESEND_API_KEY", "")) and bool(
+        getattr(settings, "NEWS_EMAIL_FROM", "") or getattr(settings, "AGENT_EMAIL_FROM", ""))
+
+
+def send_email(to, text, subject=None, retries=2, timeout=10, headers=None, newsletter=False):
     """
     Send one message. Returns the Resend message id.
     Raises EmailError if delivery failed after all attempts.
+
+    newsletter=True: an email to a reader (not to William) — sent from NEWS_EMAIL_FROM when set,
+    and allowed without EMAIL_CHANNEL_ENABLED. `headers` adds e.g. List-Unsubscribe.
     """
     if not settings.AGENT_ENABLED:
         log.info("agent disabled — would have emailed %s: %s", to, text[:80])
         return "disabled"
 
-    if not enabled():
+    if not (newsletter_ready() if newsletter else enabled()):
         raise EmailError("RESEND_API_KEY not configured or EMAIL_CHANNEL_ENABLED is false")
 
     if not to:
         raise EmailError("no recipient address")
 
-    sender = getattr(settings, "AGENT_EMAIL_FROM", "")
+    sender = (newsletter and getattr(settings, "NEWS_EMAIL_FROM", "")) or getattr(settings, "AGENT_EMAIL_FROM", "")
     if not sender:
         raise EmailError("AGENT_EMAIL_FROM is not configured")
 
@@ -84,6 +93,8 @@ def send_email(to, text, subject=None, retries=2, timeout=10):
         "html": to_html(text),
         "text": text,
     }
+    if headers:
+        payload["headers"] = headers
     headers = {
         "Authorization": f"Bearer {settings.RESEND_API_KEY}",
         "Content-Type": "application/json",

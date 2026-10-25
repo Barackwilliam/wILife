@@ -971,3 +971,31 @@ a.fx:hover { background: var(--brand-soft); }
 .pr-hist small { color: var(--muted); font-size: .82rem; }
 @media (max-width: 560px) { .pr-rec b { font-size: 1.25rem; } }
 @media (prefers-reduced-motion: reduce) { .fx.is-on .fx-t::before { animation: none; } }
+
+/* Jiunge: WhatsApp / Channel / email */
+.waj { flex-wrap: wrap; }
+.waj-txt { flex: 1 1 280px; }
+.waj-act { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+.waj-act .waj-btn { margin-left: 0; }
+.waj-btn.alt { background: transparent; color: #128c4a !important; border: 1.5px solid #25d366; }
+.waj-mail { flex: 1 1 100%; display: flex; gap: 8px; margin: 2px 0 0 56px; }
+.waj-mail input[type=email] { flex: 1 1 auto; min-width: 0; padding: 10px 14px; border-radius: 99px; border: 1px solid #bfe9cf; background: #fff; color: var(--ink); font: inherit; font-size: .92rem; }
+.waj-mail button { flex: none; padding: 10px 16px; border-radius: 99px; border: 0; background: var(--ink); color: var(--surface); font: inherit; font-weight: 800; font-size: .88rem; cursor: pointer; }
+.waj-hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+.dj { max-width: 640px; margin: 10px auto 40px; }
+.dj h1 { font-family: var(--font-display); font-size: clamp(1.8rem, 5vw, 2.6rem); margin: 14px 0 12px; }
+.dj p { line-height: 1.65; }
+.dj-form { margin: 20px 0; }
+.dj-form label { display: block; font-weight: 800; margin-bottom: 8px; }
+.dj-form div { display: flex; gap: 8px; flex-wrap: wrap; }
+.dj-form input[type=email] { flex: 1 1 240px; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font: inherit; }
+.dj-btn { padding: 12px 20px; border-radius: 12px; border: 0; background: var(--brand); color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
+.dj-err { padding: 10px 14px; border-radius: 10px; background: var(--rose-soft); color: #a3264a; font-weight: 600; }
+.dj-alt { color: var(--muted); }
+.dj-alt a { color: var(--brand-ink); font-weight: 700; }
+@media (max-width: 560px) {
+  .waj-act { margin-left: 0; width: 100%; }
+  .waj-act .waj-btn { flex: 1 1 auto; }
+  .waj-mail { margin-left: 0; flex-wrap: wrap; }
+  .waj-mail button { width: 100%; }
+}
