@@ -1112,5 +1112,42 @@ a.fx:hover { background: var(--brand-soft); }
 .vh-meta b { font-size: .98rem; line-height: 1.25; }
 .vh-meta time { font-size: 12px; color: var(--muted); }
 .vh-empty { padding: 30px 0; color: var(--muted); }
+.c-video { margin: 30px 0; }
+.vd-sum p { line-height: 1.7; }
+.vd-sum h3 { font-size: 1rem; margin: 14px 0 6px; }
 @media (max-width: 560px) { .vx { border-radius: 14px; margin-left: -4px; margin-right: -4px; } .vx-btn { width: 64px; height: 64px; margin: -32px 0 0 -32px; } .vx-a { font-size: 12.5px; padding: 8px 12px; } }
 @media (prefers-reduced-motion: reduce) { .vx-btn { animation: none; } .vx-play img, .vh-card { transition: none; } }
+
+/* ── Kurasa za timu (/timu/<slug>/) ───────────────────────────────────────── */
+.tm-head { display: flex; align-items: center; gap: 18px; margin: 10px 0 18px; }
+.tm-head h1 { font-family: var(--font-display); font-size: clamp(2rem, 6vw, 3.4rem); line-height: 1.05; margin: 0 0 6px; color: #fff; }
+.tm-logo { flex: none; width: clamp(64px, 14vw, 96px); height: clamp(64px, 14vw, 96px); border-radius: 50%; background: #fff; display: grid; place-items: center; overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+.tm-logo img { width: 78%; height: 78%; object-fit: contain; }
+.tm-logo .sb-crest { width: 50%; height: 50%; color: #8a94a6; }
+.tm-stats { display: flex; flex-wrap: wrap; gap: 10px; }
+.tm-stats > div { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; padding: 10px 14px; min-width: 74px; display: flex; flex-direction: column; gap: 2px; }
+.tm-stats b { font-size: 1.35rem; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; }
+.tm-stats span { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.65); }
+.tm-stats .tm-form { flex-direction: row; align-items: center; gap: 5px; }
+.tm-stats .tm-form span { margin-left: 6px; }
+.tm-f { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 7px; font-size: 12px !important; font-weight: 900; color: #fff !important; }
+.tm-W { background: #16a34a; } .tm-D { background: #8a94a6; } .tm-L { background: #dc2626; }
+.tm-note { margin: 10px 0 0; font-size: 12px; color: rgba(255,255,255,.6); }
+.tm-body { padding-top: 24px; }
+.tm-intro { margin-bottom: 18px; line-height: 1.75; }
+.tm-res { display: flex; align-items: center; gap: 10px; padding-left: 12px; border-top: 1px solid var(--line); }
+.tm-res:first-child { border-top: 0; }
+.tm-res > .fx { flex: 1; min-width: 0; border-top: 0; padding-left: 0; }
+.tm-d { flex: none; font-size: 11px; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tm-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 12px; margin: 18px 0 30px; }
+.tm-card { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--ink); text-decoration: none; font-size: 1.02rem; }
+.tm-card:hover { border-color: var(--brand); }
+.tm-card img, .tm-card > .i:first-child { width: 40px; height: 40px; object-fit: contain; color: #8a94a6; }
+.tm-card b { flex: 1; }
+@media (max-width: 860px) { .tm-news.grid3 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .tm-news.grid3 { grid-template-columns: 1fr; } .tm-stats > div { min-width: 0; flex: 1 1 64px; }
+  .tm-stats > .tm-form { flex: 1 1 100%; } .tm-res { gap: 7px; padding-left: 8px; } }
+.tm-links { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+.tm-links a { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; color: var(--brand-ink); background: var(--brand-soft); border-radius: 99px; padding: 6px 12px; text-decoration: none; }
+.tm-links a .i { width: 13px; height: 13px; }

@@ -1,0 +1,12 @@
+{% extends 'news/base.html' %}
+{% load news_tags %}
+{% block title %}Timu: Simba, Yanga, Azam na Zaidi — Habari, Matokeo na Video | wILife{% endblock %}
+{% block description %}Kurasa za timu kwa Kiswahili: habari mpya, mechi ijayo, matokeo, fomu na video za magoli za {% for t in teams|slice:":4" %}{{ t.name }}{% if not forloop.last %}, {% endif %}{% endfor %} na zaidi.{% endblock %}
+{% block content %}
+<nav class="crumbs" aria-label="breadcrumb"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><span>Timu</span></nav>
+<h1 class="fxd-title">Timu</h1>
+<p class="fxd-dek">Habari, matokeo, ratiba na video za magoli za kila timu — zinasasishwa zenyewe kila mechi.</p>
+<div class="tm-list">{% for t in teams %}
+  <a class="tm-card" href="{{ t.get_absolute_url }}">{% if t.logo %}<img src="{{ t.logo }}" alt="" width="40" height="40" loading="lazy" referrerpolicy="no-referrer">{% else %}{% icon "shield-fill" %}{% endif %}<b>{{ t.name }}</b>{% icon "chevron-right" %}</a>{% endfor %}
+</div>
+{% endblock %}

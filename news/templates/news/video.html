@@ -1,20 +1,32 @@
 {% extends 'news/base.html' %}
 {% load news_tags %}
-{% block title %}{{ h.name }}: Video za Magoli na Highlights{% if h.competition %} — {{ h.competition }}{% endif %} | wILife{% endblock %}
-{% block description %}Tazama video za magoli na highlights za {{ h.name }}{% if match.score %} ({{ match.score }}){% endif %}{% if h.competition %}, {{ h.competition }}{% endif %}, {{ h.date|sw_date }}. Shiriki kwa WhatsApp kwenye wILife.{% endblock %}
+{% block title %}{{ seo_title }} | wILife{% endblock %}
+{% block description %}{{ seo_desc|truncatechars:158 }}{% endblock %}
 {% block og_type %}video.other{% endblock %}
-{% block og_title %}{{ h.name }}: Video za Magoli{% endblock %}
-{% block og_description %}{% if match.score %}{{ match.score }}. {% endif %}Magoli yote na matukio makubwa — tazama kwenye wILife.{% endblock %}
+{% block og_title %}{{ seo_title }}{% endblock %}
+{% block og_description %}{{ seo_desc|truncatechars:200 }}{% endblock %}
+{% block og_image_alt %}{{ h.name }}: video za magoli{% endblock %}
+{% block extra_meta %}{% if h.thumbnail %}<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">{% endif %}{% with v=h.main %}{% if v %}
+  <meta property="og:video" content="{{ v.src }}"><meta property="og:video:secure_url" content="{{ v.src }}">
+  <meta property="og:video:type" content="text/html"><meta property="og:video:width" content="1280"><meta property="og:video:height" content="720">
+  <meta name="twitter:player" content="{{ v.src }}"><meta name="twitter:player:width" content="1280"><meta name="twitter:player:height" content="720">{% endif %}{% endwith %}{% endblock %}
 {% block og_image %}{% if h.thumbnail %}{{ h.thumbnail }}{% else %}{% absolute og_default %}{% endif %}{% endblock %}
 {% block twitter_image %}{% if h.thumbnail %}{{ h.thumbnail }}{% else %}{% absolute og_default %}{% endif %}{% endblock %}
 {% block jsonld %}{% video_jsonld h %}{% endblock %}
 
 {% block content %}
 <nav class="crumbs" aria-label="breadcrumb"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><a href="{% url 'news:videos' %}">Video za magoli</a><span>/</span><span>{{ h.name }}</span></nav>
-<h1 class="fxd-title">{{ h.name }}: Video za Magoli na Highlights</h1>
-<p class="fxd-dek">{% if h.competition %}{{ h.league }} · {% endif %}{{ h.date|sw_date }}{% if match.score %} · Matokeo: <b>{{ match.score }}</b>{% endif %}</p>
-{% include 'news/_video_player.html' with h=h heading="Tazama magoli" %}
-{% if match %}<p class="vh-open"><a href="{{ match.url }}">Matokeo, matukio na takwimu za mechi hii {% icon "arrow-right" %}</a></p>{% endif %}
+<h1 class="fxd-title">{{ seo_title }}</h1>
+<p class="fxd-dek">{% if h.competition %}{{ h.league }} · {% endif %}<time datetime="{{ h.date|date:'c' }}">{{ h.date|sw_date }}</time>{% if match.score_text %} · Matokeo: <b>{{ match.score_text }}</b>{% endif %}</p>
+{% include 'news/_video_player.html' with h=h heading="Tazama magoli" eager=True %}
+
+<section class="fxd-sec vd-sum">
+  <h2>Muhtasari wa mechi</h2>
+  <p>{{ seo_desc }}</p>
+  {% if match.goals %}<h3>Magoli</h3>
+  <ol class="fxd-ev">{% for g in match.goals %}<li class="k-goal"><span>{{ g }}</span></li>{% endfor %}</ol>{% endif %}
+  {% if match %}<p class="vh-open"><a href="{{ match.url }}">Matokeo, matukio na takwimu kamili za {{ h.name }} {% icon "arrow-right" %}</a></p>{% endif %}
+</section>
 
 {% if more %}
 <section class="fxd-sec">

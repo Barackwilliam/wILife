@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from news.models import (Article, EditorSettings, Fixture, FootballState, Highlight, JamiiTekService, LiveMatch, LiveUpdate,
+from news.models import (Article, EditorSettings, Fixture, FootballState, Highlight, JamiiTekService, Team, LiveMatch, LiveUpdate,
                          NewsBatch, NewsRequest, Subscriber, EmailSubscriber, DailyCount)
 
 
@@ -182,3 +182,11 @@ class HighlightAdmin(admin.ModelAdmin):
     list_filter = ("competition",)
     search_fields = ("title", "home", "away")
     readonly_fields = ("key", "videos", "created_at", "updated_at")
+
+
+@admin.register(Team)
+class TeamAdmin(admin.ModelAdmin):
+    """Kurasa za timu (/timu/<slug>/). Utambulisho (intro) unaandikwa hapa; data nyingine ni automatic."""
+    list_display = ("name", "slug", "active", "sort")
+    list_editable = ("active", "sort")
+    prepopulated_fields = {"slug": ("name",)}

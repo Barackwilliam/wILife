@@ -1,6 +1,7 @@
 {% load news_tags %}{% comment %}
 Video za magoli (ScoreBat): picha + kitufe cha kucheza; iframe inapakiwa msomaji akibonyeza (ukurasa unabaki mwepesi).
-h = Highlight; heading = kichwa cha sehemu (hiari). src inatoka scorebat.parse — https://www.scorebat.com tu.
+h = Highlight; heading = kichwa cha sehemu (hiari); eager = iframe moja kwa moja (ukurasa wa video: Google
+inaiona video kama maudhui makuu). src inatoka scorebat.parse — https://www.scorebat.com tu.
 {% endcomment %}{% with v=h.main %}{% if v %}
 <section class="vx" id="video" aria-label="Video za magoli za {{ h.name }}">
   <div class="vx-h">
@@ -8,6 +9,11 @@ h = Highlight; heading = kichwa cha sehemu (hiari). src inatoka scorebat.parse �
     <h2 class="vx-t">{% if heading %}{{ heading }}{% else %}{{ h.name }}: Highlights{% endif %}</h2>
     {% if h.competition %}<span class="vx-comp">{{ h.league }} · {{ h.date|sw_date }}</span>{% endif %}
   </div>
+  {% if eager %}
+  <div class="vx-stage is-on" data-vx>
+    <iframe src="{{ v.src }}" title="{{ h.name }}: {{ v.title }}" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
+  </div>
+  {% else %}
   <div class="vx-stage" data-vx>
     <button class="vx-play" type="button" data-src="{{ v.src }}" aria-label="Cheza video: {{ h.name }} — {{ v.title }}">
       {% if h.thumbnail %}<img src="{{ h.thumbnail }}" alt="{{ h.name }}: video za magoli" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}
@@ -15,6 +21,7 @@ h = Highlight; heading = kichwa cha sehemu (hiari). src inatoka scorebat.parse �
       <span class="vx-cap"><b>{{ v.title }}</b><small>Bonyeza kucheza</small></span>
     </button>
   </div>
+  {% endif %}
   {% if h.videos|length > 1 %}
   <div class="vx-list" role="list">{% for c in h.videos %}
     <button type="button" class="vx-chip{% if forloop.first %} on{% endif %}" role="listitem" data-src="{{ c.src }}">▶ {{ c.title }}</button>{% endfor %}

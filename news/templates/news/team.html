@@ -1,0 +1,78 @@
+{% extends 'news/base.html' %}
+{% load news_tags %}
+{% block title %}{{ team.name }} Leo: Habari, Matokeo, Ratiba na Video za Magoli | wILife{% endblock %}
+{% block description %}Kila kitu kuhusu {{ team.name }} kwa Kiswahili: habari mpya, mechi ijayo, matokeo ya karibuni{% if form %} (fomu: {{ form|join:"" }}){% endif %}, takwimu na video za magoli. Inasasishwa kila mechi kwenye wILife.{% endblock %}
+{% block og_title %}{{ team.name }}: Habari, Matokeo na Video{% endblock %}
+{% block og_description %}{% if next %}Mechi ijayo: {{ next.home }} vs {{ next.away }}, {{ next.kickoff|sw_date }}. {% endif %}Habari, matokeo na video za magoli za {{ team.name }}.{% endblock %}
+{% block jsonld %}{% team_jsonld team logo next news %}{% endblock %}
+
+{% block content %}{% endblock %}
+
+{% block fullbleed %}
+<section class="lh-hero tm-hero" aria-labelledby="tm-title">
+  <div class="wrap">
+    <nav class="crumbs lh-crumbs" aria-label="breadcrumb"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><a href="{% url 'news:teams' %}">Timu</a><span>/</span><span>{{ team.name }}</span></nav>
+    <div class="tm-head">
+      <span class="tm-logo">{% if logo %}<img src="{{ logo }}" alt="Nembo ya {{ team.name }}" width="96" height="96" referrerpolicy="no-referrer" onerror="this.remove()">{% else %}{% icon "shield-fill" "sb-crest" %}{% endif %}</span>
+      <div>
+        <h1 id="tm-title">{{ team.name }}</h1>
+        <p class="lh-sub">Habari, matokeo, ratiba na video za magoli — zinasasishwa kila mechi.</p>
+      </div>
+    </div>
+    {% if stats or form %}
+    <div class="tm-stats">
+      {% if form %}<div class="tm-form" aria-label="Fomu ya mechi {{ form|length }} zilizopita">{% for f in form %}<b class="tm-f tm-{{ f }}" title="{% if f == 'W' %}Ushindi{% elif f == 'D' %}Sare{% else %}Kipigo{% endif %}">{% if f == 'W' %}W{% elif f == 'D' %}D{% else %}L{% endif %}</b>{% endfor %}<span>Fomu</span></div>{% endif %}
+      {% if stats %}
+      <div><b>{{ stats.P }}</b><span>Mechi</span></div>
+      <div><b>{{ stats.W }}</b><span>Ushindi</span></div>
+      <div><b>{{ stats.D }}</b><span>Sare</span></div>
+      <div><b>{{ stats.L }}</b><span>Vipigo</span></div>
+      <div><b>{{ stats.GF }}-{{ stats.GA }}</b><span>Magoli</span></div>
+      {% endif %}
+    </div>
+    {% if stats %}<p class="tm-note">Takwimu za mechi {{ stats.P }} zilizorekodiwa kwenye wILife.</p>{% endif %}
+    {% endif %}
+  </div>
+</section>
+
+<div class="wrap tm-body">
+  {% if team.intro %}<section class="tm-intro"><h2 class="vh-h2">Kuhusu {{ team.name }}</h2>{{ team.intro|linebreaks }}</section>{% endif %}
+
+  {% if next %}
+  <section class="dy-lg tm-next" aria-label="Mechi ijayo">
+    <h2 class="dy-lgh">{% if next.is_playing %}🔴 Inachezwa sasa{% else %}Mechi ijayo · {{ next.kickoff|sw_date }}{% endif %}{% if next.competition %} · {{ next.competition }}{% endif %}</h2>
+    <div class="dy-rows">{% include 'news/_fx_row.html' with r=next %}{% for r in upcoming %}{% include 'news/_fx_row.html' %}{% endfor %}</div>
+  </section>
+  {% endif %}
+
+  {% if results %}
+  <section class="dy-lg" aria-label="Matokeo ya karibuni">
+    <h2 class="dy-lgh">Matokeo ya karibuni<span>{{ results|length }}</span></h2>
+    <div class="dy-rows">{% for x in results %}<div class="tm-res"><b class="tm-f tm-{{ x.res }}" title="{% if x.res == 'W' %}Ushindi{% elif x.res == 'D' %}Sare{% else %}Kipigo{% endif %}">{{ x.res }}</b><time class="tm-d" datetime="{{ x.row.kickoff|date:'c' }}">{{ x.row.kickoff|date:"d/m" }}</time>{% include 'news/_fx_row.html' with r=x.row %}</div>{% endfor %}</div>
+  </section>
+  {% endif %}
+
+  {% if videos %}
+  <section class="c-video">
+    <div class="sh"><h2>Video za magoli za {{ team.name }}</h2><a href="{% url 'news:videos' %}">Zote {% icon "arrow-right" %}</a></div>
+    <div class="vh-grid">{% for h in videos %}
+      <a class="vh-card" href="{{ h.get_absolute_url }}">
+        <span class="vh-thumb">{% if h.thumbnail %}<img src="{{ h.thumbnail }}" alt="{{ h.name }}: video za magoli" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}<i aria-hidden="true">▶</i></span>
+        <span class="vh-meta"><small>{{ h.league }}</small><b>{{ h.name }}</b><time datetime="{{ h.date|date:'c' }}">{{ h.date|sw_ago }}</time></span>
+      </a>{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section>
+    <div class="sh"><h2>Habari za {{ team.name }}</h2></div>
+    {% if news %}<div class="grid3 tm-news">{% for a in news %}{% include 'news/_card.html' with compact=True %}{% endfor %}</div>
+    {% else %}<p class="vh-empty">Habari mpya za {{ team.name }} zitaonekana hapa zikichapishwa.</p>{% endif %}
+  </section>
+
+  {% if not next and not results %}<p class="vh-empty">Mechi za {{ team.name }} zitaonekana hapa zikiwa kwenye ratiba. Angalia <a href="{% url 'news:matches_today' %}">mechi za leo</a>.</p>{% endif %}
+</div>
+{% include 'news/_wa_join.html' %}
+{% endblock %}
+
+{% block extra_scripts %}{% include 'news/_score_js.html' %}{% endblock %}

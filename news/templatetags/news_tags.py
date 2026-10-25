@@ -447,14 +447,20 @@ def jamiitek_service_url(service):
 # ── Video za magoli (ScoreBat, news/scorebat.py) ─────────────────────────────
 
 def _video_objects(request, h):
+    from django.templatetags.static import static
+    from news import scorebat
     url = _abs(request, h.get_absolute_url())
-    desc = (f"Video za magoli na highlights za {h.name}"
-            + (f" ({h.competition})" if h.competition else "") + " kwenye wILife.")
-    return [{"@type": "VideoObject", "name": f"{h.name}: {v['title']}" if len(h.videos) > 1 else f"{h.name}: Highlights",
+    match = scorebat.match_page(h)
+    name, desc = scorebat.title(h, match), scorebat.description(h, match)
+    about = {"@type": "SportsEvent", "name": h.name, "startDate": h.date.isoformat(),
+             "competitor": [{"@type": "SportsTeam", "name": t} for t in (h.home, h.away) if t]}
+    return [{"@type": "VideoObject", "name": f"{name} — {v['title']}" if i else name,
              "description": desc, "thumbnailUrl": [h.thumbnail] if h.thumbnail else None,
-             "uploadDate": h.date.isoformat(), "embedUrl": v["src"], "url": url,
-             "publisher": {"@type": "Organization", "name": "wILife", "url": _abs(request, "/")}}
-            for v in h.videos[:4]]
+             "uploadDate": h.date.isoformat(), "embedUrl": v["src"], "url": url, "inLanguage": "sw",
+             "isFamilyFriendly": True, "keywords": ", ".join(k for k in h.keywords if k), "about": about,
+             "publisher": {"@type": "Organization", "name": "wILife", "url": _abs(request, "/"),
+                           "logo": {"@type": "ImageObject", "url": _abs(request, static("news/brand/logo-600.png"))}}}
+            for i, v in enumerate(h.videos[:4])]
 
 
 @register.simple_tag(takes_context=True)
@@ -488,3 +494,36 @@ def match_video(m):
         return scorebat.for_match(m.home, m.away, m.kickoff)
     except Exception:          # ukurasa wa mechi usivunjike kwa sababu ya video
         return None
+
+
+
+# ── Kurasa za timu (news/teams.py) ─────────────────────────────────────────────
+
+@register.simple_tag(takes_context=True)
+def team_jsonld(context, team, logo="", next_match=None, articles=()):
+    """SportsTeam + mechi ijayo (SportsEvent) + breadcrumb + orodha ya habari."""
+    request = context["request"]
+    url = _abs(request, team.get_absolute_url())
+    data = [{"@context": "https://schema.org", "@type": "SportsTeam", "name": team.name, "sport": "Soccer", "url": url,
+             **({"logo": logo} if logo else {}), **({"description": team.intro[:300]} if team.intro else {})},
+            {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
+                {"@type": "ListItem", "position": 1, "name": "Mwanzo", "item": _abs(request, "/")},
+                {"@type": "ListItem", "position": 2, "name": "Timu", "item": _abs(request, "/timu/")},
+                {"@type": "ListItem", "position": 3, "name": team.name, "item": url}]}]
+    if next_match is not None and next_match.url:
+        data.append({"@context": "https://schema.org", **sports_event(next_match, _abs(request, next_match.url))})
+    if articles:
+        data.append({"@context": "https://schema.org", "@type": "ItemList", "name": f"Habari za {team.name}",
+                     "itemListElement": [{"@type": "ListItem", "position": i, "url": _abs(request, a.get_absolute_url())}
+                                         for i, a in enumerate(articles[:10], 1)]})
+    return _script(data)
+
+
+@register.simple_tag
+def teams_for(*names):
+    """Timu zenye kurasa zao kati ya majina haya (viungo kwenye kurasa za mechi)."""
+    from news import teams
+    try:
+        return teams.for_names(*names)
+    except Exception:
+        return []

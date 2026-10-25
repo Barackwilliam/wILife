@@ -3045,11 +3045,11 @@ class ScoreBatVideoTest(TestCase):
         from news.models import Highlight
         h = Highlight.objects.get(home="Liverpool")
         page = self.client.get(h.get_absolute_url()).content.decode()
-        for text in ("Liverpool vs Brighton: Video za Magoli na Highlights", '"@type": "VideoObject"',
+        for text in ("Liverpool vs Brighton Highlights: Video za Magoli Yote", '"@type": "VideoObject"',
                      '"embedUrl": "https://www.scorebat.com/embed/v/l1/"', "Goal 1 - Salah", "Shiriki WhatsApp",
                      "Nakili kiungo", f'<link rel="canonical" href="https://www.wlife.online{h.get_absolute_url()}">'):
             self.assertIn(text, page)
-        self.assertNotRegex(page, r'<iframe[^>]*scorebat')       # iframe inapakiwa msomaji akibonyeza tu
+        self.assertNotRegex(hub, r'<iframe[^>]*scorebat')        # /video/: iframe inapakiwa msomaji akibonyeza tu
         self.assertNotIn("download", page.lower().split("<footer")[0].split("</header>")[-1])
         sitemap = self.client.get("/sitemap.xml").content.decode()
         self.assertIn(f"https://www.wlife.online{h.get_absolute_url()}</loc>", sitemap)
@@ -3088,3 +3088,138 @@ class ScoreBatVideoTest(TestCase):
             self.assertEqual({k: f.extra[k] for k in ("home_id", "away_id")}, {"home_id": 50, "away_id": 51})
             self.assertNotIn("stats", f.extra)
             self.assertEqual(football._item_from_fixture(f)["_extra"]["home_id"], 50)
+
+
+@override_settings(SCOREBAT_TOKEN="sb-token", SITE_URL="https://www.wlife.online")
+class VideoSeoTest(TestCase):
+    """SEO ya video: kichwa chenye matokeo, muhtasari wa kipekee, video-sitemap, og:video, ukurasa wa mwanzo."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from news import scorebat
+        from news.models import Fixture
+        cache.clear()
+        self.addCleanup(cache.clear)
+        scorebat.store(scorebat.parse({"response": [_sb_item(title="Arsenal - Chelsea", hours_ago=2)]}))
+        Fixture.objects.create(provider="highlightly", fixture_id=9900, day=timezone.localdate(), home="Arsenal FC",
+                               away="Chelsea", competition="Premier League", status="FT", home_goals=2, away_goals=1,
+                               kickoff=timezone.now() - timedelta(hours=3),
+                               extra={"final": True, "events": [
+                                   {"label": "23'", "kind": "goal", "text": "⚽ GOLI! B. Saka ameifungia Arsenal."},
+                                   {"label": "40'", "kind": "card", "text": "🟨 Kadi ya njano"}]})
+
+    def test_video_page_is_rich_and_unique(self):
+        from news.models import Highlight
+        h = Highlight.objects.get()
+        page = self.client.get(h.get_absolute_url()).content.decode()
+        for text in ("<title>Arsenal vs Chelsea 2-1 Highlights: Video za Magoli Yote | wILife</title>",
+                     "Muhtasari wa mechi", "Matokeo ya mwisho: Arsenal FC 2-1 Chelsea.", "23&#x27; GOLI! B. Saka",
+                     '<meta property="og:video" content="https://www.scorebat.com/embed/v/abc123/',
+                     '<meta property="og:image:width" content="1200">', '"inLanguage": "sw"',
+                     '"@type": "SportsEvent"', "Arsenal vs Chelsea highlights",
+                     '<iframe src="https://www.scorebat.com/embed/v/abc123/'):   # ukurasa wa video: iframe moja kwa moja
+            self.assertIn(text, page)
+        self.assertNotIn("Kadi ya njano", page.split("Muhtasari wa mechi")[1].split("</section>")[0])
+
+    def test_video_sitemap_and_robots(self):
+        from news.models import Highlight
+        h = Highlight.objects.get()
+        xml = self.client.get("/video-sitemap.xml")
+        self.assertEqual(xml["Content-Type"], "application/xml")
+        body = xml.content.decode()
+        for text in ('xmlns:video="http://www.google.com/schemas/sitemap-video/1.1"',
+                     f"<loc>https://www.wlife.online{h.get_absolute_url()}</loc>",
+                     "<video:thumbnail_loc>https://www.scorebat.com/og/m/og1.jpeg</video:thumbnail_loc>",
+                     "<video:title>Arsenal vs Chelsea 2-1 Highlights: Video za Magoli Yote</video:title>",
+                     "<video:player_loc>https://www.scorebat.com/embed/v/abc123/?utm_source=api</video:player_loc>",
+                     "<video:family_friendly>yes</video:family_friendly>"):
+            self.assertIn(text, body)
+        self.assertIn("Sitemap: https://www.wlife.online/video-sitemap.xml",
+                      self.client.get("/robots.txt").content.decode())
+
+    def test_home_page_links_latest_videos_and_new_videos_are_pinged(self):
+        from news import scorebat
+        Article.objects.create(title="Habari ya leo", category="tanzania", status="published",
+                               published_at=timezone.now(), body="Maelezo.")
+        page = self.client.get("/").content.decode()
+        self.assertIn("Video za magoli", page)
+        self.assertIn("/video/arsenal-vs-chelsea-", page)
+        with mock.patch("news.indexnow.submit") as submit:
+            scorebat.store(scorebat.parse({"response": [_sb_item(title="Roma - Lazio")]}))
+        urls = submit.call_args.args[0]
+        self.assertIn("/video/", urls)
+        self.assertTrue(any(u.startswith("/video/roma-vs-lazio-") for u in urls))
+
+
+@override_settings(SITE_URL="https://www.wlife.online")
+class TeamPageTest(TestCase):
+    """Kurasa za timu: habari, mechi ijayo, matokeo, fomu, takwimu na video — automatic, bila kubuni."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from news.models import Fixture
+        cache.clear()
+        self.addCleanup(cache.clear)
+        now = timezone.now()
+        mk = lambda fid, home, away, hg, ag, days, status="FT", logo="": Fixture.objects.create(
+            provider="highlightly", fixture_id=fid, day=timezone.localdate(), home=home, away=away,
+            home_goals=hg, away_goals=ag, status=status, competition="Ligi Kuu", home_logo=logo,
+            kickoff=now + timedelta(days=days))
+        mk(1, "Simba", "Yanga", 2, 0, -10, logo="https://hl.example/simba.png")      # W
+        mk(2, "Azam FC", "Simba SC", 1, 1, -6)                                      # D
+        mk(3, "Simba", "Coastal Union", 0, 1, -3)                                   # L
+        mk(4, "JKT Tanzania", "Kagera Sugar", 1, 0, -2)                             # si ya timu yoyote
+        mk(5, "Simba", "15 de Agosto", None, None, 1, status="NS")                  # ijayo
+
+    def test_simba_page_is_filled_automatically(self):
+        from news.models import Team
+        Article.objects.create(title="Simba SC yashinda kwa kishindo", category="tanzania", status="published",
+                               published_at=timezone.now(), body="x", excerpt="Habari ya Simba SC.")
+        Article.objects.create(title="Simba ashambulia ng'ombe Serengeti", category="tanzania", status="published",
+                               published_at=timezone.now(), body="x", excerpt="Mnyama wa porini.")
+        team = Team.objects.get(slug="simba")
+        page = self.client.get(team.get_absolute_url()).content.decode()
+        for text in ("<title>Simba SC Leo: Habari, Matokeo, Ratiba na Video za Magoli | wILife</title>",
+                     "Mechi ijayo", "15 de Agosto", "Matokeo ya karibuni", "Simba SC yashinda kwa kishindo",
+                     '"@type": "SportsTeam"', '"logo": "https://hl.example/simba.png"',
+                     "Takwimu za mechi 3 zilizorekodiwa kwenye wILife"):
+            self.assertIn(text, page)
+        self.assertNotIn("Simba ashambulia", page)                  # simba = mnyama: si habari ya timu
+        self.assertNotIn("Kagera Sugar", page)
+        from news import teams
+        s = teams.summary(team)
+        self.assertEqual(s["stats"], {"P": 3, "W": 1, "D": 1, "L": 1, "GF": 3, "GA": 2})
+        self.assertEqual(s["form"], ["L", "D", "W"])                # karibuni kwanza
+        self.assertEqual(s["results"][1]["opponent"], "Azam FC")
+        self.assertEqual(s["next"].away, "15 de Agosto")
+
+    def test_taifa_stars_matches_only_the_national_team(self):
+        from news import teams
+        from news.models import Fixture, Team
+        Fixture.objects.create(provider="highlightly", fixture_id=9, day=timezone.localdate(), home="Tanzania",
+                               away="Kenya", home_goals=2, away_goals=0, status="FT",
+                               kickoff=timezone.now() - timedelta(days=1))
+        s = teams.summary(Team.objects.get(slug="taifa-stars"))
+        self.assertEqual([x["opponent"] for x in s["results"]], ["Kenya"])   # si "JKT Tanzania"
+
+    def test_hub_sitemap_links_and_inactive(self):
+        from news.models import Fixture, Team
+        hub = self.client.get("/timu/").content.decode()
+        for name in ("Simba SC", "Young Africans (Yanga)", "Azam FC", "Taifa Stars"):
+            self.assertIn(name, hub)
+        sitemap = self.client.get("/sitemap.xml").content.decode()
+        self.assertIn("https://www.wlife.online/timu/simba/</loc>", sitemap)
+        f = Fixture.objects.get(fixture_id=1)
+        page = self.client.get(f.get_absolute_url()).content.decode()
+        self.assertIn('href="/timu/simba/"', page)                  # ukurasa wa mechi -> kurasa za timu
+        self.assertIn('href="/timu/yanga/"', page)
+        Team.objects.filter(slug="azam").update(active=False)
+        self.assertEqual(self.client.get("/timu/azam/").status_code, 404)
+
+    def test_team_videos(self):
+        from news import scorebat, teams
+        from news.models import Team
+        scorebat.store(scorebat.parse({"response": [_sb_item(title="Simba SC - Yanga", hours_ago=4),
+                                                    _sb_item(title="Arsenal - Chelsea")]}))
+        vids = teams.videos(Team.objects.get(slug="simba"))
+        self.assertEqual([v.name for v in vids], ["Simba SC vs Yanga"])
