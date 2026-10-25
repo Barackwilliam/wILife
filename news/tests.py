@@ -2684,3 +2684,91 @@ class FixturePageTest(TestCase):
             LiveMatch.objects.create(article=a, fixture_id=9100, provider="highlightly", home="USM Alger", away="Panthers")
         r = self.client.get(self.f.get_absolute_url())
         self.assertRedirects(r, a.get_absolute_url(), fetch_redirect_response=False)
+
+
+@override_settings(HIGHLIGHTLY_API_KEY="hl-key", API_FOOTBALL_KEY="", HIGHLIGHTLY_LEAGUES=["England:Premier League"],
+                   SITE_URL="https://www.wlife.online")
+class PastDayResultsTest(TestCase):
+    """Siku zilizopita: matokeo ya mwisho tu, yanayojazwa hata ligi isiposaidia, na siku iliyokosekana inasomwa."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from news.models import Fixture
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.yesterday = timezone.localdate() - timedelta(days=1)
+        ko = timezone.now() - timedelta(hours=20)
+        self.done = Fixture.objects.create(fixture_id=1, day=self.yesterday, home="Zamalek", away="APR",
+                                           competition="CAF Champions League", status="FT",
+                                           home_goals=1, away_goals=0, kickoff=ko)
+        self.stuck = Fixture.objects.create(fixture_id=2, day=self.yesterday, home="Renaissance", away="Star Sport",
+                                            competition="CAF Champions League", status="NS", kickoff=ko)
+
+    def test_unfinished_matches_are_hidden_and_empty_days_are_not_linked(self):
+        page = self.client.get("/matokeo-ya-jana/").content.decode()
+        self.assertIn("Zamalek", page)
+        self.assertNotIn("Renaissance", page)
+        two_back = (self.yesterday - timedelta(days=1)).isoformat()
+        self.assertNotIn(f"/mechi/{two_back}/", page)               # siku isiyo na data haina kitufe
+
+    def test_results_fill_match_by_match_when_league_call_cannot(self):
+        from news import fixtures, football
+        final = _hl(mid=2, desc="Finished", score="2 - 2", events=[], kickoff=self.stuck.kickoff)
+        with mock.patch("news.highlightly.requests.get", return_value=_HLResp([final])) as get:
+            spent = fixtures.refresh_results(football._state(), timezone.now(), 80)
+        self.assertEqual((spent, get.call_count), (1, 1))            # haina leagueId: ombi la mechi moja
+        self.stuck.refresh_from_db()
+        self.assertEqual((self.stuck.status, self.stuck.home_goals), ("FT", 2))
+        self.assertIn("Arsenal", self.client.get("/matokeo-ya-jana/").content.decode())   # jina la API sasa
+
+    def test_a_missing_past_day_is_read_once(self):
+        from news import fixtures, football
+        from news.models import Fixture
+        two_back = self.yesterday - timedelta(days=1)
+        Fixture.objects.create(fixture_id=3, day=timezone.localdate(), home="A", away="B", kickoff=timezone.now())
+        raw = _hl(mid=50, desc="Finished", score="3 - 1", kickoff=timezone.now() - timedelta(days=2))
+        with mock.patch("news.highlightly.requests.get",
+                        return_value=_HLResp({"data": [raw], "pagination": {"totalCount": 1}})) as get:
+            fixtures.backfill(football._state(), timezone.now(), 90)
+            fixtures.backfill(football._state(), timezone.now(), 90)
+        self.assertEqual(get.call_args_list[0].kwargs["params"]["date"], two_back.isoformat())
+        self.assertTrue(Fixture.objects.filter(fixture_id=50, status="FT").exists())
+        self.assertEqual(self.client.get(f"/mechi/{Fixture.objects.get(fixture_id=50).day.isoformat()}/").status_code, 200)
+
+
+class MatchWordingTenseTest(TestCase):
+    """Maandishi yanaendana na wakati: kabla (itaanza), wakati (inaendelea), baada (ulichezwa)."""
+
+    def test_body_follows_the_match(self):
+        from news import football
+        from news.models import LiveMatch
+        with mock.patch("news.models.Article.render_cover"):
+            a = Article.objects.create(title="t", category="dunia", excerpt="x", body="", status="published",
+                                       published_at=timezone.now(), origin="football")
+        m = LiveMatch(article=a, home="Simba", away="Yanga", competition="Ligi Kuu Bara", venue="Benjamin Mkapa",
+                      kickoff=timezone.now(), home_goals=2, away_goals=1, status="FT")
+        before = football._preview_body(m) + "\n\n## Uchambuzi kabla ya mechi\n\n- Uchambuzi"
+        self.assertIn("Mechi itaanza", before)
+        during = football._live_body(m, before)
+        self.assertIn("unaoendelea sasa", during)
+        self.assertIn("Mechi inaendelea sasa", during)
+        self.assertNotIn("itaanza", during)
+        self.assertIn("- Uchambuzi", during)                     # uchambuzi unabaki
+        after = football._final_body(m, a)
+        self.assertIn("imekamilika kwa matokeo ya Simba 2-1 Yanga", after)
+        self.assertIn("ulichezwa", after)
+        self.assertNotIn("itaanza", after)
+        self.assertNotIn("utaonekana", after)
+
+    def test_day_page_names_the_leagues_actually_played(self):
+        from news.models import Fixture
+        day = timezone.localdate() - timedelta(days=1)
+        for i, comp in enumerate(["CAF Champions League", "La Liga"]):
+            Fixture.objects.create(fixture_id=i + 1, day=day, home=f"H{i}", away=f"A{i}", competition=comp,
+                                   status="FT", home_goals=1, away_goals=0, rank=i,
+                                   kickoff=timezone.now() - timedelta(hours=20))
+        page = self.client.get("/matokeo-ya-jana/").content.decode()
+        self.assertIn("mechi 2 zilizochezwa", page)
+        self.assertIn("CAF Champions League na La Liga", page)
+        self.assertNotIn("zilizochezwa tarehe", page)
+        self.assertNotIn("Premier League, La Liga, Serie A", page)
