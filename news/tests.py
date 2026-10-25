@@ -2089,7 +2089,8 @@ class MatchEnrichmentTest(TestCase):
         self.assertEqual(x["stats"][0], {"name": "Umiliki wa mpira", "home": "62%", "away": "38%", "pct": 62})
         self.assertEqual(x["stats"][1]["name"], "Nafasi za kufunga zilizotengenezwa (xG)")
         self.assertEqual((x["stats"][1]["home"], x["stats"][1]["away"]), ("1.91", "0.7"))
-        self.assertIn("Arsenal wameutawala mpira kwa muda mwingi zaidi (62% dhidi ya 38%).", self.m.insights)
+        self.assertIn({"label": "Umiliki wa mpira",
+                       "text": "Arsenal wameutawala mpira kwa muda mwingi zaidi: Arsenal 62% – 38% Chelsea."}, self.m.insights)
         page = self.client.get(self.a.get_absolute_url()).content.decode()
         for text in ("Uchambuzi wa wILife", "Takwimu", "Umiliki wa mpira", "Michael Oliver", "14°C"):
             self.assertIn(text, page)
@@ -2115,13 +2116,20 @@ class MatchEnrichmentTest(TestCase):
         self.assertEqual(x["h2h_tally"], {"W": 1, "D": 1, "L": 1})
         self.assertEqual((x["form_home"], x["form_away"]), (["W", "D"], ["L"]))
         tips = self.m.insights
-        self.assertIn("Katika mechi 3 za mwisho walizokutana, Arsenal wameshinda 1, Chelsea wameshinda 1, na mechi 1 zimeisha kwa sare.", tips)
-        self.assertIn("Arsenal: imeshinda mechi 1 kati ya 2 zilizopita (ushindi, sare).", tips)
+        self.assertIn({"label": "Walipokutana wao kwa wao",
+                       "text": "Katika mechi 3 za mwisho kati ya Arsenal na Chelsea: Arsenal wameshinda 1, "
+                               "Chelsea wameshinda 1, sare 1."}, tips)
+        self.assertIn({"label": "Mechi 2 za mwisho za Arsenal",
+                       "text": "Dhidi ya timu mbalimbali: ushindi 1, sare 1, kipigo 0."}, tips)
         self.a.refresh_from_db()
         self.assertIn("## Uchambuzi kabla ya mechi", self.a.body)
         self.assertIn("2026-09-01: Arsenal 2 - 0 Chelsea", self.a.body)
         page = self.client.get(self.a.get_absolute_url()).content.decode()
         self.assertIn("Historia ya kukutana", page)
+        self.assertIn("Mechi 2 za mwisho za Arsenal", page)                    # jedwali la wapinzani
+        self.assertIn('Arsenal ilishinda mara <b>1</b>', page)
+        self.assertIn("<td>Y<small>Ugenini</small></td>", page)
+        self.assertIn("- 01/09/26: Arsenal 3-0 X (Nyumbani) — Ushindi", self.a.body)
         self.assertIn('class="f-W"', page)
 
     def test_lineups_near_kickoff_and_highlights_after_full_time(self):
@@ -2344,7 +2352,8 @@ class PredictionTest(TestCase):
         self.m = LiveMatch.objects.create(article=self.a, fixture_id=55, provider="highlightly", home="Arsenal",
                                           away="Chelsea", competition="Premier League",
                                           kickoff=timezone.now() + timedelta(hours=5),
-                                          extra={"form_home_games": strong, "form_away_games": weak})
+                                          extra={"form_home_games": strong, "form_away_games": weak,
+                                                 "form_home": ["W", "W", "W", "W"], "form_away": ["L", "L", "L", "D"]})
 
     def test_compute_favours_the_team_in_form_and_sums_to_100(self):
         from news import predict
@@ -2353,7 +2362,26 @@ class PredictionTest(TestCase):
         self.assertGreater(p["home"], 60)
         self.assertEqual(p["pick"], "1")
         self.assertRegex(p["score"], r"^\d-\d$")
-        self.assertIn("Utabiri wa wILife", " ".join(self.m.insights))
+        from news.enrich import insights
+        self.assertIn("Utabiri wa wILife", " ".join(insights(self.m)))          # kwenye makala
+        self.assertNotIn("Utabiri", [i["label"] for i in self.m.insights])      # ukurasani una kisanduku chake
+
+    def test_home_side_with_better_results_and_record_is_not_the_underdog(self):
+        """Wenyeji wenye matokeo bora na historia bora hawawi "wanyonge" kwa sababu wageni walishinda 4-0 mara moja."""
+        from news import predict
+        liv = [("1 - 0", 1), ("2 - 1", 1), ("1 - 0", 1), ("1 - 3", 1), ("2 - 1", 1)]
+        bri = [("2 - 2", 1), ("3 - 1", 1), ("4 - 0", 1), ("2 - 1", 1), ("3 - 0", 1)]
+        h2h = [("Brighton", "2 - 1", "Liverpool"), ("Liverpool", "3 - 0", "Brighton"), ("Liverpool", "2 - 0", "Brighton"),
+               ("Brighton", "3 - 2", "Liverpool"), ("Liverpool", "2 - 1", "Brighton"), ("Brighton", "2 - 3", "Liverpool")]
+        self.m.home, self.m.away = "Liverpool", "Brighton"
+        self.m.extra = {
+            "form_home_games": [{"home": "Liverpool", "away": f"T{i}", "score": sc} for i, (sc, _) in enumerate(liv)],
+            "form_away_games": [{"home": "Brighton", "away": f"U{i}", "score": sc} for i, (sc, _) in enumerate(bri)],
+            "form_home": ["W", "W", "W", "L", "W"], "form_away": ["D", "W", "W", "W", "W"],
+            "h2h": [{"home": h, "away": a, "score": sc} for h, sc, a in h2h], "h2h_tally": {"W": 4, "D": 0, "L": 2}}
+        p = predict.compute(self.m)
+        self.assertGreater(p["home"], p["away"])
+        self.assertEqual(p["home"] + p["draw"] + p["away"], 100)
 
     def test_not_enough_games_means_no_prediction(self):
         from news import predict
@@ -2595,3 +2623,64 @@ class OverdueMatchTest(TestCase):
         self.assertEqual((self.m.status, self.m.home_goals, self.m.away_goals), ("FT", 2, 1))
         self.assertIsNotNone(self.a.live_ended_at)
         self.assertNotIn("matokeo ya mwisho", again["detail"])
+
+
+@override_settings(HIGHLIGHTLY_API_KEY="hl-key", API_FOOTBALL_KEY="", HIGHLIGHTLY_LEAGUES=["*:CAF Confederation Cup"],
+                   SITE_URL="https://www.wlife.online", FOOTBALL_ONDEMAND_MAX=1)
+class FixturePageTest(TestCase):
+    """Kila mechi ya ratiba ina ukurasa: matokeo, matukio na takwimu zinaombwa msomaji akiufungua (ndani ya bajeti)."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from news.models import Fixture
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.f = Fixture.objects.create(fixture_id=9100, day=timezone.localdate(), home="USM Alger", away="Panthers",
+                                        competition="CAF Confederation Cup", status="NS",
+                                        kickoff=timezone.now() - timedelta(minutes=50))
+
+    def test_unknown_state_without_clock_is_not_shown_as_live(self):
+        from news import highlightly
+        raw = _hl(desc="Time to be defined")
+        self.assertEqual(highlightly._status(raw), "NS")
+        self.assertEqual(highlightly._status(_hl(desc="Delayed")), "NS")
+        self.assertEqual(highlightly._status(_hl(desc="In progress", clock=12)), "LIVE")
+
+    def test_row_links_to_fixture_page_which_fetches_details_once_within_budget(self):
+        from news.models import Fixture
+        page = self.client.get("/mechi-za-leo/").content.decode()
+        url = self.f.get_absolute_url()
+        self.assertIn(f'href="{url}"', page)
+        goal = {"type": "Goal", "time": "23", "team": {"id": 1, "name": "USM Alger"}, "player": "A. Mehdi"}
+        raw = _hl(mid=9100, desc="Second half", clock=61, score="1 - 0", events=[goal],
+                  league="CAF Confederation Cup", country="Africa", kickoff=self.f.kickoff)
+        raw["homeTeam"]["name"], raw["awayTeam"]["name"] = "USM Alger", "Panthers"
+        raw.update(referee={"name": "J. Gomes"})
+        with mock.patch("news.highlightly.requests.get", return_value=_HLResp([raw])) as get:
+            body = self.client.get(url).content.decode()
+            from django.core.cache import cache
+            cache.clear()
+            self.client.get(url)                                    # chini ya dakika 10: haiombwi tena
+        self.assertEqual(get.call_count, 1)
+        for text in ("USM Alger dhidi ya Panthers", "Matukio ya mechi", "GOLI! A. Mehdi", "J. Gomes",
+                     '"@type": "SportsEvent"'):
+            self.assertIn(text, body)
+        f = Fixture.objects.get()
+        self.assertEqual((f.status, f.home_goals, f.away_goals), ("2H", 1, 0))
+
+    def test_budget_reached_means_no_request(self):
+        from news.models import DailyCount
+        DailyCount.bump("fixture-detail")
+        with mock.patch("news.highlightly.requests.get") as get:
+            body = self.client.get(self.f.get_absolute_url()).content.decode()
+        get.assert_not_called()
+        self.assertIn("hazipatikani kwa sasa", body)
+
+    def test_fixture_with_live_coverage_redirects_to_its_article(self):
+        from news.models import LiveMatch
+        a = Article.objects.create(title="USM Alger LIVE", category="afrika", excerpt="x", body="b",
+                                   status="published", published_at=timezone.now(), origin="football")
+        with mock.patch("news.models.Article.render_cover"):
+            LiveMatch.objects.create(article=a, fixture_id=9100, provider="highlightly", home="USM Alger", away="Panthers")
+        r = self.client.get(self.f.get_absolute_url())
+        self.assertRedirects(r, a.get_absolute_url(), fetch_redirect_response=False)

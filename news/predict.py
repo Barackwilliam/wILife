@@ -18,6 +18,11 @@ from news.models import LiveMatch
 HOME_EDGE = 1.12           # faida ya kucheza nyumbani (wastani wa ligi kubwa)
 AWAY_EDGE = 0.90
 MIN_GAMES = 3              # chini ya hapa data haitoshi kukadiria
+LEAGUE_GOALS = 1.4         # wastani wa magoli ya timu moja kwa mechi (ligi kubwa)
+PRIOR_GAMES = 5            # mechi 5 ni chache: magoli yanavutwa kuelekea wastani kana kwamba kuna mechi 5 za wastani
+H2H_WEIGHT = 0.3           # uzito wa magoli ya mechi walizokutana (zikiwa 3 au zaidi)
+RESULT_WEIGHT = 0.35       # uzito wa matokeo (ushindi/sare/kipigo + historia ya kukutana) dhidi ya magoli
+POINTS = {"W": 3, "D": 1, "L": 0}
 MAX_GOALS = 10
 PICK_SW = {"1": "{home} ishinde", "X": "sare", "2": "{away} ishinde"}
 
@@ -55,6 +60,11 @@ def _clamp(v):
     return max(0.25, min(3.5, v))
 
 
+def _shrink(avg, n):
+    """Wastani wa mechi chache, ukivutwa kuelekea wastani wa ligi (ushindi mmoja wa 4-0 usiamue kila kitu)."""
+    return (avg * n + LEAGUE_GOALS * PRIOR_GAMES) / (n + PRIOR_GAMES)
+
+
 def expected_goals(m):
     """(magoli yanayotarajiwa ya wenyeji, ya wageni) au None kama data haitoshi."""
     x = m.extra or {}
@@ -62,13 +72,37 @@ def expected_goals(m):
     as_, ac, an = _rates(x.get("form_away_games"), m.away)
     if hn < MIN_GAMES or an < MIN_GAMES:
         return None
+    hs, hc, as_, ac = _shrink(hs, hn), _shrink(hc, hn), _shrink(as_, an), _shrink(ac, an)
     lam_h = (hs + ac) / 2 * HOME_EDGE
     lam_a = (as_ + hc) / 2 * AWAY_EDGE
     h2h = [g for g in x.get("h2h") or [] if _goals(g.get("score"))]
     if len(h2h) >= 3:
-        mine, theirs = _rates(h2h, m.home)[:2]
-        lam_h, lam_a = 0.8 * lam_h + 0.2 * mine, 0.8 * lam_a + 0.2 * theirs
+        mine, theirs, n = _rates(h2h, m.home)
+        if n >= 3:
+            w = H2H_WEIGHT
+            lam_h, lam_a = (1 - w) * lam_h + w * mine, (1 - w) * lam_a + w * theirs
     return _clamp(lam_h), _clamp(lam_a)
+
+
+def _result_odds(m):
+    """
+    Uwezekano kutokana na matokeo yenyewe: pointi za mechi 5 zilizopita (W=3, D=1) na ushindi kwenye
+    historia ya kukutana. Magoli pekee yanaweza kumpendelea timu iliyoshinda 4-0 dhidi ya timu dhaifu.
+    """
+    x = m.extra or {}
+    fh, fa = x.get("form_home") or [], x.get("form_away") or []
+    form = 0.0
+    if fh and fa:
+        form = (sum(POINTS[r] for r in fh) / len(fh) - sum(POINTS[r] for r in fa) / len(fa)) / 3
+    t = x.get("h2h_tally") or {}
+    n = sum(t.values()) if t else 0
+    h2h = (t.get("W", 0) - t.get("L", 0)) / n if n >= 3 else 0.0
+    s = 0.6 * form + 0.4 * h2h if n >= 3 else form                 # -1 (wageni bora) .. 1 (wenyeji bora)
+    home, away = 0.45 + 0.30 * s, 0.29 - 0.30 * s
+    home, away = max(0.05, home), max(0.05, away)
+    draw = max(0.10, 1 - home - away)
+    total = home + draw + away
+    return home / total, draw / total, away / total
 
 
 def _round100(values):
@@ -104,7 +138,10 @@ def compute(m):
             if p > best_p:
                 best, best_p = (i, j), p
     total = win + draw + loss
-    p_home, p_draw, p_away = _round100([win / total, draw / total, loss / total])
+    rh, rd, ra = _result_odds(m)
+    mix = [(1 - RESULT_WEIGHT) * p + RESULT_WEIGHT * r for p, r in zip((win / total, draw / total, loss / total),
+                                                                         (rh, rd, ra))]
+    p_home, p_draw, p_away = _round100(mix)
     pick = max((("1", p_home), ("X", p_draw), ("2", p_away)), key=lambda t: t[1])[0]
     return {"home": p_home, "draw": p_draw, "away": p_away, "pick": pick,
             "score": f"{best[0]}-{best[1]}", "over25": round(over * 100), "btts": round(btts * 100),

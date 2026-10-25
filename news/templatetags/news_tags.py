@@ -217,6 +217,24 @@ def predictions_jsonld(context, matches):
                                items, [("Mwanzo", "/"), ("LIVE", "/live/"), ("Utabiri", request.path)]))
 
 
+@register.simple_tag(takes_context=True)
+def fixture_jsonld(context, f):
+    """Mechi ya ratiba: SportsEvent + breadcrumb."""
+    request = context["request"]
+    url = _abs(request, f.get_absolute_url())
+    event = {"@context": "https://schema.org", **sports_event(f, url)}
+    if f.has_score and f.is_finished:
+        event["description"] = f"{f.home} {f.home_goals}-{f.away_goals} {f.away} — {f.competition}"
+    day_url = f"/mechi/{f.day.isoformat()}/"
+    return _script([event, {
+        "@context": "https://schema.org", "@type": "BreadcrumbList",
+        "itemListElement": [
+            {"@type": "ListItem", "position": 1, "name": "Mwanzo", "item": _abs(request, "/")},
+            {"@type": "ListItem", "position": 2, "name": "Mechi za siku", "item": _abs(request, day_url)},
+            {"@type": "ListItem", "position": 3, "name": f"{f.home} dhidi ya {f.away}", "item": url},
+        ]}])
+
+
 @register.simple_tag
 def join_options():
     """Njia zilizo wazi za kupata ujumbe wa michezo: {'wa': wa.me link, 'email': bool, 'channel': link}."""

@@ -327,7 +327,8 @@ FOOTBALL_DIGEST_ENABLED = env_bool("FOOTBALL_DIGEST_ENABLED", True)
 FOOTBALL_DIGEST_HOURS = env("FOOTBALL_DIGEST_HOURS", "8")         # saa za kutuma (Afrika Mashariki), mf. "8,22"
 FOOTBALL_DIGEST_PER_TICK = int(env("FOOTBALL_DIGEST_PER_TICK", "6"))
 FOOTBALL_WHATSAPP_MAX = int(env("FOOTBALL_WHATSAPP_MAX", "300"))     # wanachama wa WhatsApp; wakizidi -> email/channel
-FOOTBALL_EMAIL_DAILY_MAX = int(env("FOOTBALL_EMAIL_DAILY_MAX", "90"))  # Resend bure: ~100 kwa siku
+FOOTBALL_EMAIL_DAILY_MAX = int(env("FOOTBALL_EMAIL_DAILY_MAX", "90"))
+FOOTBALL_ONDEMAND_MAX = int(env("FOOTBALL_ONDEMAND_MAX", "20"))      # maelezo ya mechi zisizo na LIVE msomaji akizifungua  # Resend bure: ~100 kwa siku
 NEWS_EMAIL_FROM = env("NEWS_EMAIL_FROM", "")                          # mf. "wILife Michezo <michezo@wlife.online>"; tupu = AGENT_EMAIL_FROM
 WHATSAPP_CHANNEL_NAME = env("WHATSAPP_CHANNEL_NAME", "Soka360")
 WHATSAPP_CHANNEL = env("WHATSAPP_CHANNEL", "")                        # link ya WhatsApp Channel (whatsapp.com/channel/...) au JID @newsletter

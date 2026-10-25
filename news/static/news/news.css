@@ -1002,3 +1002,51 @@ a.fx:hover { background: var(--brand-soft); }
 .waj-ch { display: inline-flex; align-items: center; gap: 8px; background: #111 !important; color: #ffc93c !important; }
 .waj-ch img { width: 24px; height: 24px; border-radius: 50%; }
 .waj-ch:hover { background: #000 !important; }
+.mp-ai li b { display: block; font-size: .72rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--brand-2); margin-bottom: 2px; }
+.mp-ai li span { display: block; }
+
+/* Uchambuzi kwa majedwali (_match_panel.html) */
+.ai-wrap { overflow-x: auto; margin: 4px 0 14px; border-radius: 12px; background: rgba(255,255,255,.06); }
+.mp-ai table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.mp-ai th, .mp-ai td { padding: 9px 10px; border-bottom: 1px solid rgba(255,255,255,.1); vertical-align: middle; text-align: left; }
+.mp-ai tbody tr:last-child th, .mp-ai tbody tr:last-child td { border-bottom: 0; }
+.mp-ai thead th { font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.7); }
+.mp-ai small { display: block; font-size: .74rem; font-weight: 600; color: rgba(255,255,255,.6); letter-spacing: 0; text-transform: none; }
+.ai-sum thead th:not(:first-child), .ai-sum td { text-align: center; }
+.ai-sum thead th img { display: block; margin: 0 auto 4px; width: 22px; height: 22px; object-fit: contain; background: #fff; border-radius: 50%; padding: 2px; }
+.ai-sum tbody th { font-weight: 800; font-size: .86rem; }
+.ai-sum td b { font-size: 1.5rem; line-height: 1; }
+.ai-wdl { display: inline-flex; gap: 4px; }
+.mp-ai i.f-W, .mp-ai i.f-D, .mp-ai i.f-L { display: inline-grid; place-items: center; min-width: 24px; height: 24px; padding: 0 4px; border-radius: 6px; font-style: normal; font-weight: 800; font-size: .8rem; color: #fff; }
+.mp-ai .f-W { background: #16a34a; } .mp-ai .f-D { background: #64748b; } .mp-ai .f-L { background: #dc2626; }
+.ai-h { margin: 6px 0 6px; font-size: .78rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--brand-2); }
+.ai-games td:first-child { white-space: nowrap; color: rgba(255,255,255,.75); font-variant-numeric: tabular-nums; width: 1%; }
+.ai-games td:last-child, .ai-games th:last-child { text-align: right; width: 1%; }
+.ai-res { display: inline-block; min-width: 46px; padding: 3px 8px; border-radius: 6px; text-align: center; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; }
+.ai-res.f-W { background: #16a34a; } .ai-res.f-D { background: #64748b; } .ai-res.f-L { background: #dc2626; }
+.ai-key { margin: 0; font-size: .75rem; color: rgba(255,255,255,.65); display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.ai-key i { min-width: 10px !important; width: 10px; height: 10px !important; padding: 0 !important; border-radius: 3px !important; }
+.mp-h2h { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.mp-h2h th, .mp-h2h td { padding: 9px 8px; border-bottom: 1px solid var(--line); text-align: left; }
+.mp-h2h thead th { font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.mp-h2h td:first-child { white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
+.mp-h2h td:nth-child(3), .mp-h2h th:nth-child(3) { text-align: center; white-space: nowrap; }
+.mp-h2h td:last-child, .mp-h2h th:last-child { text-align: right; }
+@media (max-width: 560px) { .mp-h2h td:first-child, .mp-h2h th:first-child { display: none; } }
+.ai-key span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.ai-sum td.ai-won { font-weight: 700; font-size: .9rem; line-height: 1.35; }
+.ai-sum td.ai-won b { font-size: 1.15rem; }
+
+/* Ukurasa wa mechi ya ratiba (fixture.html) */
+.fxd-title { font-family: var(--font-display); font-size: clamp(1.6rem, 4.4vw, 2.4rem); line-height: 1.15; margin: 4px 0 6px; }
+.fxd-dek { color: var(--muted); margin: 0 0 18px; font-weight: 600; }
+.fxd-sec { margin: 0 0 26px; }
+.fxd-sec h2 { font-size: .9rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 10px; }
+.fxd-ev { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); overflow: hidden; }
+.fxd-ev li { display: grid; grid-template-columns: 54px 1fr; gap: 10px; padding: 11px 14px; border-top: 1px solid var(--line); }
+.fxd-ev li:first-child { border-top: 0; }
+.fxd-ev b { color: var(--brand-ink); font-variant-numeric: tabular-nums; }
+.fxd-ev .k-goal { background: linear-gradient(90deg, rgba(22,163,74,.12), transparent 70%); font-weight: 700; }
+.fxd-ev .k-red { box-shadow: inset 4px 0 #dc2626; }
+.fxd-ev .k-card { box-shadow: inset 4px 0 #eab308; }
+.fxd-more { font-weight: 800; color: var(--brand-ink); display: inline-flex; align-items: center; gap: 6px; }

@@ -35,6 +35,7 @@ urlpatterns = [
     path("mechi-za-leo/", views.matches_today, name="matches_today"),
     path("matokeo-ya-jana/", views.results_yesterday, name="results_yesterday"),
     path("mechi/<str:day>/", views.matches_day, name="matches_day"),
+    path("mechi/<str:day>/<int:pk>-<slug:slug>/", views.fixture_detail, name="fixture"),
     path("utabiri/", views.predictions, name="predictions"),
     path("makadirio/", RedirectView.as_view(pattern_name="news:predictions", permanent=True)),
     path("michezo/jiunge/", views.digest_join, name="digest_join"),

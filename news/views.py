@@ -299,6 +299,25 @@ def matches_day(request, day):
 
 
 @_live_page
+def fixture_detail(request, day, pk, slug):
+    """Mechi ya ratiba isiyo na LIVE yake: matokeo, matukio na takwimu (zinaombwa msomaji akifungua)."""
+    from news import fixtures
+    from news.models import Fixture, LiveMatch
+    from news.pipeline import swahili_date
+    f = get_object_or_404(Fixture, pk=pk)
+    m = LiveMatch.objects.select_related("article").filter(provider=f.provider, fixture_id=f.fixture_id,
+                                                           article__status="published").first()
+    if m:                                                     # mechi ina LIVE kamili: ukurasa wake
+        return redirect(m.article.get_absolute_url())
+    if request.path != f.get_absolute_url():
+        return redirect(f.get_absolute_url(), permanent=True)
+    fixtures.refresh_detail(f)
+    others = [r for r in fixtures.day_rows(f.day) if r.key != f"{f.provider}{f.fixture_id}"][:8]
+    return render(request, "news/fixture.html", {"f": f, "x": f.extra or {}, "others": others, "now": timezone.now(),
+                                                 "date_text": swahili_date(f.day)})
+
+
+@_live_page
 def predictions(request):
     """Makadirio ya mechi zijazo + rekodi ya wazi ya yalivyopatia."""
     from news import predict

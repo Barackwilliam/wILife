@@ -114,16 +114,19 @@ class Row:
         self.city = getattr(src, "city", "")
         self.article = article
         self.match = src if isinstance(src, LiveMatch) else None
+        self.fixture = src if isinstance(src, Fixture) else None
         self.rank = rank
         self.key = f"{getattr(src, 'provider', '')}{getattr(src, 'fixture_id', '') or src.pk}"
         self.fixture_id = getattr(src, "fixture_id", None)
 
     has_score = property(lambda s: s.home_goals is not None and s.away_goals is not None)
-    is_playing = property(lambda s: s.status in LiveMatch.PLAYING and not LiveMatch.stale(s))
+    is_playing = property(lambda s: s.status in LiveMatch.PLAYING and not LiveMatch.stale(s)
+                          and not (s.kickoff and LiveMatch.not_started(s)))
     is_finished = property(lambda s: s.status in LiveMatch.FINISHED)
     is_off = property(lambda s: s.status in LiveMatch.OFF)
     clock = property(lambda s: LiveMatch.clock.fget(s))
-    url = property(lambda s: s.article.get_absolute_url() if s.article else "")
+    url = property(lambda s: s.article.get_absolute_url() if s.article
+                   else (s.fixture.get_absolute_url() if s.fixture else ""))
 
     def get_status_display(self):
         return dict(LiveMatch.STATUS).get(self.status, self.status)
@@ -174,3 +177,69 @@ def days_with_fixtures(limit=60):
     days |= {timezone.localtime(k).date() for k in LiveMatch.objects.filter(
         article__status="published", kickoff__gte=timezone.now() - timedelta(days=limit)).values_list("kickoff", flat=True) if k}
     return sorted(days, reverse=True)
+
+
+# ── Ukurasa wa mechi isiyo na LIVE: maelezo yanaombwa msomaji anapoufungua ─────
+
+ONDEMAND_KEY = "fixture-detail"
+
+
+def _due(f, now):
+    """Je, maelezo ya mechi hii yaombwe tena sasa? (ombi 1; mechi iliyoisha haiombwi tena)"""
+    from datetime import datetime as _dt
+    x = f.extra or {}
+    try:
+        age = now - _dt.fromisoformat(x["fetched_at"])
+    except (KeyError, TypeError, ValueError):
+        return bool(f.kickoff and f.kickoff <= now + timedelta(hours=1))   # mechi ya kesho: bado hakuna cha kuonyesha
+    if f.status in LiveMatch.FINISHED | LiveMatch.OFF and x.get("final"):
+        return False
+    started = f.kickoff and f.kickoff <= now
+    return bool(started and age > timedelta(minutes=10)) or age > timedelta(hours=12)
+
+
+def refresh_detail(f, now=None):
+    """
+    Maelezo ya mechi (matokeo, matukio, takwimu, uwanja, mwamuzi) msomaji anapofungua ukurasa wake.
+    Ndani ya bajeti tu: FOOTBALL_ONDEMAND_MAX kwa siku, na maombi ya mechi za LIVE yakibaki ya kutosha.
+    Inarudisha True kama ombi lilifanyika.
+    """
+    from news import football, highlightly
+    from news.enrich import LIVE_RESERVE
+    from news.models import DailyCount
+    now = now or timezone.now()
+    if f.provider != "highlightly" or football.provider() != "highlightly" or not _due(f, now):
+        return False
+    state = football._state(now)
+    if (football.daily_limit() - state.requests <= LIVE_RESERVE
+            or DailyCount.get(ONDEMAND_KEY) >= getattr(settings, "FOOTBALL_ONDEMAND_MAX", 20)):
+        return False
+    f.extra = {**(f.extra or {}), "fetched_at": now.isoformat()}     # muda wa jaribio — wageni wengi, ombi moja
+    type(f).objects.filter(pk=f.pk).update(extra=f.extra)
+    DailyCount.bump(ONDEMAND_KEY)
+    try:
+        items = highlightly.match(state, f)
+        state.save(update_fields=["requests", "remaining"])
+    except Exception as exc:
+        log.warning("fixture detail %s failed: %s", f.fixture_id, exc)
+        return True
+    if not items:
+        return True
+    item = items[0]
+    rank = f.rank
+    _set(f, item)
+    f.rank = rank
+    fx = item["fixture"]
+    venue = fx.get("venue") or {}
+    events = []
+    for ev in sorted(item.get("events") or [], key=lambda e: ((e.get("time") or {}).get("elapsed") or 0,
+                                                              (e.get("time") or {}).get("extra") or 0)):
+        out = football.event_text(ev, f)
+        if out:
+            events.append({"label": football._label(ev), "kind": out[0], "text": out[1]})
+    extra = item.get("_extra") or {}
+    f.extra = {**(f.extra or {}), "events": events, "stats": extra.get("stats") or (f.extra or {}).get("stats") or [],
+               "referee": extra.get("referee", ""), "venue": venue.get("name") or "", "city": venue.get("city") or "",
+               "final": f.status in LiveMatch.FINISHED}
+    f.save()
+    return True
