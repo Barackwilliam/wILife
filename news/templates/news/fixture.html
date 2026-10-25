@@ -41,7 +41,7 @@
 {% endif %}
 
 {% if not x.events and not x.stats %}
-<p class="lh-wait">{% if f.status == 'NS' and f.kickoff and f.kickoff > now %}⏱ Mechi bado haijaanza. Matukio na takwimu zitaonekana hapa mechi ikianza — fungua ukurasa huu tena.{% else %}Matukio na takwimu za mechi hii hazipatikani kwa sasa. Jaribu tena baada ya muda mfupi.{% endif %}</p>
+<p class="lh-wait">{% if f.status == 'NS' and f.kickoff and f.kickoff > now %}⏱ Mechi bado haijaanza. Matukio na takwimu zitaonekana hapa mechi ikianza — fungua ukurasa huu tena.{% elif f.is_overdue %}Mechi hii ilipangwa kuanza saa {{ f.kickoff|time:"H:i" }}, lakini bado hatujapata taarifa zake mpya. Matokeo na matukio yataonekana hapa yakipatikana.{% else %}Matukio na takwimu za mechi hii hazipatikani kwa sasa. Jaribu tena baada ya muda mfupi.{% endif %}</p>
 {% endif %}
 
 {% if others %}

@@ -210,6 +210,7 @@ class Row:
     is_finished = property(lambda s: s.status in LiveMatch.FINISHED)
     is_off = property(lambda s: s.status in LiveMatch.OFF)
     clock = property(lambda s: LiveMatch.clock.fget(s))
+    is_overdue = property(lambda s: LiveMatch.overdue(s))
     url = property(lambda s: s.article.get_absolute_url() if s.article
                    else (s.fixture.get_absolute_url() if s.fixture else ""))
 

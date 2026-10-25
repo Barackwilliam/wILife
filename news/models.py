@@ -413,9 +413,22 @@ class LiveMatch(models.Model):
         """Hali ya "inaendelea" kwa mechi iliyopangwa kuanza zaidi ya dakika 15 baadaye ni data iliyokosewa."""
         return bool(obj.kickoff and obj.kickoff > timezone.now() + timedelta(minutes=15))
 
+    @staticmethod
+    def overdue(obj):
+        """
+        Mechi ya API ambayo muda wake wa kuanza umepita lakini bado tunayo hali ya "haijaanza" (NS): hatuna
+        data mpya (mechi zisizo na LIVE zinasasishwa baadaye). Isionyeshwe "14:30" kana kwamba bado haijaanza.
+        """
+        return bool(getattr(obj, "fixture_id", None) and obj.kickoff and obj.status == "NS"
+                    and timezone.now() - obj.kickoff > timedelta(minutes=5) and not LiveMatch.stale(obj))
+
     @property
     def is_stale(self):
         return LiveMatch.stale(self)
+
+    @property
+    def is_overdue(self):
+        return LiveMatch.overdue(self)
 
     @property
     def is_playing(self):
@@ -436,7 +449,8 @@ class LiveMatch(models.Model):
         if self.status in ("1H", "2H", "ET", "LIVE") and self.minute:
             return f"{self.minute}'"
         if self.status == "NS" and self.kickoff:
-            return timezone.localtime(self.kickoff).strftime("%H:%M")
+            hhmm = timezone.localtime(self.kickoff).strftime("%H:%M")
+            return f"Ilipangwa {hhmm}" if LiveMatch.overdue(self) else hhmm
         return self.status if self.status in ("HT", "FT", "AET", "PEN") else self.get_status_display()
 
     @property
@@ -533,6 +547,10 @@ class Fixture(models.Model):
     @property
     def clock(self):
         return LiveMatch.clock.fget(self)
+
+    @property
+    def is_overdue(self):
+        return LiveMatch.overdue(self)
 
     def get_status_display(self):
         return dict(LiveMatch.STATUS).get(self.status, self.status)

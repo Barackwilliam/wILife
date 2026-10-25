@@ -2674,7 +2674,7 @@ class FixturePageTest(TestCase):
         with mock.patch("news.highlightly.requests.get") as get:
             body = self.client.get(self.f.get_absolute_url()).content.decode()
         get.assert_not_called()
-        self.assertIn("hazipatikani kwa sasa", body)
+        self.assertIn("bado hatujapata taarifa zake mpya", body)      # ilipangwa dakika 50 zilizopita
 
     def test_fixture_with_live_coverage_redirects_to_its_article(self):
         from news.models import LiveMatch
@@ -2926,3 +2926,34 @@ class FavouriteTeamsAndBudgetTest(TestCase):
         page = self.client.get(f.get_absolute_url()).content.decode()
         self.assertIn('class="i sb-crest"', page)
         self.assertNotIn('<span class="sb-logo">1</span>', page)
+
+
+class OverdueFixtureTest(TestCase):
+    """Mechi isiyo na LIVE iliyopita muda wa kuanza bila data mpya: "Ilipangwa 14:30", si "14:30" tu."""
+
+    def _fx(self, minutes_ago, status="NS", **kw):
+        from news.models import Fixture
+        return Fixture.objects.create(provider="highlightly", fixture_id=9500 + minutes_ago, day=timezone.localdate(),
+                                      home="Inter", away="Fiorentina", competition="Serie A", status=status,
+                                      kickoff=timezone.now() - timedelta(minutes=minutes_ago), **kw)
+
+    def test_clock_and_day_row(self):
+        hhmm = lambda f: timezone.localtime(f.kickoff).strftime("%H:%M")
+        soon, started = self._fx(-60), self._fx(30)
+        self.assertEqual(soon.clock, hhmm(soon))                         # bado haijaanza
+        self.assertEqual(started.clock, f"Ilipangwa {hhmm(started)}")
+        self.assertFalse(self._fx(2).is_overdue)                          # dakika 5 za kwanza: bado saa tu
+        self.assertEqual(self._fx(300).clock, "Inasubiri matokeo")       # baada ya saa 4
+        self.assertFalse(self._fx(40, status="1H", minute=40).is_overdue)
+        self.assertFalse(self._fx(200, status="FT", home_goals=1, away_goals=0).is_overdue)
+        page = self.client.get("/mechi-za-leo/").content.decode()
+        self.assertIn(f"<small>Ilipangwa</small>{hhmm(started)}", page)
+
+    def test_fixture_page_explains_missing_data(self):
+        from news.models import Fixture
+        f = self._fx(40)
+        Fixture.objects.filter(pk=f.pk).update(extra={"fetched_at": timezone.now().isoformat()})  # hakuna ombi jipya
+        page = self.client.get(f.get_absolute_url()).content.decode()
+        self.assertIn("ilipangwa kuanza saa", page)
+        self.assertIn("bado hatujapata taarifa zake mpya", page)
+        self.assertNotIn("Jaribu tena baada ya muda mfupi", page)

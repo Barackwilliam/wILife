@@ -878,6 +878,7 @@ a:hover .img img, .card:hover .img img { transform: scale(1.045); }
 .dy-rows > .fx:first-child { border-top: 0; }
 a.fx:hover { background: var(--brand-soft); }
 .fx-t { font-size: 12px; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; }
+.fx-t small { display: block; font-size: 9.5px; font-weight: 700; letter-spacing: .02em; color: var(--muted); }
 .fx.is-on .fx-t { color: var(--live); }
 .fx.is-on .fx-t::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--live); margin-right: 5px; vertical-align: 1px; animation: lvdot 1.3s ease-in-out infinite; }
 .fx-tm { display: flex; align-items: center; gap: 8px; min-width: 0; }
