@@ -2549,3 +2549,49 @@ class DigestChannelsTest(TestCase):
         self.assertIn("Jiondoe kwenye orodha: https://www.wlife.online/michezo/acha/", mail["text"])
         self.assertIn("channel: imechapishwa", first["detail"])
         self.assertEqual(second["sent"], 0)
+
+
+@override_settings(HIGHLIGHTLY_API_KEY="hl-key", API_FOOTBALL_KEY="", HIGHLIGHTLY_LEAGUES=["England:Premier League"])
+class OverdueMatchTest(TestCase):
+    """Mechi iliyokwama "73' LIVE" (maombi ya siku yaliisha) inapata matokeo ya mwisho baadaye, na haionyeshwi LIVE."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from news import live
+        from news.models import LiveMatch
+        cache.clear()
+        self.addCleanup(cache.clear)
+        for target in ("news.models.Article.render_cover", "news.indexnow.submit", "news.football._image"):
+            p = mock.patch(target, return_value=None)
+            p.start()
+            self.addCleanup(p.stop)
+        self.a = Article.objects.create(title="Arsenal dhidi ya Chelsea LIVE", category="dunia", excerpt="x", body="b",
+                                        status="published", published_at=timezone.now(), origin="football")
+        self.m = LiveMatch.objects.create(article=self.a, fixture_id=7001, provider="highlightly", home="Arsenal",
+                                          away="Chelsea", competition="Premier League", status="2H", minute=73,
+                                          home_goals=1, away_goals=1, kickoff=timezone.now() - timedelta(hours=9))
+        live.start(self.a)
+
+    def test_stale_match_is_not_shown_as_live(self):
+        self.assertTrue(self.m.is_stale)
+        self.assertFalse(self.m.is_playing)
+        self.assertEqual(self.m.clock, "Inasubiri matokeo")
+        hub = self.client.get("/live/").content.decode()
+        self.assertNotIn('class="n">1<', hub)                        # kitufe cha LIVE hakihesabu mechi hii
+        self.assertNotIn("73'", hub)
+
+    def test_overdue_match_gets_its_final_score_on_a_later_tick(self):
+        from news import football
+        football._state().__class__.objects.update(schedule_at=timezone.now())   # ratiba ya leo imeshasomwa
+        done = _hl(mid=7001, desc="Finished", score="2 - 1", events=[], kickoff=self.m.kickoff)
+        with mock.patch("news.highlightly.requests.get", return_value=_HLResp([done])) as get, \
+                mock.patch("news.enrich.run", return_value=0):
+            out = football.run()
+            again = football.run()                                      # imeisha: haiombwi tena
+        self.assertIn("matokeo ya mwisho yaliyochelewa: maombi 1", out["detail"])
+        self.assertEqual(get.call_count, 1)
+        self.m.refresh_from_db()
+        self.a.refresh_from_db()
+        self.assertEqual((self.m.status, self.m.home_goals, self.m.away_goals), ("FT", 2, 1))
+        self.assertIsNotNone(self.a.live_ended_at)
+        self.assertNotIn("matokeo ya mwisho", again["detail"])

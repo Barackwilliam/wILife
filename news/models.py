@@ -7,6 +7,8 @@ drafts form one NewsBatch; nothing is public until the owner approves the batch
 (WhatsApp/Telegram "OK 1234", or the staff review page).
 """
 
+from datetime import timedelta
+
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db import models
@@ -394,9 +396,25 @@ class LiveMatch(models.Model):
     def has_score(self):
         return self.home_goals is not None and self.away_goals is not None
 
+    STALE_AFTER = timedelta(hours=4)
+
+    @staticmethod
+    def stale(obj):
+        """
+        Mechi ya API iliyopaswa kuwa imeisha lakini hatuna matokeo ya mwisho (maombi ya siku yaliisha,
+        API ilichelewa): isionyeshwe kama inaendelea ("73' LIVE") milele.
+        """
+        return bool(getattr(obj, "fixture_id", None) and obj.kickoff
+                    and obj.status not in LiveMatch.FINISHED | LiveMatch.OFF
+                    and timezone.now() - obj.kickoff > LiveMatch.STALE_AFTER)
+
+    @property
+    def is_stale(self):
+        return LiveMatch.stale(self)
+
     @property
     def is_playing(self):
-        return self.status in self.PLAYING
+        return self.status in self.PLAYING and not self.is_stale
 
     @property
     def is_finished(self):
@@ -405,6 +423,8 @@ class LiveMatch(models.Model):
     @property
     def clock(self):
         """Kinachoonyeshwa juu ya ubao: 67', HT, FT, au saa ya kuanza."""
+        if LiveMatch.stale(self):
+            return "Inasubiri matokeo"
         if self.status in ("1H", "2H", "ET", "LIVE") and self.minute:
             return f"{self.minute}'"
         if self.status == "NS" and self.kickoff:
@@ -492,7 +512,7 @@ class Fixture(models.Model):
 
     @property
     def is_playing(self):
-        return self.status in LiveMatch.PLAYING
+        return self.status in LiveMatch.PLAYING and not LiveMatch.stale(self)
 
     @property
     def clock(self):

@@ -224,7 +224,8 @@ def _live_sets(now=None):
     """(zinaendelea sasa, zinakuja, zilizoisha) kwa ukurasa wa LIVE na ukurasa wa mwanzo."""
     now = now or timezone.now()
     base = _published().select_related("match")
-    on = list(base.filter(live_started_at__isnull=False, live_ended_at__isnull=True).order_by("-live_started_at")[:30])
+    on = [a for a in base.filter(live_started_at__isnull=False, live_ended_at__isnull=True).order_by("-live_started_at")[:30]
+          if not (hasattr(a, "match") and a.match.is_stale)]            # mechi isiyo na matokeo ya mwisho si "LIVE"
     soon = list(base.filter(live_started_at__isnull=True, match__status="NS",
                             match__kickoff__gte=now - timedelta(hours=1), match__kickoff__lte=now + timedelta(hours=36))
                 .order_by("match__kickoff")[:30])
