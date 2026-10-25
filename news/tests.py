@@ -2483,6 +2483,10 @@ class DigestChannelsTest(TestCase):
         reply = digest.handle("255722000222", "JIUNGE")
         self.assertIn("zimejaa", reply)
         self.assertIn("https://whatsapp.com/channel/AbC123", reply)
+        self.assertIn("Soka360", reply)
+        page = self.client.get("/makadirio/").content.decode()
+        self.assertIn("Fuata Soka360", page)
+        self.assertIn("soka360-96", page)
         self.assertIn("https://www.wlife.online/michezo/jiunge/", reply)
         self.assertFalse(Subscriber.objects.filter(phone="255722000222").exists())
         self.assertIn("Tayari", digest.handle("0711000111", "jiunge"))          # aliyekuwemo hazuiwi
@@ -2530,12 +2534,14 @@ class DigestChannelsTest(TestCase):
         self.assertEqual(send.call_count, 1)                                      # channel: posti moja tu
         self.assertEqual(send.call_args[0][0], "120363000000@newsletter")
         self.assertNotIn("ACHA", send.call_args[0][1])
+        self.assertTrue(send.call_args[0][1].startswith("⚽ *SOKA360*"))
         self.assertEqual(post.call_count, 3)                                      # kikomo cha email cha siku
         self.assertEqual(DailyCount.get("email"), 3)
         mail = post.call_args.kwargs["json"]
         self.assertIn("/michezo/acha/", mail["headers"]["List-Unsubscribe"])
         self.assertTrue(mail["subject"].startswith("⚽ Mechi za leo: Arsenal vs Chelsea"))
-        for part in ("Mechi za leo &amp; matokeo ya jana", "Arsenal", "22:00", "Jiondoe", "Fuatilia LIVE",
+        for part in ("Mechi za leo &amp; matokeo ya jana", "Arsenal", "22:00", "Jiondoe", "Fuatilia LIVE", "Soka360",
+                     "soka360-96",
                      "https://whatsapp.com/channel/AbC123"):
             self.assertIn(part, mail["html"])
         self.assertNotIn("Dashibodi", mail["html"])                               # si email ya wakala

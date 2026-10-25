@@ -1,9 +1,9 @@
-{% load news_tags %}{% join_options as j %}{% if j.wa or j.email or j.channel %}
+{% load static news_tags %}{% join_options as j %}{% if j.wa or j.email or j.channel %}
 <aside class="waj" aria-label="Pata matokeo kila siku">
   <span class="waj-ic">{% icon "whatsapp" %}</span>
   <div class="waj-txt"><b>Pata mechi za leo na matokeo kila siku — bure</b><span>Ujumbe mmoja kwa siku: matokeo ya jana, mechi za leo na makadirio.{% if j.wa %} WhatsApp: tuma <strong>JIUNGE</strong>, ACHA kusitisha.{% endif %}</span></div>
   <div class="waj-act">
-    {% if j.channel %}<a class="waj-btn" href="{{ j.channel }}" target="_blank" rel="noopener">Fuata WhatsApp Channel</a>{% endif %}
+    {% if j.channel %}<a class="waj-btn waj-ch" href="{{ j.channel }}" target="_blank" rel="noopener"><img src="{% static 'news/brand/soka360-96.webp' %}" alt="" width="24" height="24">Fuata {{ j.channel_name }}</a>{% endif %}
     {% if j.wa %}<a class="waj-btn{% if j.channel %} alt{% endif %}" href="{{ j.wa }}" target="_blank" rel="noopener">Jiunge WhatsApp</a>{% endif %}
   </div>
   {% if j.email %}<form class="waj-mail" method="post" action="{% url 'news:digest_join' %}">

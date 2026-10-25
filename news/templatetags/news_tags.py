@@ -223,7 +223,7 @@ def join_options():
     from news import digest
     wa = wa_join_link()
     return {"wa": "" if wa and digest.whatsapp_full() else wa, "email": digest.email_ready(),
-            "channel": digest.channel_link()}
+            "channel": digest.channel_link(), "channel_name": digest.channel_name()}
 
 
 @register.simple_tag

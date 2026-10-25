@@ -45,6 +45,11 @@ def channel_link():
     return value if value.startswith("https://") else ""
 
 
+def channel_name():
+    """Jina la WhatsApp Channel (WHATSAPP_CHANNEL_NAME), mf. Soka360."""
+    return (getattr(settings, "WHATSAPP_CHANNEL_NAME", "") or "Soka360").strip()
+
+
 def whatsapp_full():
     return Subscriber.objects.filter(active=True).count() >= getattr(settings, "FOOTBALL_WHATSAPP_MAX", 300)
 
@@ -63,7 +68,7 @@ def handle(phone, text):
         if whatsapp_full():
             other = [f"📧 Email (bure): {site}/michezo/jiunge/"]
             if channel_link():
-                other.insert(0, f"📢 WhatsApp Channel yetu: {channel_link()}")
+                other.insert(0, f"📢 Fuata *{channel_name()}* (WhatsApp Channel): {channel_link()}")
             return ("⚽ *wILife Michezo*\n\nNafasi za kupokea ujumbe WhatsApp moja kwa moja zimejaa kwa sasa. "
                     "Unaweza kupata ujumbe uleule wa kila siku hapa:\n\n" + "\n".join(other) +
                     f"\n\nMechi za leo muda wote: {site}/mechi-za-leo/")
@@ -207,7 +212,10 @@ def text(d, kind="whatsapp"):
     """
     if not d:
         return ""
-    parts = [f"⚽ *wILife MICHEZO*\n_{d['date_text']}_", RULE]
+    if kind == "channel":
+        parts = [f"⚽ *{channel_name().upper()}*\n_Habari za Soka Kila Upande · {d['date_text']}_", RULE]
+    else:
+        parts = [f"⚽ *wILife MICHEZO*\n_{d['date_text']}_", RULE]
     if d["done"]:
         block = [f"✅ *MATOKEO YA JANA*"]
         for name, _, items in d["done"]:
@@ -238,19 +246,21 @@ def text(d, kind="whatsapp"):
     if kind == "whatsapp":
         parts.append("_Jibu ACHA kusitisha ujumbe huu._")
     elif kind == "channel":
-        parts.append("📲 _Shiriki channel hii na rafiki anayependa mpira._")
+        parts.append(f"📲 _Shiriki {channel_name()} na rafiki anayependa mpira._\n_— kutoka wILife_")
     return "\n\n".join(parts)
 
 
 def email_html(d, leave_url=""):
     """Email ya michezo (news/templates/news/email/digest.html) — nembo za timu, ubao wa matokeo, makadirio."""
     from django.template.loader import render_to_string
-    return render_to_string("news/email/digest.html", {**d, "leave_url": leave_url, "logo": _logo_url()})
+    return render_to_string("news/email/digest.html", {**d, "leave_url": leave_url, "logo": _logo_url(),
+                                                       "channel_name": channel_name(),
+                                                       "channel_logo": _logo_url("news/brand/soka360-96.png")})
 
 
-def _logo_url():
+def _logo_url(name="news/brand/logo-600.png"):
     from django.templatetags.static import static
-    path = static("news/brand/logo-600.png")
+    path = static(name)
     return path if path.startswith("http") else _site() + path
 
 

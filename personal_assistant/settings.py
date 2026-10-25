@@ -329,6 +329,7 @@ FOOTBALL_DIGEST_PER_TICK = int(env("FOOTBALL_DIGEST_PER_TICK", "6"))
 FOOTBALL_WHATSAPP_MAX = int(env("FOOTBALL_WHATSAPP_MAX", "300"))     # wanachama wa WhatsApp; wakizidi -> email/channel
 FOOTBALL_EMAIL_DAILY_MAX = int(env("FOOTBALL_EMAIL_DAILY_MAX", "90"))  # Resend bure: ~100 kwa siku
 NEWS_EMAIL_FROM = env("NEWS_EMAIL_FROM", "")                          # mf. "wILife Michezo <michezo@wlife.online>"; tupu = AGENT_EMAIL_FROM
+WHATSAPP_CHANNEL_NAME = env("WHATSAPP_CHANNEL_NAME", "Soka360")
 WHATSAPP_CHANNEL = env("WHATSAPP_CHANNEL", "")                        # link ya WhatsApp Channel (whatsapp.com/channel/...) au JID @newsletter
 NEWS_ENABLED = env_bool("NEWS_ENABLED", False)      # turn the daily drafting on
 NEWS_DRAFT_HOUR = int(env("NEWS_DRAFT_HOUR", "5"))  # local hour drafting starts

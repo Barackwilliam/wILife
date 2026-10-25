@@ -42,7 +42,7 @@
     <input type="text" name="website" tabindex="-1" autocomplete="off" class="waj-hp" aria-hidden="true">
     <button class="dj-btn" type="submit">Jiunge kwa email</button></div>
   </form>{% endif %}{% endif %}
-  {% if channel and state != 'leave' %}<p class="dj-alt">Unapendelea WhatsApp? <a href="{{ channel }}" target="_blank" rel="noopener">Fuata WhatsApp Channel ya wILife Michezo</a>.</p>{% endif %}
+  {% if channel and state != 'leave' %}<p class="dj-alt">Unapendelea WhatsApp? <a href="{{ channel }}" target="_blank" rel="noopener">Fuata {% join_options as j %}{{ j.channel_name }} — channel yetu ya WhatsApp</a>.</p>{% endif %}
   <p class="dj-alt"><a href="{% url 'news:matches_today' %}">Mechi za leo</a> · <a href="{% url 'news:results_yesterday' %}">Matokeo ya jana</a> · <a href="{% url 'news:predictions' %}">Makadirio</a></p>
 </section>
 {% endblock %}
