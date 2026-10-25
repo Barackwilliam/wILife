@@ -328,6 +328,34 @@ def fixture_detail(request, day, pk, slug):
                                                  "date_text": swahili_date(f.day)})
 
 
+def video_hub(request):
+    """Video za magoli na highlights za karibuni (ScoreBat) — kwa ligi."""
+    from django.db.models import Count
+    from news.models import Highlight
+    league = (request.GET.get("ligi") or "").strip()[:120]
+    qs = Highlight.objects.all()
+    leagues = list(qs.values("competition").exclude(competition="").annotate(n=Count("id")).order_by("-n")[:12])
+    if league:
+        qs = qs.filter(competition=league)
+    items = list(qs[:48])
+    for row in leagues:                       # 'ENGLAND: Premier League' -> 'Premier League · England'
+        row["label"] = Highlight(competition=row["competition"]).league
+    return render(request, "news/videos.html", {"items": items, "first": items[0] if items else None,
+                                                "rest": items[1:], "leagues": leagues, "league": league,
+                                                "league_label": Highlight(competition=league).league})
+
+
+def video_detail(request, slug):
+    """Video za magoli za mechi moja, na kiungo cha ukurasa wake wa matokeo."""
+    from news import scorebat
+    from news.models import Highlight
+    h = get_object_or_404(Highlight, slug=slug)
+    more = list(Highlight.objects.exclude(pk=h.pk).filter(competition=h.competition)[:6]) if h.competition else []
+    if len(more) < 6:
+        more += list(Highlight.objects.exclude(pk__in=[h.pk] + [x.pk for x in more])[:6 - len(more)])
+    return render(request, "news/video.html", {"h": h, "match": scorebat.match_page(h), "more": more})
+
+
 @_live_page
 def predictions(request):
     """Makadirio ya mechi zijazo + rekodi ya wazi ya yalivyopatia."""

@@ -62,6 +62,7 @@
         <a href="{% url 'news:live_hub' %}" class="nav-live{% if u == 'live_hub' %} on{% endif %}{% if live_now %} is-on{% endif %}"><i></i>LIVE{% if live_now %}<span class="n">{{ live_now }}</span>{% endif %}</a>
         <a href="{% url 'news:matches_today' %}" class="{% if u == 'matches_today' or u == 'results_yesterday' or u == 'matches_day' %}on{% endif %}">Mechi za leo</a>
         <a href="{% url 'news:predictions' %}" class="{% if u == 'predictions' %}on{% endif %}">Utabiri wa matokeo</a>
+        <a href="{% url 'news:videos' %}" class="{% if u == 'videos' or u == 'video' %}on{% endif %}">Video za magoli</a>
         <a href="{% url 'news:category' 'tanzania' %}" class="{% if c == 'tanzania' %}on{% endif %}">Tanzania</a>
         <a href="{% url 'news:category' 'afrika' %}" class="{% if c == 'afrika' %}on{% endif %}">Afrika</a>
         <a href="{% url 'news:category' 'dunia' %}" class="{% if c == 'dunia' %}on{% endif %}">Dunia</a>
@@ -94,6 +95,7 @@
         <a href="{% url 'news:matches_today' %}" class="{% if u == 'matches_today' %}on{% endif %}"><span class="dr-ic">{% icon "calendar3" %}</span>Mechi za leo{% icon "chevron-right" %}</a>
         <a href="{% url 'news:results_yesterday' %}" class="{% if u == 'results_yesterday' %}on{% endif %}"><span class="dr-ic">{% icon "check2-circle" %}</span>Matokeo ya jana{% icon "chevron-right" %}</a>
         <a href="{% url 'news:predictions' %}" class="{% if u == 'predictions' %}on{% endif %}"><span class="dr-ic">{% icon "graph-up-arrow" %}</span>Utabiri wa mechi{% icon "chevron-right" %}</a>
+        <a href="{% url 'news:videos' %}" class="{% if u == 'videos' or u == 'video' %}on{% endif %}"><span class="dr-ic">{% icon "youtube" %}</span>Video za magoli{% icon "chevron-right" %}</a>
         <a href="{% url 'news:category' 'tanzania' %}" class="c-tanzania{% if dc == 'tanzania' %} on{% endif %}"><span class="dr-dot"></span>Tanzania{% icon "chevron-right" %}</a>
         <a href="{% url 'news:category' 'afrika' %}" class="c-afrika{% if dc == 'afrika' %} on{% endif %}"><span class="dr-dot"></span>Afrika{% icon "chevron-right" %}</a>
         <a href="{% url 'news:category' 'dunia' %}" class="c-dunia{% if dc == 'dunia' %} on{% endif %}"><span class="dr-dot"></span>Dunia{% icon "chevron-right" %}</a>

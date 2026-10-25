@@ -287,7 +287,8 @@ def _item_from_fixture(f):
             "league": {"id": f.competition_id, "name": f.competition, "logo": f.competition_logo,
                        "round": f.round, "country": f.country},
             "teams": {"home": {"name": f.home, "logo": f.home_logo}, "away": {"name": f.away, "logo": f.away_logo}},
-            "goals": {"home": f.home_goals, "away": f.away_goals}}
+            "goals": {"home": f.home_goals, "away": f.away_goals},
+            "_extra": {k: v for k, v in (f.extra or {}).items() if k in ("home_id", "away_id", "league_id", "season")}}
 
 
 def promote_favourites(now):

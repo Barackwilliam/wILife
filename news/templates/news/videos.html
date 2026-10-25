@@ -1,0 +1,46 @@
+{% extends 'news/base.html' %}
+{% load news_tags %}
+{% block title %}{% if league %}Video za Magoli {{ league_label }}{% else %}Video za Magoli na Highlights za Leo{% endif %} | wILife{% endblock %}
+{% block description %}Tazama video za magoli na highlights za mechi za leo na jana{% if league %} za {{ league_label }}{% else %} — Premier League, La Liga, Serie A, Champions League na zaidi{% endif %}, kwa Kiswahili kwenye wILife.{% endblock %}
+{% block og_title %}Video za Magoli na Highlights | wILife{% endblock %}
+{% block og_description %}Magoli yote ya mechi kubwa za soka — tazama, shiriki WhatsApp.{% endblock %}
+{% block canonical %}{% absolute request.path %}{% if league %}?ligi={{ league|urlencode }}{% endif %}{% endblock %}
+{% block jsonld %}{% if items %}{% videos_jsonld items %}{% endif %}{% endblock %}
+
+{% block content %}{% endblock %}
+
+{% block fullbleed %}
+<section class="lh-hero vh-hero" aria-labelledby="vh-title">
+  <div class="wrap">
+    <nav class="crumbs lh-crumbs" aria-label="breadcrumb"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><span>Video za magoli</span></nav>
+    <div class="lh-head">
+      <span class="lh-badge off"><i></i>VIDEO</span>
+      <h1 id="vh-title">{% if league %}Video za Magoli: {{ league_label }}{% else %}Video za Magoli na Highlights{% endif %}</h1>
+      <p class="lh-sub">Magoli na matukio makubwa ya mechi za karibuni. Bonyeza video kuitazama hapa hapa, au ishiriki kwa marafiki kupitia WhatsApp.</p>
+    </div>
+    {% if leagues %}
+    <nav class="vh-leagues" aria-label="Ligi">
+      <a href="{% url 'news:videos' %}" class="{% if not league %}on{% endif %}">Zote</a>
+      {% for l in leagues %}<a href="{% url 'news:videos' %}?ligi={{ l.competition|urlencode }}" class="{% if league == l.competition %}on{% endif %}">{{ l.label }}</a>{% endfor %}
+    </nav>
+    {% endif %}
+    {% if first %}{% include 'news/_video_player.html' with h=first heading=first.name %}
+    <p class="vh-open"><a href="{{ first.get_absolute_url }}">Ukurasa wa video hii {% icon "arrow-right" %}</a></p>{% endif %}
+  </div>
+</section>
+
+<section class="wrap vh-grid-wrap" aria-label="Video zaidi">
+  {% if rest %}
+  <h2 class="vh-h2">Video zaidi</h2>
+  <div class="vh-grid">{% for h in rest %}
+    <a class="vh-card" href="{{ h.get_absolute_url }}">
+      <span class="vh-thumb">{% if h.thumbnail %}<img src="{{ h.thumbnail }}" alt="{{ h.name }}: video za magoli" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}<i aria-hidden="true">▶</i>{% if h.videos|length > 1 %}<em>{{ h.videos|length }} video</em>{% endif %}</span>
+      <span class="vh-meta"><small>{{ h.league }}</small><b>{{ h.name }}</b><time datetime="{{ h.date|date:'c' }}">{{ h.date|sw_ago }}</time></span>
+    </a>{% endfor %}
+  </div>
+  {% elif not first %}
+  <p class="vh-empty">Video za magoli zitaonekana hapa mechi zikiisha. Wakati huo, fuatilia <a href="{% url 'news:matches_today' %}">mechi za leo</a>.</p>
+  {% endif %}
+</section>
+{% include 'news/_video_js.html' %}
+{% endblock %}

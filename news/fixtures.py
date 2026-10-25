@@ -24,6 +24,7 @@ PER_MATCH_MAX = 8                          # mechi zinazoombwa moja moja kwa mzu
 BACKFILL_MIN_LEFT = 60                     # siku iliyokosa ratiba inasomwa tu maombi yakiwa mengi
 OFFLIVE_RESERVE = 12                       # maombi ambayo LIVE haiyagusi: matokeo + kurasa za mechi (football.live_interval)
 RESCAN_MIN_PENDING = 3                     # jana ikiwa na mechi hizi au zaidi bila matokeo: soma ratiba nzima upya
+IDS = ("home_id", "away_id", "league_id", "season")   # zinahifadhiwa kwenye Fixture.extra kutoka ratiba
 RESCAN_MIN_LEFT = 40                       # ...kama maombi ya kutosha yamebaki (asubuhi, kikomo kikianza upya)
 
 
@@ -60,6 +61,9 @@ def store(items, day):
         f = Fixture.objects.filter(provider=source, fixture_id=fid).first() or Fixture(provider=source, fixture_id=fid)
         _set(f, item)
         f.day = timezone.localtime(f.kickoff).date() if f.kickoff else day
+        ids = {k: v for k, v in (item.get("_extra") or {}).items() if k in IDS}
+        if ids:                     # namba za timu: mechi ikipata LIVE baadaye, uchambuzi (H2H, fomu) unawezekana
+            f.extra = {**(f.extra or {}), **ids}
         f.save()
         n += 1
     return n

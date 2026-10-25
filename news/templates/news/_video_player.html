@@ -1,0 +1,31 @@
+{% load news_tags %}{% comment %}
+Video za magoli (ScoreBat): picha + kitufe cha kucheza; iframe inapakiwa msomaji akibonyeza (ukurasa unabaki mwepesi).
+h = Highlight; heading = kichwa cha sehemu (hiari). src inatoka scorebat.parse — https://www.scorebat.com tu.
+{% endcomment %}{% with v=h.main %}{% if v %}
+<section class="vx" id="video" aria-label="Video za magoli za {{ h.name }}">
+  <div class="vx-h">
+    <span class="vx-badge">▶ Video za magoli</span>
+    <h2 class="vx-t">{% if heading %}{{ heading }}{% else %}{{ h.name }}: Highlights{% endif %}</h2>
+    {% if h.competition %}<span class="vx-comp">{{ h.league }} · {{ h.date|sw_date }}</span>{% endif %}
+  </div>
+  <div class="vx-stage" data-vx>
+    <button class="vx-play" type="button" data-src="{{ v.src }}" aria-label="Cheza video: {{ h.name }} — {{ v.title }}">
+      {% if h.thumbnail %}<img src="{{ h.thumbnail }}" alt="{{ h.name }}: video za magoli" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}
+      <span class="vx-btn" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span>
+      <span class="vx-cap"><b>{{ v.title }}</b><small>Bonyeza kucheza</small></span>
+    </button>
+  </div>
+  {% if h.videos|length > 1 %}
+  <div class="vx-list" role="list">{% for c in h.videos %}
+    <button type="button" class="vx-chip{% if forloop.first %} on{% endif %}" role="listitem" data-src="{{ c.src }}">▶ {{ c.title }}</button>{% endfor %}
+  </div>
+  {% endif %}
+  {% absolute h.get_absolute_url as share_url %}
+  <div class="vx-act">
+    <a class="vx-a vx-wa" href="https://wa.me/?text={{ h.name|urlencode }}%20%E2%80%94%20video%20za%20magoli%3A%20{{ share_url|urlencode }}" target="_blank" rel="noopener">{% icon "whatsapp" %} Shiriki WhatsApp</a>
+    <button type="button" class="vx-a" data-copy="{{ share_url }}">{% icon "share" %} Nakili kiungo</button>
+    {% if h.source_url %}<a class="vx-a" href="{{ h.source_url }}" target="_blank" rel="noopener nofollow">{% icon "box-arrow-up-right" %} Fungua kwa ukubwa</a>{% endif %}
+  </div>
+  <p class="vx-note">Video inaonyeshwa kupitia ScoreBat; haki zake ni za wamiliki wake (ligi na vituo vya TV).</p>
+</section>
+{% endif %}{% endwith %}

@@ -628,3 +628,49 @@ class DailyCount(models.Model):
         obj, _ = cls.objects.get_or_create(day=day, key=key)
         cls.objects.filter(pk=obj.pk).update(n=models.F("n") + by)
         return obj.n + by
+
+
+class Highlight(models.Model):
+    """
+    Video za magoli / highlights za mechi moja kutoka ScoreBat (news/scorebat.py). Video zenyewe zinabaki
+    kwa mtoaji (iframe ya scorebat.com) — tunahifadhi kichwa, picha, tarehe na viungo vya kuzicheza tu.
+    """
+    provider = models.CharField(max_length=12, default="scorebat")
+    key = models.CharField(max_length=200, unique=True, help_text="Kitambulisho cha mtoaji (matchviewUrl)")
+    slug = models.SlugField(max_length=160, unique=True)
+    title = models.CharField(max_length=200)
+    competition = models.CharField(max_length=120, blank=True)
+    home = models.CharField(max_length=80, blank=True)
+    away = models.CharField(max_length=80, blank=True)
+    home_key = models.CharField(max_length=80, blank=True, db_index=True)
+    away_key = models.CharField(max_length=80, blank=True, db_index=True)
+    date = models.DateTimeField(db_index=True)
+    thumbnail = models.URLField(max_length=500, blank=True)
+    source_url = models.URLField(max_length=500, blank=True)
+    videos = models.JSONField(default=list, help_text="[{title, src}] — src ni iframe ya scorebat.com tu")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-date", "-id"]
+
+    def __str__(self):
+        return self.title
+
+    def get_absolute_url(self):
+        return reverse("news:video", args=[self.slug])
+
+    @property
+    def main(self):
+        """Video ya kwanza (kwa kawaida highlights kamili)."""
+        return self.videos[0] if self.videos else None
+
+    @property
+    def name(self):
+        return f"{self.home} vs {self.away}" if self.home and self.away else self.title
+
+    @property
+    def league(self):
+        """'ENGLAND: Premier League' -> 'Premier League · England' (kwa kuonyesha)."""
+        country, sep, name = (self.competition or "").partition(": ")
+        return f"{name} · {country.title()}" if sep and name else self.competition

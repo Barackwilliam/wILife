@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from news.models import (Article, EditorSettings, Fixture, FootballState, JamiiTekService, LiveMatch, LiveUpdate,
+from news.models import (Article, EditorSettings, Fixture, FootballState, Highlight, JamiiTekService, LiveMatch, LiveUpdate,
                          NewsBatch, NewsRequest, Subscriber, EmailSubscriber, DailyCount)
 
 
@@ -173,3 +173,12 @@ class EmailSubscriberAdmin(admin.ModelAdmin):
 class DailyCountAdmin(admin.ModelAdmin):
     list_display = ("day", "key", "n")
     list_filter = ("key",)
+
+
+@admin.register(Highlight)
+class HighlightAdmin(admin.ModelAdmin):
+    """Video za magoli (ScoreBat). Video isiyofaa inafutwa hapa — ukurasa wake unatoweka."""
+    list_display = ("title", "competition", "date", "created_at")
+    list_filter = ("competition",)
+    search_fields = ("title", "home", "away")
+    readonly_fields = ("key", "videos", "created_at", "updated_at")
