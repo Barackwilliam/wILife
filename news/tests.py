@@ -2455,3 +2455,83 @@ class FootballDigestTest(TestCase):
             cache.clear()
             self.assertNotIn("wa.me/?text=JIUNGE", self.client.get("/mechi-za-leo/").content.decode())
             self.assertNotIn("Jiunge WhatsApp", self.client.get("/mechi-za-leo/").content.decode())
+
+
+@override_settings(SITE_URL="https://www.wlife.online", AGENT_ENABLED=True, WHATSAPP_ENABLED=True,
+                   WHATSAPP_PROVIDER="baileys", WHATSAPP_BRIDGE_URL="http://bridge", WHATSAPP_BRIDGE_KEY="k",
+                   FOOTBALL_DIGEST_HOURS="8", RESEND_API_KEY="re_x", AGENT_EMAIL_FROM="wILife <a@wlife.online>",
+                   FOOTBALL_WHATSAPP_MAX=1, FOOTBALL_EMAIL_DAILY_MAX=3,
+                   WHATSAPP_CHANNEL="https://whatsapp.com/channel/AbC123")
+class DigestChannelsTest(TestCase):
+    """Kikomo cha WhatsApp, email (thibitisha / jiondoe) na posti ya WhatsApp Channel."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from news.models import Fixture
+        cache.clear()
+        self.addCleanup(cache.clear)
+        today = timezone.localdate()
+        Fixture.objects.create(fixture_id=2, day=today, home="Arsenal", away="Chelsea", competition="Premier League",
+                               kickoff=timezone.make_aware(datetime.combine(today, datetime.min.time())) + timedelta(hours=22))
+        self.at8 = timezone.make_aware(datetime.combine(today, datetime.min.time())) + timedelta(hours=8, minutes=5)
+
+    def test_full_whatsapp_points_to_channel_and_email(self):
+        from news import digest
+        from news.models import Subscriber
+        Subscriber.objects.create(phone="255711000111")
+        reply = digest.handle("255722000222", "JIUNGE")
+        self.assertIn("zimejaa", reply)
+        self.assertIn("https://whatsapp.com/channel/AbC123", reply)
+        self.assertIn("https://www.wlife.online/michezo/jiunge/", reply)
+        self.assertFalse(Subscriber.objects.filter(phone="255722000222").exists())
+        self.assertIn("Tayari", digest.handle("0711000111", "jiunge"))          # aliyekuwemo hazuiwi
+
+    def test_email_double_opt_in_and_unsubscribe(self):
+        from news.models import EmailSubscriber
+        with mock.patch("core.agent.email_channel.requests.post") as post:
+            post.return_value = mock.Mock(status_code=200, json=lambda: {"id": "e1"})
+            page = self.client.post("/michezo/jiunge/", {"email": "Msomaji@Mfano.com"}).content.decode()
+            again = self.client.post("/michezo/jiunge/", {"email": "msomaji@mfano.com"}).content.decode()
+            bot = self.client.post("/michezo/jiunge/", {"email": "x@y.com", "website": "spam"})
+        self.assertIn("Angalia email yako", page)
+        self.assertIn("Link imeshatumwa", again)                                  # haitumwi mara mbili
+        self.assertEqual(bot.status_code, 200)
+        self.assertEqual(post.call_count, 1)
+        sub = EmailSubscriber.objects.get()
+        self.assertEqual((sub.email, sub.confirmed), ("msomaji@mfano.com", False))
+        self.assertIn(f"/michezo/thibitisha/{sub.token}/", post.call_args.kwargs["json"]["text"])
+        self.assertIn("Umejiunga", self.client.get(f"/michezo/thibitisha/{sub.token}/").content.decode())
+        sub.refresh_from_db()
+        self.assertTrue(sub.confirmed)
+        self.client.get(f"/michezo/acha/{sub.token}/")                           # programu za email: GET haiondoi
+        sub.refresh_from_db()
+        self.assertTrue(sub.active)
+        self.assertIn("Umejiondoa", self.client.post(f"/michezo/acha/{sub.token}/").content.decode())
+        sub.refresh_from_db()
+        self.assertFalse(sub.active)
+        self.assertEqual(self.client.get("/michezo/thibitisha/si-token/").status_code, 404)
+
+    def test_daily_run_posts_channel_once_and_emails_within_cap(self):
+        from news import digest
+        from news.models import DailyCount, EmailSubscriber
+        for i in range(4):
+            EmailSubscriber.objects.create(email=f"m{i}@mfano.com", confirmed=True)
+        EmailSubscriber.objects.create(email="bado@mfano.com")                   # hajathibitisha
+        bridge = mock.Mock(status_code=200, json=lambda: {"id": "120363000000@newsletter"})
+        with mock.patch("core.agent.whatsapp.requests.get", return_value=bridge) as lookup, \
+                mock.patch("core.agent.whatsapp._send_via_bridge", return_value="id") as send, \
+                mock.patch("core.agent.email_channel.requests.post") as post, mock.patch("time.sleep"):
+            post.return_value = mock.Mock(status_code=200, json=lambda: {"id": "e"})
+            first = digest.run(now=self.at8)
+            second = digest.run(now=self.at8 + timedelta(minutes=1))
+        self.assertEqual(lookup.call_args.kwargs["params"], {"invite": "https://whatsapp.com/channel/AbC123"})
+        self.assertEqual(send.call_count, 1)                                      # channel: posti moja tu
+        self.assertEqual(send.call_args[0][0], "120363000000@newsletter")
+        self.assertNotIn("ACHA", send.call_args[0][1])
+        self.assertEqual(post.call_count, 3)                                      # kikomo cha email cha siku
+        self.assertEqual(DailyCount.get("email"), 3)
+        mail = post.call_args.kwargs["json"]
+        self.assertIn("/michezo/acha/", mail["headers"]["List-Unsubscribe"])
+        self.assertIn("Kujiondoa: https://www.wlife.online/michezo/acha/", mail["text"])
+        self.assertIn("channel: imechapishwa", first["detail"])
+        self.assertEqual(second["sent"], 0)

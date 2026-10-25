@@ -218,6 +218,15 @@ def predictions_jsonld(context, matches):
 
 
 @register.simple_tag
+def join_options():
+    """Njia zilizo wazi za kupata ujumbe wa michezo: {'wa': wa.me link, 'email': bool, 'channel': link}."""
+    from news import digest
+    wa = wa_join_link()
+    return {"wa": "" if wa and digest.whatsapp_full() else wa, "email": digest.email_ready(),
+            "channel": digest.channel_link()}
+
+
+@register.simple_tag
 def wa_join_link():
     """wa.me ya namba ya wILife (NEWS_WHATSAPP_NUMBER) yenye neno JIUNGE — tupu kama haijawekwa."""
     from core.agent.whatsapp import normalise_number

@@ -15,6 +15,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
 from django.views.decorators.cache import cache_control, cache_page, never_cache
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.gzip import gzip_page
 from django.views.decorators.http import require_POST
 
@@ -305,6 +306,74 @@ def predictions(request):
         "upcoming": upcoming, "week": predict.record(7), "record": predict.record(30),
         "page_v": _day_version([]) + str(len(upcoming)),
     })
+
+
+def _client_ip(request):
+    return (request.META.get("HTTP_CF_CONNECTING_IP") or request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0]
+            or request.META.get("REMOTE_ADDR", "")).strip()
+
+
+@csrf_exempt     # fomu iko kwenye kurasa zilizohifadhiwa (cache); usalama ni uthibitisho wa email (double opt-in)
+@never_cache
+def digest_join(request):
+    """Jiunge na ujumbe wa michezo kwa email: fomu -> link ya kuthibitisha."""
+    from django.core.cache import cache
+    from django.core.validators import validate_email
+    from django.core.exceptions import ValidationError
+    from news import digest
+    state, email = "", ""
+    if request.method == "POST":
+        email = (request.POST.get("email") or "").strip()[:254]
+        ip_key = f"digest-join:{_client_ip(request)}"
+        if request.POST.get("website"):                    # mtego wa roboti (sehemu iliyofichwa)
+            state = "sent"
+        elif not digest.email_ready():
+            state = "off"
+        elif (cache.get(ip_key) or 0) >= 5:
+            state = "slow"
+        else:
+            try:
+                validate_email(email)
+            except ValidationError:
+                state = "invalid"
+            else:
+                cache.set(ip_key, (cache.get(ip_key) or 0) + 1, 3600)
+                state = digest.subscribe_email(email)[0]
+    response = render(request, "news/digest_join.html", {
+        "state": state, "email": email, "email_ready": digest.email_ready(), "channel": digest.channel_link()})
+    response["X-Robots-Tag"] = "noindex" if state else "index"
+    return response
+
+
+@never_cache
+def digest_confirm(request, token):
+    from news import digest
+    sub = digest.confirm_email(token)
+    if not sub:
+        raise Http404
+    response = render(request, "news/digest_join.html", {"state": "confirmed", "email": sub.email,
+                                                         "channel": digest.channel_link(),
+                                                         "email_ready": digest.email_ready()})
+    response["X-Robots-Tag"] = "noindex"
+    return response
+
+
+@csrf_exempt     # kujiondoa kwa kubofya mara moja (List-Unsubscribe-Post) hakuna csrf token
+@never_cache
+def digest_leave(request, token):
+    from news import digest
+    from news.models import EmailSubscriber
+    sub = EmailSubscriber.objects.filter(token=token).first()
+    if not sub:
+        raise Http404
+    if request.method == "POST":           # GET haiondoi: programu za email hufungua link zenyewe
+        digest.unsubscribe_email(token)
+        sub.refresh_from_db()
+    response = render(request, "news/digest_join.html", {"state": "left" if not sub.active else "leave",
+                                                         "email": sub.email, "token": token,
+                                                         "email_ready": digest.email_ready()})
+    response["X-Robots-Tag"] = "noindex"
+    return response
 
 
 def _page_active(item):

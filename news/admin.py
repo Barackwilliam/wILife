@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 
 from news.models import (Article, EditorSettings, Fixture, FootballState, JamiiTekService, LiveMatch, LiveUpdate,
-                         NewsBatch, NewsRequest, Subscriber)
+                         NewsBatch, NewsRequest, Subscriber, EmailSubscriber, DailyCount)
 
 
 class LiveUpdateInline(admin.TabularInline):
@@ -158,3 +158,18 @@ class SubscriberAdmin(admin.ModelAdmin):
     list_display = ("phone", "active", "created_at", "sent", "last_slot", "failures")
     list_filter = ("active",)
     search_fields = ("phone",)
+
+
+@admin.register(EmailSubscriber)
+class EmailSubscriberAdmin(admin.ModelAdmin):
+    """Wasomaji wa michezo kwa email (wamethibitisha kwa link)."""
+    list_display = ("email", "confirmed", "active", "created_at", "sent", "last_slot", "failures")
+    list_filter = ("confirmed", "active")
+    search_fields = ("email",)
+    readonly_fields = ("token",)
+
+
+@admin.register(DailyCount)
+class DailyCountAdmin(admin.ModelAdmin):
+    list_display = ("day", "key", "n")
+    list_filter = ("key",)

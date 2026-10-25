@@ -1,6 +1,15 @@
-{% load news_tags %}{% wa_join_link as join %}{% if join %}
-<aside class="waj" aria-label="Pata matokeo WhatsApp">
+{% load news_tags %}{% join_options as j %}{% if j.wa or j.email or j.channel %}
+<aside class="waj" aria-label="Pata matokeo kila siku">
   <span class="waj-ic">{% icon "whatsapp" %}</span>
-  <div><b>Pata mechi za leo na matokeo WhatsApp — bure</b><span>Ujumbe mmoja kwa siku: matokeo ya jana, mechi za leo na makadirio. Tuma <strong>JIUNGE</strong>; tuma ACHA kusitisha wakati wowote.</span></div>
-  <a class="waj-btn" href="{{ join }}" target="_blank" rel="noopener">Jiunge WhatsApp</a>
+  <div class="waj-txt"><b>Pata mechi za leo na matokeo kila siku — bure</b><span>Ujumbe mmoja kwa siku: matokeo ya jana, mechi za leo na makadirio.{% if j.wa %} WhatsApp: tuma <strong>JIUNGE</strong>, ACHA kusitisha.{% endif %}</span></div>
+  <div class="waj-act">
+    {% if j.channel %}<a class="waj-btn" href="{{ j.channel }}" target="_blank" rel="noopener">Fuata WhatsApp Channel</a>{% endif %}
+    {% if j.wa %}<a class="waj-btn{% if j.channel %} alt{% endif %}" href="{{ j.wa }}" target="_blank" rel="noopener">Jiunge WhatsApp</a>{% endif %}
+  </div>
+  {% if j.email %}<form class="waj-mail" method="post" action="{% url 'news:digest_join' %}">
+    <label class="sr-only" for="waj-e-{{ request.path|slugify }}">Email yako</label>
+    <input id="waj-e-{{ request.path|slugify }}" type="email" name="email" required placeholder="Au email yako…" autocomplete="email">
+    <input type="text" name="website" tabindex="-1" autocomplete="off" class="waj-hp" aria-hidden="true">
+    <button type="submit">Jiunge kwa email</button>
+  </form>{% endif %}
 </aside>{% endif %}

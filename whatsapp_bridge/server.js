@@ -71,7 +71,9 @@ function requireKey(req, res, next) {
 }
 
 function toJid(number) {
-    const digits = String(number || '').replace(/\D/g, '');
+    const raw = String(number || '').trim();
+    if (/^\d+@newsletter$/.test(raw)) return raw;     // WhatsApp Channel (namba ya bridge lazima iwe admin)
+    const digits = raw.replace(/\D/g, '');
     return digits ? `${digits}@s.whatsapp.net` : '';
 }
 
@@ -105,6 +107,10 @@ app.post('/send', requireKey, async (req, res) => {
     }
 
     try {
+        if (jid.endsWith('@newsletter')) {
+            const sent = await sock.sendMessage(jid, { text });
+            return res.json({ success: true, id: sent?.key?.id || 'sent' });
+        }
         const [found] = await sock.onWhatsApp(jid);
         if (!found?.exists) {
             return res.status(404).json({ success: false, error: `${req.body.to} is not on WhatsApp` });
@@ -113,6 +119,23 @@ app.post('/send', requireKey, async (req, res) => {
         res.json({ success: true, id: sent?.key?.id || 'sent' });
     } catch (e) {
         console.error('send failed:', e.message);
+        res.status(502).json({ success: false, error: e.message });
+    }
+});
+
+// WhatsApp Channel: link ya mwaliko (whatsapp.com/channel/CODE) -> JID ya kutumia kwenye /send
+app.get('/channel', requireKey, async (req, res) => {
+    const code = String(req.query.invite || '').split('/').pop().split('?')[0].trim();
+    if (!code) return res.status(400).json({ success: false, error: 'invite is required' });
+    if (connectionStatus !== 'connected' || !sock) {
+        return res.status(503).json({ success: false, error: `not connected (${connectionStatus})` });
+    }
+    try {
+        const meta = await sock.newsletterMetadata('invite', code);
+        res.json({ success: true, id: meta?.id || '', name: meta?.thread_metadata?.name?.text || meta?.name || '',
+                   role: meta?.viewer_metadata?.role || '' });
+    } catch (e) {
+        console.error('channel lookup failed:', e.message);
         res.status(502).json({ success: false, error: e.message });
     }
 });

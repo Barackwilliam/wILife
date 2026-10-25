@@ -513,3 +513,55 @@ class Subscriber(models.Model):
 
     def __str__(self):
         return f"{self.phone}{'' if self.active else ' (ameacha)'}"
+
+
+class EmailSubscriber(models.Model):
+    """Msomaji wa ujumbe wa michezo kwa email: anajiunga kwenye tovuti, anathibitisha kwa link (double opt-in)."""
+    email = models.EmailField(unique=True)
+    token = models.CharField(max_length=40, unique=True, editable=False)
+    confirmed = models.BooleanField(default=False)
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    confirm_sent_at = models.DateTimeField(null=True, blank=True)
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    left_at = models.DateTimeField(null=True, blank=True)
+    last_slot = models.CharField(max_length=16, blank=True)
+    sent = models.PositiveIntegerField(default=0)
+    failures = models.PositiveSmallIntegerField(default=0)
+
+    def __str__(self):
+        state = "" if self.active and self.confirmed else (" (bado kuthibitisha)" if self.active else " (ameacha)")
+        return f"{self.email}{state}"
+
+    def save(self, *args, **kwargs):
+        if not self.token:
+            import secrets
+            self.token = secrets.token_urlsafe(24)
+        super().save(*args, **kwargs)
+
+
+class DailyCount(models.Model):
+    """Kihesabu cha siku (UTC): email zilizotumwa (kikomo cha Resend), posti za WhatsApp Channel, n.k."""
+    day = models.DateField()
+    key = models.CharField(max_length=60)
+    n = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["day", "key"], name="uniq_daily_count")]
+
+    def __str__(self):
+        return f"{self.day} {self.key}: {self.n}"
+
+    @classmethod
+    def get(cls, key, day=None):
+        from datetime import timezone as dt_tz
+        day = day or timezone.now().astimezone(dt_tz.utc).date()
+        return cls.objects.filter(day=day, key=key).values_list("n", flat=True).first() or 0
+
+    @classmethod
+    def bump(cls, key, by=1, day=None):
+        from datetime import timezone as dt_tz
+        day = day or timezone.now().astimezone(dt_tz.utc).date()
+        obj, _ = cls.objects.get_or_create(day=day, key=key)
+        cls.objects.filter(pk=obj.pk).update(n=models.F("n") + by)
+        return obj.n + by
