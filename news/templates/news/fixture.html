@@ -10,12 +10,12 @@
 <div class="sb sb-big{% if f.is_playing %} is-on{% elif f.is_finished %} is-ft{% endif %}">
   <div class="sb-comp">{% if f.competition_logo %}<img src="{{ f.competition_logo }}" alt="{{ f.competition }}" width="18" height="18" loading="lazy" referrerpolicy="no-referrer">{% endif %}<span>{{ f.competition }}{% if f.round %} · {{ f.round }}{% endif %}</span></div>
   <div class="sb-row">
-    <div class="sb-team"><span class="sb-logo">{% if f.home_logo %}<img src="{{ f.home_logo }}" alt="Nembo ya {{ f.home }}" width="48" height="48" referrerpolicy="no-referrer">{% else %}{{ f.home|slice:":1"|upper }}{% endif %}</span><b>{{ f.home }}</b></div>
+    <div class="sb-team"><span class="sb-logo">{% if f.home_logo %}<img src="{{ f.home_logo }}" alt="Nembo ya {{ f.home }}" width="48" height="48" referrerpolicy="no-referrer">{% else %}{% icon "shield-fill" "sb-crest" %}{% endif %}</span><b>{{ f.home }}</b></div>
     <div class="sb-mid">
       <span class="sb-score">{% if f.has_score and f.status != 'NS' %}{{ f.home_goals }}<i>-</i>{{ f.away_goals }}{% else %}<small>vs</small>{% endif %}</span>
       <span class="sb-clock">{{ f.clock }}</span>
     </div>
-    <div class="sb-team"><span class="sb-logo">{% if f.away_logo %}<img src="{{ f.away_logo }}" alt="Nembo ya {{ f.away }}" width="48" height="48" referrerpolicy="no-referrer">{% else %}{{ f.away|slice:":1"|upper }}{% endif %}</span><b>{{ f.away }}</b></div>
+    <div class="sb-team"><span class="sb-logo">{% if f.away_logo %}<img src="{{ f.away_logo }}" alt="Nembo ya {{ f.away }}" width="48" height="48" referrerpolicy="no-referrer">{% else %}{% icon "shield-fill" "sb-crest" %}{% endif %}</span><b>{{ f.away }}</b></div>
   </div>
   <div class="sb-meta">{% if f.kickoff %}<time datetime="{{ f.kickoff|date:'c' }}">{{ f.kickoff|sw_date }}, {{ f.kickoff|time:"H:i" }}</time>{% endif %}{% if x.venue %} · {{ x.venue }}{% if x.city %}, {{ x.city }}{% endif %}{% endif %}</div>
 </div>
@@ -41,7 +41,7 @@
 {% endif %}
 
 {% if not x.events and not x.stats %}
-<p class="lh-wait">{% if f.status == 'NS' and f.kickoff and f.kickoff > now %}⏱ Mechi bado haijaanza. Matukio na takwimu zitaonekana hapa mechi ikianza — fungua ukurasa huu tena.{% else %}Matukio na takwimu za mechi hii hazipatikani kwa sasa. Jaribu tena baada ya muda mfupi.{% endif %}</p>
+<p class="lh-wait">{% if f.status == 'NS' and f.kickoff and f.kickoff > now %}⏱ Mechi bado haijaanza. Matukio na takwimu zitaonekana hapa mechi ikianza — fungua ukurasa huu tena.{% elif f.is_overdue %}Mechi hii ilipangwa kuanza saa {{ f.kickoff|time:"H:i" }}, lakini bado hatujapata taarifa zake mpya. Matokeo na matukio yataonekana hapa yakipatikana.{% else %}Matukio na takwimu za mechi hii hazipatikani kwa sasa. Jaribu tena baada ya muda mfupi.{% endif %}</p>
 {% endif %}
 
 {% if others %}

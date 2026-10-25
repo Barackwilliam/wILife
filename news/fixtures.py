@@ -22,6 +22,9 @@ MATCH_LENGTH = timedelta(minutes=135)      # dakika 90 + mapumziko + nyongeza
 MAX_LEAGUES = 6                            # maombi ya juu kabisa kwa usasishaji mmoja
 PER_MATCH_MAX = 8                          # mechi zinazoombwa moja moja kwa mzunguko (ligi isiposaidia)
 BACKFILL_MIN_LEFT = 60                     # siku iliyokosa ratiba inasomwa tu maombi yakiwa mengi
+OFFLIVE_RESERVE = 12                       # maombi ambayo LIVE haiyagusi: matokeo + kurasa za mechi (football.live_interval)
+RESCAN_MIN_PENDING = 3                     # jana ikiwa na mechi hizi au zaidi bila matokeo: soma ratiba nzima upya
+RESCAN_MIN_LEFT = 40                       # ...kama maombi ya kutosha yamebaki (asubuhi, kikomo kikianza upya)
 
 
 def _set(f, item):
@@ -86,7 +89,7 @@ def refresh_results(state, now, left):
     """
     from django.core.cache import cache
     from news import highlightly
-    if cache.get("fixtures:refresh") or left <= 15:
+    if cache.get("fixtures:refresh") or left <= 6:
         return 0
     stale = _stale(now)
     if not stale:
@@ -127,6 +130,31 @@ def refresh_results(state, now, left):
             break
     state.save(update_fields=["requests", "remaining"])
     return spent
+
+
+def rescan_day(state, now, left):
+    """
+    Mechi za JANA ambazo bado hazina matokeo: soma ratiba nzima ya siku hiyo upya (kurasa kadhaa, mara moja
+    kwa siku) — kila mechi inapata matokeo yake ya mwisho kwa mara moja, bila kutegemea ombi la kila ligi.
+    Inarudisha maombi yaliyotumika.
+    """
+    from news import highlightly
+    from news.models import DailyCount
+    if left <= RESCAN_MIN_LEFT:
+        return 0
+    day = timezone.localtime(now).date() - timedelta(days=1)
+    pending = [f for f in _stale(now) if f.day == day]
+    key = f"rescan:{day.isoformat()}"
+    if len(pending) < RESCAN_MIN_PENDING or DailyCount.get(key, day=day):
+        return 0
+    DailyCount.bump(key, day=day)                    # jaribio moja tu kwa siku hiyo
+    before = state.requests
+    try:
+        store(highlightly.schedule(state, day), day)
+    except Exception as exc:
+        log.warning("rescan %s failed: %s", day, exc)
+    state.save(update_fields=["requests", "remaining"])
+    return state.requests - before
 
 
 def backfill(state, now, left):
@@ -182,6 +210,7 @@ class Row:
     is_finished = property(lambda s: s.status in LiveMatch.FINISHED)
     is_off = property(lambda s: s.status in LiveMatch.OFF)
     clock = property(lambda s: LiveMatch.clock.fget(s))
+    is_overdue = property(lambda s: LiveMatch.overdue(s))
     url = property(lambda s: s.article.get_absolute_url() if s.article
                    else (s.fixture.get_absolute_url() if s.fixture else ""))
 
@@ -262,13 +291,14 @@ def refresh_detail(f, now=None):
     Inarudisha True kama ombi lilifanyika.
     """
     from news import football, highlightly
-    from news.enrich import LIVE_RESERVE
     from news.models import DailyCount
     now = now or timezone.now()
     if f.provider != "highlightly" or football.provider() != "highlightly" or not _due(f, now):
         return False
     state = football._state(now)
-    if (football.daily_limit() - state.requests <= LIVE_RESERVE
+    # Akiba ya OFFLIVE_RESERVE inaachwa na LIVE kwa ajili ya hii — LIVE_RESERVE (35) ilikuwa ikizuia kurasa
+    # hizi kila siku yenye mechi nyingi ("Matukio na takwimu hazipatikani" hata mechi ikiendelea).
+    if (football.daily_limit() - state.requests <= football.RESERVE + 2
             or DailyCount.get(ONDEMAND_KEY) >= getattr(settings, "FOOTBALL_ONDEMAND_MAX", 20)):
         return False
     f.extra = {**(f.extra or {}), "fetched_at": now.isoformat()}     # muda wa jaribio — wageni wengi, ombi moja

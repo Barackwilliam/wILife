@@ -722,6 +722,7 @@ a:hover .img img, .card:hover .img img { transform: scale(1.045); }
 .sb-team b { font-size: .95rem; font-weight: 800; line-height: 1.2; overflow-wrap: break-word; hyphens: auto; max-width: 100%; }
 .sb-logo { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.95); color: var(--pitch); font-weight: 800; font-size: 1.1rem; overflow: hidden; flex: none; }
 .sb-logo img { width: 78%; height: 78%; object-fit: contain; }
+.sb-logo .sb-crest { width: 52%; height: 52%; color: #8a94a6; }
 .sb-mid { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .sb-score { font-size: 2rem; font-weight: 800; letter-spacing: .02em; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
 .sb-score i { font-style: normal; opacity: .5; margin: 0 6px; }
@@ -877,6 +878,7 @@ a:hover .img img, .card:hover .img img { transform: scale(1.045); }
 .dy-rows > .fx:first-child { border-top: 0; }
 a.fx:hover { background: var(--brand-soft); }
 .fx-t { font-size: 12px; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; }
+.fx-t small { display: block; font-size: 9.5px; font-weight: 700; letter-spacing: .02em; color: var(--muted); }
 .fx.is-on .fx-t { color: var(--live); }
 .fx.is-on .fx-t::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--live); margin-right: 5px; vertical-align: 1px; animation: lvdot 1.3s ease-in-out infinite; }
 .fx-tm { display: flex; align-items: center; gap: 8px; min-width: 0; }
