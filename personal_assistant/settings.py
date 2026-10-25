@@ -316,7 +316,7 @@ HIGHLIGHTLY_LEAGUES = [x.strip() for x in env(
 # siku) na zinaonyeshwa kwanza, kwenye mashindano yoyote. Jina kama API inavyoliandika ("SC"/"FC" hazijalishi).
 HIGHLIGHTLY_FAVOURITE_TEAMS = [x.strip() for x in env(
     "HIGHLIGHTLY_FAVOURITE_TEAMS",
-    "Simba,Young Africans,Yanga,Azam,Singida Black Stars,Tanzania",
+    "Simba,Young Africans,Yanga,Azam,Singida Fountain Gate,Singida Black Stars,Tanzania",
 ).split(",") if x.strip()]
 HIGHLIGHTLY_DAILY_LIMIT = int(env("HIGHLIGHTLY_DAILY_LIMIT", "100"))      # mpango wa bure: 100
 HIGHLIGHTLY_SCHEDULE_HOURS = int(env("HIGHLIGHTLY_SCHEDULE_HOURS", "24"))   # ratiba: mara moja kwa siku

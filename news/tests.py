@@ -2776,7 +2776,7 @@ class MatchWordingTenseTest(TestCase):
 
 @override_settings(HIGHLIGHTLY_API_KEY="hl-key", API_FOOTBALL_KEY="", API_FOOTBALL_LIVE_SECONDS=0,
                    HIGHLIGHTLY_LEAGUES=["England:Premier League", "*:CAF Champions League"],
-                   HIGHLIGHTLY_FAVOURITE_TEAMS=["Simba", "Young Africans", "Azam"],
+                   HIGHLIGHTLY_FAVOURITE_TEAMS=["Simba", "Young Africans", "Azam", "Singida Fountain Gate"],
                    API_FOOTBALL_MAX_PER_DAY=1, SITE_URL="https://www.wlife.online")
 class FavouriteTeamsAndBudgetTest(TestCase):
     """
@@ -2805,7 +2805,8 @@ class FavouriteTeamsAndBudgetTest(TestCase):
 
     def test_team_names_match_with_or_without_suffix(self):
         from news import highlightly
-        for home in ("Simba", "Simba SC", "Simba S.C.", "simba sc", "Azam FC", "Young Africans SC"):
+        for home in ("Simba", "Simba SC", "Simba S.C.", "simba sc", "Azam FC", "Young Africans SC",
+                     "Singida Fountain Gate"):
             self.assertTrue(highlightly.is_favourite(home, "X"), home)
         for home in ("Simba Bhora", "Real Madrid", ""):
             self.assertFalse(highlightly.is_favourite(home, "X"), home)
