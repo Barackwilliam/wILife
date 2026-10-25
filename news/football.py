@@ -19,6 +19,7 @@ from datetime import datetime, timedelta, timezone as dt_timezone
 import requests
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from news import covers, indexnow, live
@@ -499,6 +500,34 @@ def sync_live(state, now):
     return new
 
 
+def finalize(state, now, limit=3):
+    """
+    Mechi zilizopita muda wa kawaida (zaidi ya saa 4 tangu kuanza) bila matokeo ya mwisho — mf. maombi ya
+    siku yaliisha mechi ikiendelea. active() haiziangalii tena, kwa hiyo hapa zinaombwa mara moja moja
+    (ombi 1 kila mechi, kila dakika 30) hadi API iseme zimeisha. Inarudisha maombi yaliyotumika.
+    """
+    from news import highlightly
+    if provider() != "highlightly" or daily_limit() - state.requests <= 8:
+        return 0
+    due = list(LiveMatch.objects.select_related("article").filter(
+        fixture_id__isnull=False, provider=provider(), article__status="published",
+        kickoff__lt=now - LiveMatch.STALE_AFTER, kickoff__gte=now - timedelta(hours=48))
+        .exclude(status__in=LiveMatch.FINISHED | LiveMatch.OFF)
+        .filter(Q(synced_at__isnull=True) | Q(synced_at__lt=now - timedelta(minutes=30))).order_by("kickoff")[:limit])
+    spent = 0
+    for m in due:
+        LiveMatch.objects.filter(pk=m.pk).update(synced_at=now)      # muda wa jaribio — kosa lisirudiwe kila dakika
+        spent += 1
+        for item in highlightly.match(state, m):
+            apply(item, m)
+        if not m.is_finished and now - m.kickoff > timedelta(hours=24) and m.article.live_started_at \
+                and not m.article.live_ended_at:
+            live.end(m.article)        # API bado haina matokeo ya mwisho baada ya siku nzima: LIVE isiendelee
+    if spent:
+        state.save(update_fields=["requests", "remaining"])
+    return spent
+
+
 def live_interval(state, now):
     """
     Kila ngapi kuangalia mechi zinazochezwa. Si chini ya API_FOOTBALL_LIVE_SECONDS, na maombi
@@ -551,6 +580,9 @@ def run(now=None, deadline=None, dry_run=False):
             notes.append(f"live: masasisho {n}")
         if provider() == "highlightly":       # baada ya mechi zinazochezwa: taarifa za ziada
             from news import enrich
+            n = finalize(state, now)
+            if n:
+                notes.append(f"matokeo ya mwisho yaliyochelewa: maombi {n}")
             n = enrich.run(state, now)
             if n:
                 notes.append(f"ziada: maombi {n}")

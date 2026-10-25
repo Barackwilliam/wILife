@@ -116,9 +116,10 @@ class Row:
         self.match = src if isinstance(src, LiveMatch) else None
         self.rank = rank
         self.key = f"{getattr(src, 'provider', '')}{getattr(src, 'fixture_id', '') or src.pk}"
+        self.fixture_id = getattr(src, "fixture_id", None)
 
     has_score = property(lambda s: s.home_goals is not None and s.away_goals is not None)
-    is_playing = property(lambda s: s.status in LiveMatch.PLAYING)
+    is_playing = property(lambda s: s.status in LiveMatch.PLAYING and not LiveMatch.stale(s))
     is_finished = property(lambda s: s.status in LiveMatch.FINISHED)
     is_off = property(lambda s: s.status in LiveMatch.OFF)
     clock = property(lambda s: LiveMatch.clock.fget(s))
