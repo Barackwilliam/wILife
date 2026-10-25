@@ -337,6 +337,23 @@ def fixture_detail(request, day, pk, slug):
                                                  "date_text": swahili_date(f.day)})
 
 
+@_live_page
+def team_hub(request):
+    """Timu zenye kurasa zao."""
+    from news.models import Team
+    teams = list(Team.objects.filter(active=True))
+    return render(request, "news/teams.html", {"teams": teams})
+
+
+@_live_page
+def team_detail(request, slug):
+    """Ukurasa wa timu: habari, mechi ijayo/LIVE, matokeo, fomu, takwimu na video — vyote automatic."""
+    from news import teams
+    from news.models import Team
+    team = get_object_or_404(Team, slug=slug, active=True)
+    return render(request, "news/team.html", teams.summary(team))
+
+
 def video_hub(request):
     """Video za magoli na highlights za karibuni (ScoreBat) — kwa ligi."""
     from django.db.models import Count

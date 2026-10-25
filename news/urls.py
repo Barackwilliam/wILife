@@ -38,6 +38,8 @@ urlpatterns = [
     path("mechi/<str:day>/", views.matches_day, name="matches_day"),
     path("mechi/<str:day>/<int:pk>-<slug:slug>/", views.fixture_detail, name="fixture"),
     path("utabiri/", views.predictions, name="predictions"),
+    path("timu/", views.team_hub, name="teams"),
+    path("timu/<slug:slug>/", views.team_detail, name="team"),
     path("video/", views.video_hub, name="videos"),
     path("video/<slug:slug>/", views.video_detail, name="video"),
     path("makadirio/", RedirectView.as_view(pattern_name="news:predictions", permanent=True)),

@@ -681,3 +681,40 @@ class Highlight(models.Model):
         """'ENGLAND: Premier League' -> 'Premier League · England' (kwa kuonyesha)."""
         country, sep, name = (self.competition or "").partition(": ")
         return f"{name} · {country.title()}" if sep and name else self.competition
+
+
+class Team(models.Model):
+    """
+    Timu yenye ukurasa wake (/timu/<slug>/): habari, mechi ijayo/LIVE, matokeo, fomu na video — vyote
+    vinajazwa vyenyewe (news/teams.py). Mhariri anaandika utambulisho (intro) mara moja tu; ukiwa tupu haonyeshwi.
+    """
+    name = models.CharField(max_length=80, help_text="Jina la kuonyesha, mf. Simba SC")
+    slug = models.SlugField(max_length=80, unique=True)
+    match_names = models.CharField(
+        max_length=300, help_text="Majina ya timu kwenye data ya mechi, kwa koma (mf. Simba, Simba SC). SC/FC hazijalishi.")
+    news_terms = models.CharField(
+        max_length=400, blank=True,
+        help_text="Maneno ya kutambua habari zake, kwa koma (mf. Simba SC, klabu ya Simba). Epuka neno lenye maana "
+                  "nyingine (simba = mnyama).")
+    intro = models.TextField(blank=True, help_text="Utambulisho mfupi wa timu (mhariri). Tupu = hauonyeshwi.")
+    logo = models.URLField(max_length=300, blank=True, help_text="Tupu = nembo kutoka data ya mechi")
+    active = models.BooleanField(default=True)
+    sort = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort", "name"]
+
+    def __str__(self):
+        return self.name
+
+    def get_absolute_url(self):
+        return reverse("news:team", args=[self.slug])
+
+    @property
+    def keys(self):
+        from news.highlightly import _team_key
+        return {_team_key(n) for n in self.match_names.split(",") if n.strip()}
+
+    @property
+    def terms(self):
+        return [t.strip() for t in self.news_terms.split(",") if t.strip()]

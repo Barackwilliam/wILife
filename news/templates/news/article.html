@@ -43,6 +43,7 @@
     </header>
     {% if page_v %}<div id="mz-body" data-zone data-v="{{ page_v }}" data-feed="{% url 'news:live_feed' article.pk %}"
          data-active="{{ page_active|yesno:'1,0' }}">{% endif %}
+    {% if article.match %}{% teams_for article.match.home article.match.away as tlinks %}{% if tlinks %}<p class="tm-links">{% for t in tlinks %}<a href="{{ t.get_absolute_url }}">{% icon "shield-fill" %} {{ t.name }}: habari na matokeo</a>{% endfor %}</p>{% endif %}{% endif %}
     {% if article.match %}{% match_video article.match as mv %}{% if mv %}{% include 'news/_video_player.html' with h=mv %}{% endif %}{% include 'news/_match_panel.html' %}{% endif %}
     {% if article.live_started_at %}{% include 'news/_live.html' %}{% endif %}
     {% if not article.match %}<div class="hero-img">{% include 'news/_img.html' with a=article big=True %}</div>{% endif %}

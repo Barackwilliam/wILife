@@ -35,10 +35,12 @@ class SectionSitemap(Sitemap):
     priority = 1.0
 
     def items(self):
-        return ["home", "live_hub", "matches_today", "results_yesterday", "predictions", "videos", "latest"] + list(Category.values)
+        return ["home", "live_hub", "matches_today", "results_yesterday", "predictions", "videos", "teams",
+                "latest"] + list(Category.values)
 
     def location(self, item):
-        if item in ("home", "live_hub", "matches_today", "results_yesterday", "predictions", "videos", "latest"):
+        if item in ("home", "live_hub", "matches_today", "results_yesterday", "predictions", "videos", "teams",
+                    "latest"):
             return reverse(f"news:{item}")
         return reverse("news:category", args=[item])
 
@@ -103,5 +105,16 @@ class VideoSitemap(Sitemap):
         return obj.updated_at
 
 
+class TeamSitemap(Sitemap):
+    """Kurasa za timu (/timu/<slug>/) — zinabadilika kila mechi na kila habari."""
+    changefreq = "daily"
+    priority = 0.8
+
+    def items(self):
+        from news.models import Team
+        return Team.objects.filter(active=True)
+
+
 SITEMAPS = {"days": DaySitemap, "topics": TopicSitemap, "sections": SectionSitemap, "articles": ArticleSitemap,
-            "services": ServiceSitemap, "pages": StaticSitemap, "videos": VideoSitemap}
+            "services": ServiceSitemap, "pages": StaticSitemap, "videos": VideoSitemap,
+            "teams": TeamSitemap}

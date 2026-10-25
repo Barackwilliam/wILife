@@ -20,6 +20,7 @@
   <div class="sb-meta">{% if f.kickoff %}<time datetime="{{ f.kickoff|date:'c' }}">{{ f.kickoff|sw_date }}, {{ f.kickoff|time:"H:i" }}</time>{% endif %}{% if x.venue %} · {{ x.venue }}{% if x.city %}, {{ x.city }}{% endif %}{% endif %}</div>
 </div>
 
+{% teams_for f.home f.away as tlinks %}{% if tlinks %}<p class="tm-links">{% for t in tlinks %}<a href="{{ t.get_absolute_url }}">{% icon "shield-fill" %} {{ t.name }}: habari na matokeo</a>{% endfor %}</p>{% endif %}
 <h1 class="fxd-title">{{ f.home }} dhidi ya {{ f.away }}{% if f.has_score and f.is_finished %}: {{ f.home_goals }}-{{ f.away_goals }}{% endif %}</h1>
 <p class="fxd-dek">{{ f.competition }}{% if f.round %} · {{ f.round }}{% endif %} · {{ date_text }}{% if f.kickoff %}, saa {{ f.kickoff|time:"H:i" }} (Afrika Mashariki){% endif %}</p>
 

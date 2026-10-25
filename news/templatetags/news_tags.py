@@ -494,3 +494,36 @@ def match_video(m):
         return scorebat.for_match(m.home, m.away, m.kickoff)
     except Exception:          # ukurasa wa mechi usivunjike kwa sababu ya video
         return None
+
+
+
+# ── Kurasa za timu (news/teams.py) ─────────────────────────────────────────────
+
+@register.simple_tag(takes_context=True)
+def team_jsonld(context, team, logo="", next_match=None, articles=()):
+    """SportsTeam + mechi ijayo (SportsEvent) + breadcrumb + orodha ya habari."""
+    request = context["request"]
+    url = _abs(request, team.get_absolute_url())
+    data = [{"@context": "https://schema.org", "@type": "SportsTeam", "name": team.name, "sport": "Soccer", "url": url,
+             **({"logo": logo} if logo else {}), **({"description": team.intro[:300]} if team.intro else {})},
+            {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
+                {"@type": "ListItem", "position": 1, "name": "Mwanzo", "item": _abs(request, "/")},
+                {"@type": "ListItem", "position": 2, "name": "Timu", "item": _abs(request, "/timu/")},
+                {"@type": "ListItem", "position": 3, "name": team.name, "item": url}]}]
+    if next_match is not None and next_match.url:
+        data.append({"@context": "https://schema.org", **sports_event(next_match, _abs(request, next_match.url))})
+    if articles:
+        data.append({"@context": "https://schema.org", "@type": "ItemList", "name": f"Habari za {team.name}",
+                     "itemListElement": [{"@type": "ListItem", "position": i, "url": _abs(request, a.get_absolute_url())}
+                                         for i, a in enumerate(articles[:10], 1)]})
+    return _script(data)
+
+
+@register.simple_tag
+def teams_for(*names):
+    """Timu zenye kurasa zao kati ya majina haya (viungo kwenye kurasa za mechi)."""
+    from news import teams
+    try:
+        return teams.for_names(*names)
+    except Exception:
+        return []
