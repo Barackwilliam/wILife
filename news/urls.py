@@ -30,6 +30,7 @@ urlpatterns = [
     path("site.webmanifest", views.webmanifest, name="webmanifest"),
     path("sitemap.xml", sitemap, {"sitemaps": SITEMAPS}, name="sitemap"),
     path("news-sitemap.xml", views.news_sitemap, name="news_sitemap"),
+    path("video-sitemap.xml", views.video_sitemap, name="video_sitemap"),
     path("live/", views.live_hub, name="live_hub"),
     path("live/matokeo.json", views.live_scores, name="live_scores"),
     path("mechi-za-leo/", views.matches_today, name="matches_today"),

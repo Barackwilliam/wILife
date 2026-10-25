@@ -670,6 +670,13 @@ class Highlight(models.Model):
         return f"{self.home} vs {self.away}" if self.home and self.away else self.title
 
     @property
+    def keywords(self):
+        """Maneno ambayo watu wanatafuta: Kiswahili na Kiingereza."""
+        n = self.name
+        return [f"{n} highlights", f"{n} video za magoli", f"magoli ya {n}", f"{self.home} highlights",
+                f"{self.away} highlights", self.league or "", "video za magoli", "highlights za leo"]
+
+    @property
     def league(self):
         """'ENGLAND: Premier League' -> 'Premier League · England' (kwa kuonyesha)."""
         country, sep, name = (self.competition or "").partition(": ")

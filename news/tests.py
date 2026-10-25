@@ -3045,11 +3045,11 @@ class ScoreBatVideoTest(TestCase):
         from news.models import Highlight
         h = Highlight.objects.get(home="Liverpool")
         page = self.client.get(h.get_absolute_url()).content.decode()
-        for text in ("Liverpool vs Brighton: Video za Magoli na Highlights", '"@type": "VideoObject"',
+        for text in ("Liverpool vs Brighton Highlights: Video za Magoli Yote", '"@type": "VideoObject"',
                      '"embedUrl": "https://www.scorebat.com/embed/v/l1/"', "Goal 1 - Salah", "Shiriki WhatsApp",
                      "Nakili kiungo", f'<link rel="canonical" href="https://www.wlife.online{h.get_absolute_url()}">'):
             self.assertIn(text, page)
-        self.assertNotRegex(page, r'<iframe[^>]*scorebat')       # iframe inapakiwa msomaji akibonyeza tu
+        self.assertNotRegex(hub, r'<iframe[^>]*scorebat')        # /video/: iframe inapakiwa msomaji akibonyeza tu
         self.assertNotIn("download", page.lower().split("<footer")[0].split("</header>")[-1])
         sitemap = self.client.get("/sitemap.xml").content.decode()
         self.assertIn(f"https://www.wlife.online{h.get_absolute_url()}</loc>", sitemap)
@@ -3088,3 +3088,64 @@ class ScoreBatVideoTest(TestCase):
             self.assertEqual({k: f.extra[k] for k in ("home_id", "away_id")}, {"home_id": 50, "away_id": 51})
             self.assertNotIn("stats", f.extra)
             self.assertEqual(football._item_from_fixture(f)["_extra"]["home_id"], 50)
+
+
+@override_settings(SCOREBAT_TOKEN="sb-token", SITE_URL="https://www.wlife.online")
+class VideoSeoTest(TestCase):
+    """SEO ya video: kichwa chenye matokeo, muhtasari wa kipekee, video-sitemap, og:video, ukurasa wa mwanzo."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from news import scorebat
+        from news.models import Fixture
+        cache.clear()
+        self.addCleanup(cache.clear)
+        scorebat.store(scorebat.parse({"response": [_sb_item(title="Arsenal - Chelsea", hours_ago=2)]}))
+        Fixture.objects.create(provider="highlightly", fixture_id=9900, day=timezone.localdate(), home="Arsenal FC",
+                               away="Chelsea", competition="Premier League", status="FT", home_goals=2, away_goals=1,
+                               kickoff=timezone.now() - timedelta(hours=3),
+                               extra={"final": True, "events": [
+                                   {"label": "23'", "kind": "goal", "text": "⚽ GOLI! B. Saka ameifungia Arsenal."},
+                                   {"label": "40'", "kind": "card", "text": "🟨 Kadi ya njano"}]})
+
+    def test_video_page_is_rich_and_unique(self):
+        from news.models import Highlight
+        h = Highlight.objects.get()
+        page = self.client.get(h.get_absolute_url()).content.decode()
+        for text in ("<title>Arsenal vs Chelsea 2-1 Highlights: Video za Magoli Yote | wILife</title>",
+                     "Muhtasari wa mechi", "Matokeo ya mwisho: Arsenal FC 2-1 Chelsea.", "23&#x27; GOLI! B. Saka",
+                     '<meta property="og:video" content="https://www.scorebat.com/embed/v/abc123/',
+                     '<meta property="og:image:width" content="1200">', '"inLanguage": "sw"',
+                     '"@type": "SportsEvent"', "Arsenal vs Chelsea highlights",
+                     '<iframe src="https://www.scorebat.com/embed/v/abc123/'):   # ukurasa wa video: iframe moja kwa moja
+            self.assertIn(text, page)
+        self.assertNotIn("Kadi ya njano", page.split("Muhtasari wa mechi")[1].split("</section>")[0])
+
+    def test_video_sitemap_and_robots(self):
+        from news.models import Highlight
+        h = Highlight.objects.get()
+        xml = self.client.get("/video-sitemap.xml")
+        self.assertEqual(xml["Content-Type"], "application/xml")
+        body = xml.content.decode()
+        for text in ('xmlns:video="http://www.google.com/schemas/sitemap-video/1.1"',
+                     f"<loc>https://www.wlife.online{h.get_absolute_url()}</loc>",
+                     "<video:thumbnail_loc>https://www.scorebat.com/og/m/og1.jpeg</video:thumbnail_loc>",
+                     "<video:title>Arsenal vs Chelsea 2-1 Highlights: Video za Magoli Yote</video:title>",
+                     "<video:player_loc>https://www.scorebat.com/embed/v/abc123/?utm_source=api</video:player_loc>",
+                     "<video:family_friendly>yes</video:family_friendly>"):
+            self.assertIn(text, body)
+        self.assertIn("Sitemap: https://www.wlife.online/video-sitemap.xml",
+                      self.client.get("/robots.txt").content.decode())
+
+    def test_home_page_links_latest_videos_and_new_videos_are_pinged(self):
+        from news import scorebat
+        Article.objects.create(title="Habari ya leo", category="tanzania", status="published",
+                               published_at=timezone.now(), body="Maelezo.")
+        page = self.client.get("/").content.decode()
+        self.assertIn("Video za magoli", page)
+        self.assertIn("/video/arsenal-vs-chelsea-", page)
+        with mock.patch("news.indexnow.submit") as submit:
+            scorebat.store(scorebat.parse({"response": [_sb_item(title="Roma - Lazio")]}))
+        urls = submit.call_args.args[0]
+        self.assertIn("/video/", urls)
+        self.assertTrue(any(u.startswith("/video/roma-vs-lazio-") for u in urls))

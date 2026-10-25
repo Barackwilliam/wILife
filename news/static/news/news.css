@@ -1112,5 +1112,8 @@ a.fx:hover { background: var(--brand-soft); }
 .vh-meta b { font-size: .98rem; line-height: 1.25; }
 .vh-meta time { font-size: 12px; color: var(--muted); }
 .vh-empty { padding: 30px 0; color: var(--muted); }
+.c-video { margin: 30px 0; }
+.vd-sum p { line-height: 1.7; }
+.vd-sum h3 { font-size: 1rem; margin: 14px 0 6px; }
 @media (max-width: 560px) { .vx { border-radius: 14px; margin-left: -4px; margin-right: -4px; } .vx-btn { width: 64px; height: 64px; margin: -32px 0 0 -32px; } .vx-a { font-size: 12.5px; padding: 8px 12px; } }
 @media (prefers-reduced-motion: reduce) { .vx-btn { animation: none; } .vx-play img, .vh-card { transition: none; } }

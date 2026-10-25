@@ -60,6 +60,18 @@
 
 {% include 'news/_jt.html' %}
 
+{% if videos %}
+<section class="c-video" aria-label="Video za magoli">
+  <div class="sh"><h2>Video za magoli</h2><a href="{% url 'news:videos' %}">Zote {% icon "arrow-right" %}</a></div>
+  <div class="vh-grid">{% for h in videos %}
+    <a class="vh-card" href="{{ h.get_absolute_url }}">
+      <span class="vh-thumb">{% if h.thumbnail %}<img src="{{ h.thumbnail }}" alt="{{ h.name }}: video za magoli" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}<i aria-hidden="true">▶</i></span>
+      <span class="vh-meta"><small>{{ h.league }}</small><b>{{ h.name }}</b><time datetime="{{ h.date|date:'c' }}">{{ h.date|sw_ago }}</time></span>
+    </a>{% endfor %}
+  </div>
+</section>
+{% endif %}
+
 {% if afrika %}
 <section class="c-afrika">
   <div class="sh"><h2>Afrika</h2><a href="{% url 'news:category' 'afrika' %}">Zaidi {% icon "arrow-right" %}</a></div>

@@ -134,8 +134,17 @@ def home(request):
         "services": JamiiTekService.objects.filter(active=True)[:6],
         "ticker": latest[:10],
         "live_strip": _live_strip(),
+        "videos": _home_videos(),
         "live_v": _live_version(*_live_sets()),
     })
+
+
+def _home_videos():
+    from news.models import Highlight
+    try:
+        return list(Highlight.objects.all()[:4])
+    except Exception:                 # jedwali bado (migration) — ukurasa wa mwanzo usivunjike
+        return []
 
 
 def _live_version(on, soon, done):
@@ -353,7 +362,10 @@ def video_detail(request, slug):
     more = list(Highlight.objects.exclude(pk=h.pk).filter(competition=h.competition)[:6]) if h.competition else []
     if len(more) < 6:
         more += list(Highlight.objects.exclude(pk__in=[h.pk] + [x.pk for x in more])[:6 - len(more)])
-    return render(request, "news/video.html", {"h": h, "match": scorebat.match_page(h), "more": more})
+    match = scorebat.match_page(h)
+    return render(request, "news/video.html", {"h": h, "match": match, "more": more,
+                                               "seo_title": scorebat.title(h, match),
+                                               "seo_desc": scorebat.description(h, match)})
 
 
 @_live_page
@@ -576,9 +588,38 @@ def robots(request):
         "User-agent: *", "Allow: /",
         "Disallow: /admin/", "Disallow: /dashboard/", "Disallow: /agent/", "Disallow: /habari-admin/",
         "Disallow: /tafuta/", "",
-        f"Sitemap: {root}/sitemap.xml", f"Sitemap: {root}/news-sitemap.xml",
+        f"Sitemap: {root}/sitemap.xml", f"Sitemap: {root}/news-sitemap.xml", f"Sitemap: {root}/video-sitemap.xml",
     ])
     return HttpResponse(body + "\n", content_type="text/plain")
+
+
+def video_sitemap(request):
+    """Google Video sitemap: kila ukurasa wa video na player wake, picha, kichwa na tarehe."""
+    from xml.sax.saxutils import escape
+    from news import scorebat
+    from news.models import Highlight
+    from news.seo import site_root
+    root = site_root(request)
+    rows = []
+    for h in Highlight.objects.order_by("-date")[:1000]:
+        v = h.main
+        if not (v and h.thumbnail):
+            continue                                  # Google inahitaji picha ya video
+        desc = scorebat.description(h)
+        tags = "".join(f"<video:tag>{escape(k)}</video:tag>" for k in h.keywords[:8] if k)
+        rows.append(
+            f"<url><loc>{escape(root + h.get_absolute_url())}</loc><video:video>"
+            f"<video:thumbnail_loc>{escape(h.thumbnail)}</video:thumbnail_loc>"
+            f"<video:title>{escape(scorebat.title(h)[:100])}</video:title>"
+            f"<video:description>{escape(desc[:2048])}</video:description>"
+            f"<video:player_loc>{escape(v['src'])}</video:player_loc>"
+            f"<video:publication_date>{h.date.isoformat()}</video:publication_date>"
+            f"<video:family_friendly>yes</video:family_friendly>{tags}"
+            f"</video:video></url>")
+    body = ('<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" '
+            'xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">' + "".join(rows) + "</urlset>")
+    return HttpResponse(body, content_type="application/xml")
 
 
 def favicon(request):

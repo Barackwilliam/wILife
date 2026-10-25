@@ -122,22 +122,29 @@ def _slug(item):
 
 
 def store(items):
-    """Hifadhi/sasisha Highlight. Inarudisha (mpya, zilizosasishwa)."""
+    """Hifadhi/sasisha Highlight. Inarudisha (mpya, zilizosasishwa). Kurasa mpya zinatumwa IndexNow."""
+    from news import indexnow
     from news.models import Highlight
     new = updated = 0
+    fresh = []
     for item in items:
         h = Highlight.objects.filter(key=item["key"]).first()
         if h is None:
             slug, n = _slug(item), 2
             while Highlight.objects.filter(slug=slug).exists():
                 slug, n = f"{_slug(item)}-{n}", n + 1
-            Highlight.objects.create(slug=slug, **item)
+            fresh.append(Highlight.objects.create(slug=slug, **item).get_absolute_url())
             new += 1
         elif (h.videos, h.thumbnail, h.title) != (item["videos"], item["thumbnail"], item["title"]):
             for k, v in item.items():
                 setattr(h, k, v)
             h.save()
             updated += 1
+    if fresh:
+        try:
+            indexnow.submit(fresh + ["/video/"])      # Bing/Yandex wanaziona papo hapo; Google kupitia video-sitemap
+        except Exception as exc:
+            log.warning("indexnow (video) failed: %s", exc)
     return new, updated
 
 
@@ -209,14 +216,48 @@ def _close(a, b):
 
 
 def match_page(h):
-    """Ukurasa wetu wa mechi ya video hii: {'url', 'score'} kutoka LIVE au ratiba, au None."""
+    """
+    Ukurasa wetu wa mechi ya video hii: {'url', 'score', 'goals'} kutoka LIVE au ratiba, au None.
+    goals = ["23' B. Saka (Arsenal)", ...] — maandishi ya kipekee kwa ukurasa wa video (SEO).
+    """
     from news.models import Fixture, LiveMatch
     start, end = h.date - timedelta(days=1), h.date + timedelta(days=1)
     for model, qs in ((LiveMatch, LiveMatch.objects.select_related("article").filter(article__status="published")),
                       (Fixture, Fixture.objects.all())):
         for m in qs.filter(kickoff__gte=start, kickoff__lte=end):
             if _close(team_key(m.home), h.home_key) and _close(team_key(m.away), h.away_key):
-                url = m.article.get_absolute_url() if model is LiveMatch else m.get_absolute_url()
-                score = f"{m.home} {m.home_goals}-{m.away_goals} {m.away}" if m.has_score and m.is_finished else ""
-                return {"url": url, "score": score}
+                if model is LiveMatch:
+                    url = m.article.get_absolute_url()
+                    goals = [f"{u.label} {u.text.lstrip('⚽ ')}" for u in
+                             m.article.live_updates.filter(kind="goal").order_by("created_at", "id")]
+                else:
+                    url = m.get_absolute_url()
+                    goals = [f"{e.get('label', '')} {e.get('text', '').lstrip('⚽ ')}".strip()
+                             for e in (m.extra or {}).get("events") or [] if e.get("kind") == "goal"]
+                score = f"{m.home_goals}-{m.away_goals}" if m.has_score and m.is_finished else ""
+                return {"url": url, "score": score, "score_text": f"{m.home} {score} {m.away}" if score else "",
+                        "goals": goals[:12]}
     return None
+
+
+def title(h, match=None):
+    """Kichwa chenye matokeo na maneno yanayotafutwa: 'Arsenal vs Chelsea 2-1 Highlights: Video za Magoli Yote'."""
+    match = match if match is not None else match_page(h)
+    score = f" {match['score']}" if match and match.get("score") else ""
+    return f"{h.name}{score} Highlights: Video za Magoli Yote"
+
+
+def description(h, match=None):
+    """Maelezo ya kipekee ya video (ukurasa, JSON-LD, video-sitemap) kwa Kiswahili."""
+    from news.templatetags.news_tags import sw_date
+    match = match if match is not None else match_page(h)
+    day = sw_date(h.date)
+    parts = [f"Tazama video za magoli na highlights za {h.name}"
+             + (f" ({h.league})" if h.league else "") + f", mechi ya {day}."]
+    if match and match.get("score_text"):
+        parts.append(f"Matokeo ya mwisho: {match['score_text']}.")
+    if match and match.get("goals"):
+        parts.append("Magoli: " + "; ".join(match["goals"][:6]) + ".")
+    if len(h.videos) > 1:
+        parts.append(f"Video {len(h.videos)}: " + ", ".join(v["title"] for v in h.videos[:6]) + ".")
+    return " ".join(parts)
