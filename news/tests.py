@@ -2127,6 +2127,7 @@ class MatchEnrichmentTest(TestCase):
         page = self.client.get(self.a.get_absolute_url()).content.decode()
         self.assertIn("Historia ya kukutana", page)
         self.assertIn("Mechi 2 za mwisho za Arsenal", page)                    # jedwali la wapinzani
+        self.assertIn('Arsenal ilishinda mara <b>1</b>', page)
         self.assertIn("<td>Y<small>Ugenini</small></td>", page)
         self.assertIn("- 01/09/26: Arsenal 3-0 X (Nyumbani) — Ushindi", self.a.body)
         self.assertIn('class="f-W"', page)

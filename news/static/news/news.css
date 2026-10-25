@@ -1034,3 +1034,5 @@ a.fx:hover { background: var(--brand-soft); }
 .mp-h2h td:last-child, .mp-h2h th:last-child { text-align: right; }
 @media (max-width: 560px) { .mp-h2h td:first-child, .mp-h2h th:first-child { display: none; } }
 .ai-key span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.ai-sum td.ai-won { font-weight: 700; font-size: .9rem; line-height: 1.35; }
+.ai-sum td.ai-won b { font-size: 1.15rem; }

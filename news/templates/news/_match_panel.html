@@ -20,7 +20,7 @@
       <th scope="col">{% if m.away_logo %}<img src="{{ m.away_logo }}" alt="" width="22" height="22" loading="lazy" referrerpolicy="no-referrer">{% endif %}{{ m.away }}</th></tr></thead>
     <tbody>
       {% if a.h2h %}<tr><th scope="row">Walipokutana wao kwa wao<small>mechi {{ a.h2h_n }} za mwisho · {% if a.h2h.D %}sare {{ a.h2h.D }}{% else %}hakuna sare{% endif %}</small></th>
-        <td><b>{{ a.h2h.W }}</b><small>ushindi</small></td><td><b>{{ a.h2h.L }}</b><small>ushindi</small></td></tr>{% endif %}
+        <td class="ai-won">{{ m.home }} ilishinda mara <b>{{ a.h2h.W }}</b></td><td class="ai-won">{{ m.away }} ilishinda mara <b>{{ a.h2h.L }}</b></td></tr>{% endif %}
       {% if a.home or a.away %}<tr><th scope="row">Mechi za mwisho<small>dhidi ya timu nyingine</small></th>
         {% for s in a.sides %}{% if forloop.first and not a.home %}<td>—</td>{% endif %}<td><span class="ai-wdl"><i class="f-W">{{ s.w }}</i><i class="f-D">{{ s.d }}</i><i class="f-L">{{ s.l }}</i></span><small>U · S · K</small></td>{% if forloop.last and not a.away %}<td>—</td>{% endif %}{% endfor %}</tr>{% endif %}
     </tbody>
