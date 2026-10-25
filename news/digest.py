@@ -103,10 +103,13 @@ def subscribe_email(address):
     sub.confirm_sent_at = timezone.now()
     sub.save()
     link = f"{_site()}/michezo/thibitisha/{sub.token}/"
-    text = ("⚽ *Thibitisha: wILife Michezo*\n\nBofya link hii kuanza kupokea mechi za leo, matokeo ya jana "
-            f"na makadirio kila siku:\n\n{link}\n\nKama hukuomba hivi, puuza email hii — hutatumiwa kitu.")
+    plain = ("⚽ *Thibitisha: wILife Michezo*\n\nBofya link hii kuanza kupokea mechi za leo, matokeo ya jana "
+             f"na makadirio kila siku:\n\n{link}\n\nKama hukuomba hivi, puuza email hii — hutatumiwa kitu.")
+    from django.template.loader import render_to_string
+    page = render_to_string("news/email/confirm.html", {"link": link, "site": _site(), "logo": _logo_url(),
+                                                        "email": address})
     try:
-        send_email(address, text, subject="Thibitisha kujiunga na wILife Michezo", newsletter=True)
+        send_email(address, plain, subject="Thibitisha kujiunga na wILife Michezo", newsletter=True, html=page)
         DailyCount.bump("email")
     except Exception as exc:
         log.warning("confirmation email to %s failed: %s", address, exc)
@@ -141,41 +144,124 @@ def hours():
     return sorted(set(out))
 
 
-def _line(r):
+RULE = "━━━━━━━━━━━━━━━"
+MAX_DONE, MAX_SOON, MAX_PICKS = 10, 12, 3
+
+
+def _clock_emoji(dt):
+    """🕗 n.k. — saa ya karibu zaidi (inasaidia kusoma ratiba kwa haraka kwenye simu)."""
+    faces = "🕛🕐🕑🕒🕓🕔🕕🕖🕗🕘🕙🕚"
+    return faces[timezone.localtime(dt).hour % 12] if dt else "🕒"
+
+
+def _by_league(rows, limit):
+    """[(ligi, nembo, [mistari])] — ligi kwa umuhimu, kikomo cha mistari kwa ujumla."""
+    from news import fixtures
+    out, n = [], 0
+    for name, logo, items in fixtures.groups(rows):
+        take = items[:max(0, limit - n)]
+        if take:
+            out.append((name, logo, take))
+            n += len(take)
+    return out
+
+
+def data(now=None):
+    """Taarifa za ujumbe wa siku (sawa kwa WhatsApp, Channel na email), au None kama hakuna cha kusema."""
+    from news import fixtures, predict
+    from news.pipeline import swahili_date
+    now = now or timezone.now()
+    today = timezone.localtime(now).date()
+    done = [r for r in fixtures.day_rows(today - timedelta(days=1)) if r.is_finished and r.has_score]
+    soon = [r for r in fixtures.day_rows(today) if not r.is_finished and not r.is_off]
+    if not done and not soon:
+        return None
+    picks = []
+    for m in predict.upcoming(now, hours=24)[:MAX_PICKS]:
+        p = m.extra["prediction"]
+        picks.append({"m": m, "p": p, "pick_text": predict.pick_text(m, p), "url": m.article.get_absolute_url()})
+    site = _site()
+    return {
+        "date_text": swahili_date(today), "site": site,
+        "done": _by_league(done, MAX_DONE), "done_count": len(done),
+        "soon": _by_league(soon, MAX_SOON), "soon_count": len(soon),
+        "live_count": sum(r.is_playing for r in soon), "picks": picks,
+        "links": {"today": f"{site}/mechi-za-leo/", "yesterday": f"{site}/matokeo-ya-jana/",
+                  "picks": f"{site}/makadirio/", "join": f"{site}/michezo/jiunge/"},
+        "channel": channel_link(),
+    }
+
+
+def _row_text(r):
     if r.has_score and (r.is_finished or r.is_playing):
-        return f"{r.home} {r.home_goals}-{r.away_goals} {r.away}" + ("" if r.is_finished else f" ({r.clock})")
-    return f"{timezone.localtime(r.kickoff):%H:%M} {r.home} vs {r.away}" if r.kickoff else f"{r.home} vs {r.away}"
+        live = "" if r.is_finished else f"  🔴 {r.clock}"
+        return f"{r.home}  *{r.home_goals}–{r.away_goals}*  {r.away}{live}"
+    when = timezone.localtime(r.kickoff).strftime("%H:%M") if r.kickoff else "--:--"
+    return f"{_clock_emoji(r.kickoff)} `{when}`  {r.home} vs {r.away}"
+
+
+def text(d, kind="whatsapp"):
+    """
+    Ujumbe wa WhatsApp / Channel: kichwa, mstari, makundi ya ligi, makadirio, link.
+    Alama za WhatsApp: *nzito*, _italiki_, `msimbo`, > nukuu.
+    """
+    if not d:
+        return ""
+    parts = [f"⚽ *wILife MICHEZO*\n_{d['date_text']}_", RULE]
+    if d["done"]:
+        block = [f"✅ *MATOKEO YA JANA*"]
+        for name, _, items in d["done"]:
+            block.append(f"\n🏆 *{name}*\n" + "\n".join(_row_text(r) for r in items))
+        if d["done_count"] > MAX_DONE:
+            block.append(f"\n_+ mechi {d['done_count'] - MAX_DONE} zaidi:_ {d['links']['yesterday']}")
+        parts += ["\n".join(block), RULE]
+    if d["soon"]:
+        head = "📅 *MECHI ZA LEO*  _(saa za Afrika Mashariki)_"
+        if d["live_count"]:
+            head += f"\n🔴 _{d['live_count']} zinaendelea sasa_"
+        block = [head]
+        for name, _, items in d["soon"]:
+            block.append(f"\n🏆 *{name}*\n" + "\n".join(_row_text(r) for r in items))
+        if d["soon_count"] > MAX_SOON:
+            block.append(f"\n_+ mechi {d['soon_count'] - MAX_SOON} zaidi kwenye tovuti_")
+        parts += ["\n".join(block), RULE]
+    if d["picks"]:
+        block = ["🔮 *MAKADIRIO YA LEO*"]
+        for x in d["picks"]:
+            m, p = x["m"], x["p"]
+            block.append(f"\n*{m.home} vs {m.away}*\n"
+                         f"1️⃣ {p['home']}%   ✖️ {p['draw']}%   2️⃣ {p['away']}%\n"
+                         f"> Inayowezekana zaidi: {p['score']} · Magoli 3+: {p['over25']}%")
+        block.append(f"\n_Si uhakika · 18+ · Beti kwa uwajibikaji_\n{d['links']['picks']}")
+        parts += ["\n".join(block), RULE]
+    parts.append(f"🔴 *LIVE na matokeo yote:*\n{d['links']['today']}")
+    if kind == "whatsapp":
+        parts.append("_Jibu ACHA kusitisha ujumbe huu._")
+    elif kind == "channel":
+        parts.append("📲 _Shiriki channel hii na rafiki anayependa mpira._")
+    return "\n\n".join(parts)
+
+
+def email_html(d, leave_url=""):
+    """Email ya michezo (news/templates/news/email/digest.html) — nembo za timu, ubao wa matokeo, makadirio."""
+    from django.template.loader import render_to_string
+    return render_to_string("news/email/digest.html", {**d, "leave_url": leave_url, "logo": _logo_url()})
+
+
+def _logo_url():
+    from django.templatetags.static import static
+    path = static("news/brand/logo-600.png")
+    return path if path.startswith("http") else _site() + path
 
 
 def body(now=None):
-    """Kiini cha ujumbe wa siku (sawa kwa njia zote): matokeo ya jana, mechi za leo, makadirio. '' kama hakuna."""
-    from news import fixtures, predict
-    from news.templatetags.news_tags import sw_date
-    now = now or timezone.now()
-    today = timezone.localtime(now).date()
-    site = _site()
-    done = [r for r in fixtures.day_rows(today - timedelta(days=1)) if r.is_finished and r.has_score][:8]
-    soon = [r for r in fixtures.day_rows(today) if not r.is_finished and not r.is_off][:10]
-    if not done and not soon:
-        return ""
-    parts = [f"⚽ *wILife Michezo* — {sw_date(today)}"]
-    if done:
-        parts.append("*Matokeo ya jana*\n" + "\n".join(_line(r) for r in done))
-    if soon:
-        parts.append("*Mechi za leo* (saa za Afrika Mashariki)\n" + "\n".join(_line(r) for r in soon))
-    guesses = [m for m in predict.upcoming(now, hours=24)][:3]
-    if guesses:
-        parts.append("*Makadirio* (si uhakika)\n" + "\n".join(
-            f"{m.home} vs {m.away}: {m.extra['prediction']['home']}% · {m.extra['prediction']['draw']}% · "
-            f"{m.extra['prediction']['away']}%" for m in guesses) + f"\n{site}/makadirio/")
-    parts.append(f"Zote, LIVE na matokeo: {site}/mechi-za-leo/")
-    return "\n\n".join(parts)
+    """Ujumbe wa siku kwa maandishi (WhatsApp). '' kama hakuna cha kusema."""
+    return text(data(now), "channel")
 
 
 def message(now=None):
     """Ujumbe wa WhatsApp kwa mwanachama (una maelekezo ya kusitisha)."""
-    text = body(now)
-    return text + "\n\n_Jibu ACHA kusitisha._" if text else ""
+    return text(data(now), "whatsapp")
 
 
 def _slot(now):
@@ -236,7 +322,7 @@ def _send_whatsapp(slot, text, out, deadline):
         out["notes"].append(f"whatsapp: {n}")
 
 
-def _send_emails(slot, text, out, deadline):
+def _send_emails(slot, d, out, deadline):
     import time
     from core.agent.email_channel import send_email
     cap = getattr(settings, "FOOTBALL_EMAIL_DAILY_MAX", 90)
@@ -251,7 +337,8 @@ def _send_emails(slot, text, out, deadline):
             break
         leave = f"{_site()}/michezo/acha/{sub.token}/"
         try:
-            send_email(sub.email, f"{text}\n\nKujiondoa: {leave}", newsletter=True,
+            send_email(sub.email, f"{text(d, 'email')}\n\nKujiondoa: {leave}", newsletter=True,
+                       subject=_subject(d), html=email_html(d, leave),
                        headers={"List-Unsubscribe": f"<{leave}>",
                                 "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"})
         except Exception as exc:
@@ -271,6 +358,12 @@ def _send_emails(slot, text, out, deadline):
     out["sent"] += n
     if n:
         out["notes"].append(f"email: {n}")
+
+
+def _subject(d):
+    first = next((r for _, _, items in d["soon"] for r in items), None)
+    lead = f": {first.home} vs {first.away}" if first else ""
+    return f"⚽ Mechi za leo{lead} — wILife Michezo"[:120]
 
 
 def run(now=None, deadline=None, dry_run=False):
@@ -294,11 +387,11 @@ def run(now=None, deadline=None, dry_run=False):
     if not any(work.values()):
         out.pop("notes")
         return out
-    text = cache.get(f"digest:{slot}")
-    if text is None:
-        text = body(now)
-        cache.set(f"digest:{slot}", text, WINDOW_HOURS * 3600)
-    if not text:
+    d = cache.get(f"digest:{slot}")
+    if d is None:
+        d = data(now) or {}
+        cache.set(f"digest:{slot}", d, WINDOW_HOURS * 3600)
+    if not d:
         out.pop("notes")
         out["detail"] = "hakuna mechi za kutuma leo"
         return out
@@ -307,10 +400,10 @@ def run(now=None, deadline=None, dry_run=False):
         out["detail"] = f"dry run: {', '.join(k for k, v in work.items() if v)}"
         return out
     if work["channel"]:
-        _post_channel(slot, text, out)
+        _post_channel(slot, text(d, "channel"), out)
     if work["whatsapp"]:
-        _send_whatsapp(slot, text + "\n\n_Jibu ACHA kusitisha._", out, deadline)
+        _send_whatsapp(slot, text(d, "whatsapp"), out, deadline)
     if work["email"]:
-        _send_emails(slot, text, out, deadline)
+        _send_emails(slot, d, out, deadline)
     out["detail"] = f"{slot}: " + ("; ".join(out.pop("notes")) or "hakuna aliyetumiwa")
     return out

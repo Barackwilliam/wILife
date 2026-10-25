@@ -1,0 +1,66 @@
+{% extends 'news/email/_base.html' %}
+{% block title %}wILife Michezo — {{ date_text }}{% endblock %}
+{% block preheader %}{% if soon_count %}Mechi {{ soon_count }} leo{% if picks %}, makadirio ya {{ picks.0.m.home }} vs {{ picks.0.m.away }}{% endif %}{% endif %}{% if done_count %} · matokeo {{ done_count }} ya jana{% endif %}{% endblock %}
+{% block hero %}
+  <p style="margin:22px 0 4px;font-size:13px;font-weight:700;color:#c9cfe6;">{{ date_text }}</p>
+  <h1 style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:30px;line-height:1.15;color:#ffffff;font-weight:700;">Mechi za leo &amp; matokeo ya jana</h1>
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:18px;"><tr>
+    {% if soon_count %}<td style="padding:8px 14px;border-radius:99px;background:rgba(255,255,255,.12);color:#ffffff;font-size:13px;font-weight:700;">📅 Mechi {{ soon_count }} leo</td><td width="8"></td>{% endif %}
+    {% if done_count %}<td style="padding:8px 14px;border-radius:99px;background:rgba(255,255,255,.12);color:#ffffff;font-size:13px;font-weight:700;">✅ Matokeo {{ done_count }}</td><td width="8"></td>{% endif %}
+    {% if picks %}<td class="hide-sm" style="padding:8px 14px;border-radius:99px;background:rgba(255,255,255,.12);color:#ffffff;font-size:13px;font-weight:700;">🔮 Makadirio {{ picks|length }}</td>{% endif %}
+  </tr></table>
+{% endblock %}
+{% block content %}
+  {% if soon %}
+  <h2 style="margin:22px 0 12px;font-size:13px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#0f1a3a;">📅 Mechi za leo <span style="font-weight:600;letter-spacing:0;text-transform:none;color:#8a8494;">· saa za Afrika Mashariki</span></h2>
+  {% for name, logo, items in soon %}{% include 'news/email/_league.html' with upcoming=True %}{% endfor %}
+  {% if soon_count > 12 %}<p style="margin:0 0 6px;font-size:13px;color:#8a8494;">+ mechi {{ soon_count|add:"-12" }} zaidi kwenye <a href="{{ links.today }}" style="color:#e2603f;font-weight:700;">tovuti</a>.</p>{% endif %}
+  {% endif %}
+
+  {% if picks %}
+  <h2 style="margin:26px 0 12px;font-size:13px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#6d4ccf;">🔮 Makadirio ya leo</h2>
+  {% for x in picks %}
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 12px;border:1px solid #e6e0f7;border-radius:12px;border-collapse:separate;background:#faf8ff;">
+    <tr><td style="padding:14px 16px 6px;">
+      <a href="{{ site }}{{ x.url }}" style="text-decoration:none;font-size:15px;font-weight:800;color:#1d1b24;">{{ x.m.home }} <span style="color:#8a8494;font-weight:600;">vs</span> {{ x.m.away }}</a>
+      <div style="font-size:12px;color:#8a8494;margin-top:2px;">{{ x.m.competition }} · {{ x.m.kickoff|time:"H:i" }}</div>
+    </td></tr>
+    <tr><td style="padding:6px 16px 4px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-radius:99px;overflow:hidden;"><tr>
+        <td width="{{ x.p.home }}%" style="height:10px;background:#3d7bd9;font-size:0;line-height:0;">&nbsp;</td>
+        <td width="{{ x.p.draw }}%" style="height:10px;background:#b7b2be;font-size:0;line-height:0;">&nbsp;</td>
+        <td width="{{ x.p.away }}%" style="height:10px;background:#d9466b;font-size:0;line-height:0;">&nbsp;</td>
+      </tr></table>
+    </td></tr>
+    <tr><td style="padding:6px 16px 14px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td style="font-size:12px;color:#4a4552;"><b style="font-size:17px;color:#3d7bd9;">{{ x.p.home }}%</b><br>{{ x.m.home }}</td>
+        <td align="center" style="font-size:12px;color:#4a4552;"><b style="font-size:17px;color:#6f6a78;">{{ x.p.draw }}%</b><br>Sare</td>
+        <td align="right" style="font-size:12px;color:#4a4552;"><b style="font-size:17px;color:#d9466b;">{{ x.p.away }}%</b><br>{{ x.m.away }}</td>
+      </tr></table>
+      <p style="margin:10px 0 0;font-size:12px;color:#6f6a78;">Matokeo yanayowezekana zaidi <b style="color:#1d1b24;">{{ x.p.score }}</b> · Magoli 3+ <b style="color:#1d1b24;">{{ x.p.over25 }}%</b> · Timu zote kufunga <b style="color:#1d1b24;">{{ x.p.btts }}%</b></p>
+    </td></tr>
+  </table>
+  {% endfor %}
+  <p style="margin:0 0 4px;font-size:11px;color:#8a8494;">Makadirio ni hesabu kutoka fomu na rekodi za timu — si uhakika. 18+ · Beti kwa uwajibikaji. <a href="{{ links.picks }}" style="color:#6d4ccf;font-weight:700;">Rekodi yetu</a></p>
+  {% endif %}
+
+  {% if done %}
+  <h2 style="margin:26px 0 12px;font-size:13px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#17694f;">✅ Matokeo ya jana</h2>
+  {% for name, logo, items in done %}{% include 'news/email/_league.html' %}{% endfor %}
+  {% if done_count > 10 %}<p style="margin:0 0 6px;font-size:13px;color:#8a8494;">+ mechi {{ done_count|add:"-10" }} zaidi: <a href="{{ links.yesterday }}" style="color:#e2603f;font-weight:700;">matokeo yote ya jana</a>.</p>{% endif %}
+  {% endif %}
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:24px;"><tr><td align="center">
+    <a href="{{ links.today }}" style="display:inline-block;padding:14px 28px;border-radius:12px;background:#e2603f;color:#ffffff;font-size:15px;font-weight:800;text-decoration:none;">🔴 Fuatilia LIVE kwenye wILife</a>
+  </td></tr></table>
+  {% if channel %}
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:18px;background:#e9f8ef;border-radius:12px;"><tr>
+    <td style="padding:14px 16px;font-size:13px;color:#0f3d24;line-height:1.5;"><b>Unatumia WhatsApp?</b> Fuata channel ya wILife Michezo upate matokeo papo hapo.</td>
+    <td align="right" style="padding:14px 16px 14px 0;"><a href="{{ channel }}" style="display:inline-block;padding:9px 14px;border-radius:99px;background:#25d366;color:#ffffff;font-size:13px;font-weight:800;text-decoration:none;white-space:nowrap;">Fuata</a></td>
+  </tr></table>
+  {% endif %}
+{% endblock %}
+{% block footer %}
+  Umepokea email hii kwa sababu ulijiunga na wILife Michezo.{% if leave_url %} <a href="{{ leave_url }}" style="color:#8a8494;text-decoration:underline;">Jiondoe</a>.{% endif %}<br>
+{% endblock %}

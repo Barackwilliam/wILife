@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="sw"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light">
+<title>{% block title %}wILife Michezo{% endblock %}</title>
+<style>
+  @media (max-width: 520px) { .px { padding-left: 18px !important; padding-right: 18px !important; } .hide-sm { display: none !important; } .team { font-size: 14px !important; } }
+  a { color: #e2603f; }
+</style></head>
+<body style="margin:0;padding:0;background:#f1ede6;-webkit-text-size-adjust:100%;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#f1ede6;">{% block preheader %}{% endblock %}&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f1ede6;">
+<tr><td align="center" style="padding:24px 10px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <tr><td style="background:#0f1a3a;background-image:linear-gradient(135deg,#0f1a3a 0%,#1b2f6b 60%,#7a1d2b 130%);border-radius:18px 18px 0 0;padding:26px 28px 24px;" class="px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td valign="middle"><a href="{{ site }}/" style="text-decoration:none;"><img src="{{ logo }}" width="120" alt="wILife" style="display:block;width:120px;max-width:120px;height:auto;border:0;background:#ffffff;border-radius:10px;padding:6px 10px;"></a></td>
+      <td valign="middle" align="right" style="font-size:11px;font-weight:800;letter-spacing:.16em;color:#ffb199;text-transform:uppercase;">{% block kicker %}Michezo{% endblock %}</td>
+    </tr></table>
+    {% block hero %}{% endblock %}
+  </td></tr>
+  <tr><td style="background:#ffffff;border-radius:0 0 18px 18px;padding:8px 28px 28px;box-shadow:0 10px 30px rgba(15,26,58,.08);" class="px">
+    {% block content %}{% endblock %}
+  </td></tr>
+  <tr><td style="padding:20px 18px 6px;text-align:center;font-size:12px;line-height:1.7;color:#8a8494;">
+    {% block footer %}{% endblock %}
+    <a href="{{ site }}/" style="color:#8a8494;font-weight:700;text-decoration:none;">wILife</a> · Habari na michezo kwa Kiswahili · Dar es Salaam
+  </td></tr>
+</table>
+</td></tr></table>
+</body></html>

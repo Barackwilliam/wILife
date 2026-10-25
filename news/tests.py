@@ -2431,7 +2431,8 @@ class FootballDigestTest(TestCase):
             self.assertEqual(digest.run(now=self._at(9))["sent"], 0)          # tayari ametumiwa
         number, text = send.call_args[0][:2]
         self.assertEqual(number, "255711000111")
-        for part in ("Matokeo ya jana", "Simba 2-1 Yanga", "Mechi za leo", "22:00 Arsenal vs Chelsea",
+        for part in ("MATOKEO YA JANA", "🏆 *Ligi Kuu*", "Simba  *2–1*  Yanga", "MECHI ZA LEO",
+                     "`22:00`  Arsenal vs Chelsea",
                      "https://www.wlife.online/mechi-za-leo/", "ACHA"):
             self.assertIn(part, text)
 
@@ -2500,6 +2501,7 @@ class DigestChannelsTest(TestCase):
         sub = EmailSubscriber.objects.get()
         self.assertEqual((sub.email, sub.confirmed), ("msomaji@mfano.com", False))
         self.assertIn(f"/michezo/thibitisha/{sub.token}/", post.call_args.kwargs["json"]["text"])
+        self.assertIn("Thibitisha email yangu", post.call_args.kwargs["json"]["html"])
         self.assertIn("Umejiunga", self.client.get(f"/michezo/thibitisha/{sub.token}/").content.decode())
         sub.refresh_from_db()
         self.assertTrue(sub.confirmed)
@@ -2532,6 +2534,11 @@ class DigestChannelsTest(TestCase):
         self.assertEqual(DailyCount.get("email"), 3)
         mail = post.call_args.kwargs["json"]
         self.assertIn("/michezo/acha/", mail["headers"]["List-Unsubscribe"])
+        self.assertTrue(mail["subject"].startswith("⚽ Mechi za leo: Arsenal vs Chelsea"))
+        for part in ("Mechi za leo &amp; matokeo ya jana", "Arsenal", "22:00", "Jiondoe", "Fuatilia LIVE",
+                     "https://whatsapp.com/channel/AbC123"):
+            self.assertIn(part, mail["html"])
+        self.assertNotIn("Dashibodi", mail["html"])                               # si email ya wakala
         self.assertIn("Kujiondoa: https://www.wlife.online/michezo/acha/", mail["text"])
         self.assertIn("channel: imechapishwa", first["detail"])
         self.assertEqual(second["sent"], 0)
