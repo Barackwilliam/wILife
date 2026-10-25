@@ -1985,9 +1985,9 @@ class HighlightlyProviderTest(TestCase):
 
     def test_rules_match_country_and_international_cups(self):
         from news import highlightly
-        self.assertEqual(highlightly.rank(_hl()), 0)
+        self.assertEqual(highlightly.rank(_hl()), 1)               # 0 ni ya timu zetu (Simba, Yanga...)
         self.assertIsNone(highlightly.rank(_hl(country="Kenya")))
-        self.assertEqual(highlightly.rank(_hl(league="CAF Champions League", country="World")), 1)
+        self.assertEqual(highlightly.rank(_hl(league="CAF Champions League", country="World")), 2)
 
     def test_api_errors_are_shown_and_not_retried_every_minute(self):
         from news.models import FootballState
@@ -2772,3 +2772,156 @@ class MatchWordingTenseTest(TestCase):
         self.assertIn("CAF Champions League na La Liga", page)
         self.assertNotIn("zilizochezwa tarehe", page)
         self.assertNotIn("Premier League, La Liga, Serie A", page)
+
+
+@override_settings(HIGHLIGHTLY_API_KEY="hl-key", API_FOOTBALL_KEY="", API_FOOTBALL_LIVE_SECONDS=0,
+                   HIGHLIGHTLY_LEAGUES=["England:Premier League", "*:CAF Champions League"],
+                   HIGHLIGHTLY_FAVOURITE_TEAMS=["Simba", "Young Africans", "Azam"],
+                   API_FOOTBALL_MAX_PER_DAY=1, SITE_URL="https://www.wlife.online")
+class FavouriteTeamsAndBudgetTest(TestCase):
+    """
+    Simba ilicheza CAF Champions League bila LIVE (nafasi 5 zilijaa EPL) na mechi za jana zilibaki
+    "Inasubiri matokeo" (LIVE ilitumia maombi yote). Timu zetu zinatangulia; matokeo yana akiba yake.
+    """
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        for target in ("news.models.Article.render_cover", "news.indexnow.submit", "news.football._image"):
+            p = mock.patch(target, return_value=None)
+            p.start()
+            self.addCleanup(p.stop)
+        p = mock.patch("news.enrich.run", return_value=0)
+        p.start()
+        self.addCleanup(p.stop)
+
+    def _simba(self, mid=7100, desc="Not started", clock=None, score=None, kickoff=None, events=None):
+        raw = _hl(mid=mid, desc=desc, clock=clock, score=score, league="CAF Champions League", country="World",
+                  kickoff=kickoff, events=events)
+        raw["homeTeam"] = {"id": 50, "name": "Simba SC", "logo": "https://hl.example/simba.png"}
+        raw["awayTeam"] = {"id": 51, "name": "15 de Agosto", "logo": None}
+        return raw
+
+    def test_team_names_match_with_or_without_suffix(self):
+        from news import highlightly
+        for home in ("Simba", "Simba SC", "Simba S.C.", "simba sc", "Azam FC", "Young Africans SC"):
+            self.assertTrue(highlightly.is_favourite(home, "X"), home)
+        for home in ("Simba Bhora", "Real Madrid", ""):
+            self.assertFalse(highlightly.is_favourite(home, "X"), home)
+        self.assertEqual(highlightly.rank(self._simba()), 0)
+
+    def test_simba_gets_live_even_when_daily_cap_is_full(self):
+        from news import football
+        from news.models import Fixture, LiveMatch
+        Article.objects.create(title="LIVE ya awali", origin="football", status="published",
+                               published_at=timezone.now())              # nafasi ya siku (kikomo 1) imeshajaa
+        rows = [_hl(), self._simba()]
+        with mock.patch("news.highlightly.requests.get",
+                        return_value=_HLResp({"data": rows, "pagination": {"totalCount": 2}})):
+            football.sync_schedule(football._state(), timezone.now())
+        self.assertEqual(list(LiveMatch.objects.values_list("home", flat=True)), ["Simba SC"])
+        self.assertEqual(Fixture.objects.get(fixture_id=7100).rank, 0)
+        page = self.client.get("/mechi-za-leo/").content.decode()
+        self.assertLess(page.index("Simba SC"), page.index("Arsenal"))     # timu zetu juu kabisa
+
+    def test_started_simba_fixture_without_live_is_promoted_and_followed(self):
+        from news import football
+        from news.models import Fixture, FootballState, LiveMatch
+        start = timezone.now() - timedelta(minutes=10)
+        f = Fixture.objects.create(provider="highlightly", fixture_id=7100, day=timezone.localdate(), rank=9,
+                                   home="Simba SC", away="15 de Agosto", competition="CAF Champions League",
+                                   competition_id=77, status="NS", kickoff=start)
+        FootballState.objects.create(day=timezone.now().date(), schedule_at=timezone.now())   # ratiba imeshasomwa
+        playing = self._simba(desc="First half", clock=8, score="0 - 0", kickoff=start, events=[])
+        with mock.patch("news.highlightly.requests.get", return_value=_HLResp([playing])) as get:
+            out = football.run()
+        self.assertEqual(out["failed"], 0, out)
+        self.assertIn("timu zetu: LIVE mpya 1", out["detail"])
+        self.assertTrue(get.call_args.args[0].endswith("/matches/7100"))
+        m = LiveMatch.objects.get(fixture_id=7100)
+        self.assertEqual((m.status, m.minute, m.home_goals), ("1H", 8, 0))
+        self.assertTrue(m.article.is_live)
+        self.assertEqual(Fixture.objects.get(pk=f.pk).rank, 0)
+        r = self.client.get(f.get_absolute_url())                         # ukurasa wa ratiba -> LIVE kamili
+        self.assertRedirects(r, m.article.get_absolute_url(), fetch_redirect_response=False)
+
+    def test_live_polling_leaves_requests_for_results(self):
+        from news import football, fixtures
+        from news.models import LiveMatch
+        with mock.patch("news.highlightly.requests.get",
+                        return_value=_HLResp({"data": [self._simba(kickoff=timezone.now())],
+                                              "pagination": {"totalCount": 1}})):
+            football.sync_schedule(football._state(), timezone.now())
+        LiveMatch.objects.update(status="1H")
+        state = football._state()
+        state.requests = 40
+        now = timezone.now()
+        left = football.daily_limit() - football.RESERVE - 40 - 2 - fixtures.OFFLIVE_RESERVE
+        horizon = (LiveMatch.objects.get().kickoff + timedelta(minutes=150) - now).total_seconds()
+        got = football.live_interval(state, now).total_seconds()
+        self.assertAlmostEqual(got, horizon / left, delta=2)
+
+    def test_yesterday_without_results_is_rescanned_once(self):
+        from news import fixtures, football
+        from news.models import Fixture
+        yday = timezone.localdate() - timedelta(days=1)
+        kick = timezone.now() - timedelta(days=1)
+        for i in range(3):
+            Fixture.objects.create(provider="highlightly", fixture_id=8100 + i, day=yday, home=f"H{i}", away=f"A{i}",
+                                   competition="Premier League", status="NS", kickoff=kick, rank=1)
+        done = []
+        for i in range(3):
+            raw = _hl(mid=8100 + i, desc="Finished", score=f"{i} - 1", kickoff=kick)
+            raw["homeTeam"]["name"], raw["awayTeam"]["name"] = f"H{i}", f"A{i}"
+            done.append(raw)
+        with mock.patch("news.highlightly.requests.get",
+                        return_value=_HLResp({"data": done, "pagination": {"totalCount": 3}})) as get:
+            spent = fixtures.rescan_day(football._state(), timezone.now(), 80)
+            again = fixtures.rescan_day(football._state(), timezone.now(), 80)
+        self.assertEqual((spent, again, get.call_count), (1, 0, 1))
+        self.assertEqual(get.call_args.kwargs["params"]["date"], yday.isoformat())
+        self.assertEqual(sorted(Fixture.objects.values_list("status", "home_goals")), [("FT", 0), ("FT", 1), ("FT", 2)])
+        page = self.client.get(f"/mechi/{yday.isoformat()}/").content.decode()
+        self.assertNotIn("Inasubiri matokeo", page)
+
+    def test_rescan_needs_pending_matches_and_budget(self):
+        from news import fixtures, football
+        from news.models import Fixture
+        yday = timezone.localdate() - timedelta(days=1)
+        for i in range(3):
+            Fixture.objects.create(provider="highlightly", fixture_id=8200 + i, day=yday, home=f"H{i}", away="A",
+                                   status="NS", kickoff=timezone.now() - timedelta(days=1))
+        with mock.patch("news.highlightly.requests.get") as get:
+            self.assertEqual(fixtures.rescan_day(football._state(), timezone.now(), 30), 0)   # maombi machache
+            Fixture.objects.filter(fixture_id=8200).update(status="FT")
+            Fixture.objects.filter(fixture_id=8201).update(status="FT")
+            self.assertEqual(fixtures.rescan_day(football._state(), timezone.now(), 80), 0)   # moja tu bila matokeo
+        get.assert_not_called()
+
+    def test_fixture_page_fetches_details_even_late_in_a_busy_day(self):
+        from news import football
+        from news.models import Fixture
+        f = Fixture.objects.create(provider="highlightly", fixture_id=9300, day=timezone.localdate(), home="Coastal",
+                                   away="KMC", competition="Premier League", status="NS",
+                                   kickoff=timezone.now() - timedelta(minutes=30))
+        state = football._state()
+        state.requests = 75                         # zamani: <= 35 zilizobaki -> hakuna ombi kabisa
+        state.save()
+        raw = _hl(mid=9300, desc="First half", clock=30, score="1 - 0", kickoff=f.kickoff, events=[])
+        raw["homeTeam"]["name"], raw["awayTeam"]["name"] = "Coastal", "KMC"
+        with mock.patch("news.highlightly.requests.get", return_value=_HLResp([raw])) as get:
+            self.client.get(f.get_absolute_url())
+        get.assert_called_once()
+        f.refresh_from_db()
+        self.assertEqual((f.status, f.home_goals), ("1H", 1))
+
+    def test_missing_logo_shows_a_crest_not_a_digit(self):
+        from news.models import Fixture
+        f = Fixture.objects.create(provider="highlightly", fixture_id=9400, day=timezone.localdate(), home="Simba SC",
+                                   away="15 de Agosto", home_logo="https://hl.example/simba.png", status="FT",
+                                   home_goals=1, away_goals=0, kickoff=timezone.now() - timedelta(days=1),
+                                   extra={"final": True, "fetched_at": timezone.now().isoformat()})
+        page = self.client.get(f.get_absolute_url()).content.decode()
+        self.assertIn('class="i sb-crest"', page)
+        self.assertNotIn('<span class="sb-logo">1</span>', page)

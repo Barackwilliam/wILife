@@ -274,6 +274,53 @@ def _fill(m, item):
     return old
 
 
+def _favourite(item):
+    from news import highlightly
+    tm = item.get("teams") or {}
+    return highlightly.is_favourite((tm.get("home") or {}).get("name"), (tm.get("away") or {}).get("name"))
+
+
+def _item_from_fixture(f):
+    """Fixture iliyohifadhiwa -> muundo wa API (bila ombi jipya)."""
+    return {"fixture": {"id": f.fixture_id, "date": f.kickoff.isoformat() if f.kickoff else None,
+                        "status": {"short": f.status, "elapsed": f.minute}, "venue": {}},
+            "league": {"id": f.competition_id, "name": f.competition, "logo": f.competition_logo,
+                       "round": f.round, "country": f.country},
+            "teams": {"home": {"name": f.home, "logo": f.home_logo}, "away": {"name": f.away, "logo": f.away_logo}},
+            "goals": {"home": f.home_goals, "away": f.away_goals}}
+
+
+def promote_favourites(now):
+    """
+    Mechi ya timu zetu iliyo kwenye ratiba bila LIVE (mf. ratiba ilisomwa kabla timu haijawa kwenye orodha,
+    au nafasi 5 za siku zilikuwa zimejaa): ipate LIVE sasa, kutoka data iliyopo — hakuna ombi la API.
+    Inarudisha idadi ya mechi zilizopata LIVE.
+    """
+    from news import highlightly
+    from news.models import Fixture
+    rows = Fixture.objects.filter(provider=provider(), kickoff__gte=now - timedelta(hours=3),
+                                  kickoff__lte=now + timedelta(hours=36)).exclude(
+        status__in=LiveMatch.FINISHED | LiveMatch.OFF)
+    made = 0
+    for f in rows:
+        if not highlightly.is_favourite(f.home, f.away):
+            continue
+        if f.rank != 0:
+            Fixture.objects.filter(pk=f.pk).update(rank=0)     # juu kabisa kwenye ukurasa wa siku
+        if LiveMatch.objects.filter(provider=provider(), fixture_id=f.fixture_id).exists():
+            continue
+        item = _item_from_fixture(f)
+        m = LiveMatch(article=None, provider=provider())
+        _fill(m, item)
+        with transaction.atomic():
+            m.article = _create_article(m, item["league"])
+            m.save()
+        refresh_cover(m)
+        indexnow.submit([m.article.get_absolute_url()])
+        made += 1
+    return made
+
+
 def max_per_day():
     """Mechi ngapi kwa siku. Mpango wa bure (maombi 100) unatosha mechi chache tu zenye matukio kamili."""
     cap = getattr(settings, "API_FOOTBALL_MAX_PER_DAY", None)
@@ -307,8 +354,8 @@ def sync_schedule(state, now):
             if m.article.status == "published":     # LIVE iliyoondolewa na mhariri haiguswi tena
                 apply(item, m)
             continue
-        if made >= cap:
-            continue
+        if made >= cap and not _favourite(item):
+            continue                  # mechi za timu zetu (Simba, Yanga...) zinapata LIVE hata kikomo kikifika
         m = LiveMatch(article=None, provider=provider())
         _fill(m, item)
         if m.status in LiveMatch.FINISHED | LiveMatch.OFF:
@@ -566,7 +613,10 @@ def live_interval(state, now):
     usiishe kabla ya mechi za jioni.
     """
     base = getattr(settings, "API_FOOTBALL_LIVE_SECONDS", 120)
-    left = daily_limit() - RESERVE - state.requests - 2  # 2: ratiba
+    from news.fixtures import OFFLIVE_RESERVE
+    # 2: ratiba. OFFLIVE_RESERVE: matokeo ya mechi zisizo na LIVE na kurasa za mechi wasomaji wanazofungua —
+    # bila akiba hii LIVE ilitumia maombi yote na mechi nyingine zilibaki "Inasubiri matokeo".
+    left = daily_limit() - RESERVE - state.requests - 2 - OFFLIVE_RESERVE
     last = (LiveMatch.objects.filter(fixture_id__isnull=False, provider=provider(), article__status="published",
                                      kickoff__gte=now - timedelta(hours=4))
             .exclude(status__in=LiveMatch.FINISHED | LiveMatch.OFF)
@@ -602,6 +652,9 @@ def run(now=None, deadline=None, dry_run=False):
             if provider() == "highlightly":
                 from news import highlightly
                 notes.append(highlightly.last_scan_note())
+        n = promote_favourites(now)
+        if n:
+            notes.append(f"timu zetu: LIVE mpya {n}")
         for m in LiveMatch.objects.select_related("article").filter(
                 fixture_id__isnull=False, cover_ok=False, article__status="published")[:3]:
             refresh_cover(m)                   # mechi za zamani zenye picha za mfumo -> nembo za timu
@@ -617,11 +670,16 @@ def run(now=None, deadline=None, dry_run=False):
             n = enrich.run(state, now)
             if n:
                 notes.append(f"ziada: maombi {n}")
-            if not active(now):                 # jioni, mechi zetu za LIVE zikiwa zimeisha: matokeo ya ratiba nzima
-                from news import fixtures
-                n = fixtures.refresh_results(state, now, daily_limit() - state.requests)
-                if n:
-                    notes.append(f"matokeo ya ratiba: maombi {n}")
+            # Matokeo ya mechi zisizo na LIVE. Hayasubiri tena LIVE ziishe: siku zenye mechi mfululizo
+            # (wikendi) hayakuwahi kufika zamu. live_interval inaacha OFFLIVE_RESERVE kwa ajili yake.
+            from news import fixtures
+            n = fixtures.rescan_day(state, now, daily_limit() - state.requests)
+            if n:
+                notes.append(f"matokeo ya jana (ratiba nzima): maombi {n}")
+            n = fixtures.refresh_results(state, now, daily_limit() - state.requests)
+            if n:
+                notes.append(f"matokeo ya ratiba: maombi {n}")
+            if not active(now):                 # siku iliyokosa ratiba kabisa si ya haraka: isubiri LIVE ziishe
                 n = fixtures.backfill(state, now, daily_limit() - state.requests)
                 if n:
                     notes.append(f"ratiba ya siku iliyokosekana: maombi {n}")

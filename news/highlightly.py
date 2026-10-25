@@ -91,13 +91,36 @@ def _country(raw):
     return (c.get("name") if isinstance(c, dict) else str(c or "")).strip()
 
 
+_SUFFIX = re.compile(r"[\s.]+(s\.?\s?c|f\.?\s?c|sports club)\.?$", re.I)
+
+
+def _team_key(name):
+    """'Simba SC' / 'Simba S.C.' / 'Azam FC' -> 'simba' / 'azam'."""
+    return _SUFFIX.sub("", (name or "").strip()).strip().lower()
+
+
+def favourites():
+    """Timu za wasomaji wetu (HIGHLIGHTLY_FAVOURITE_TEAMS): mechi zao zinatangulia kila kitu."""
+    return {_team_key(t) for t in getattr(settings, "HIGHLIGHTLY_FAVOURITE_TEAMS", []) if t.strip()}
+
+
+def is_favourite(home, away):
+    fav = favourites()
+    return _team_key(home) in fav or _team_key(away) in fav
+
+
 def rank(raw):
-    """Nafasi ya ligi ya mechi kwenye orodha yetu, au None kama haitufai."""
+    """
+    Nafasi ya mechi kwenye orodha yetu (0 = juu kabisa), au None kama haitufai. Mechi ya timu zetu
+    (Simba, Yanga, Azam, Taifa Stars...) ni 0 kwenye mashindano yoyote; ligi zinafuata kwa mpangilio.
+    """
+    if is_favourite((raw.get("homeTeam") or {}).get("name"), (raw.get("awayTeam") or {}).get("name")):
+        return 0
     league = ((raw.get("league") or {}).get("name") or "").strip().lower()
     country = _country(raw).lower()
     for i, (want_country, want_league) in enumerate(rules()):
         if league == want_league and want_country in ("*", country):
-            return i
+            return i + 1
     return None
 
 
