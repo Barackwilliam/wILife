@@ -45,6 +45,11 @@ def channel_link():
     return value if value.startswith("https://") else ""
 
 
+def channel_name():
+    """Jina la WhatsApp Channel (WHATSAPP_CHANNEL_NAME), mf. Soka360."""
+    return (getattr(settings, "WHATSAPP_CHANNEL_NAME", "") or "Soka360").strip()
+
+
 def whatsapp_full():
     return Subscriber.objects.filter(active=True).count() >= getattr(settings, "FOOTBALL_WHATSAPP_MAX", 300)
 
@@ -59,24 +64,24 @@ def handle(phone, text):
     site = _site()
     if word in JOIN:
         if sub and sub.active:
-            return "✅ Tayari umejiunga na wILife Michezo. Utapata mechi za leo na matokeo kila siku.\n\nJibu ACHA kusitisha."
+            return "✅ Tayari umejiunga na wILife Michezo. Kila siku utapata ratiba ya leo na matokeo ya mechi.\n\nJibu ACHA wakati wowote ukitaka kusitisha ujumbe."
         if whatsapp_full():
-            other = [f"📧 Email (bure): {site}/michezo/jiunge/"]
+            other = [f"📧 Barua pepe (bila malipo): {site}/michezo/jiunge/"]
             if channel_link():
-                other.insert(0, f"📢 WhatsApp Channel yetu: {channel_link()}")
-            return ("⚽ *wILife Michezo*\n\nNafasi za kupokea ujumbe WhatsApp moja kwa moja zimejaa kwa sasa. "
-                    "Unaweza kupata ujumbe uleule wa kila siku hapa:\n\n" + "\n".join(other) +
-                    f"\n\nMechi za leo muda wote: {site}/mechi-za-leo/")
+                other.insert(0, f"📢 Fuata *{channel_name()}* (WhatsApp Channel): {channel_link()}")
+            return ("⚽ *wILife Michezo*\n\nKwa sasa idadi ya watu wanaoweza kupokea ujumbe wa WhatsApp moja kwa moja "
+                    "imefika kikomo. Bado unaweza kupata ujumbe huohuo wa kila siku hapa:\n\n" + "\n".join(other) +
+                    f"\n\nRatiba ya mechi za leo wakati wote: {site}/mechi-za-leo/")
         sub = sub or Subscriber(phone=number)
         sub.active, sub.left_at, sub.failures = True, None, 0
         sub.save()
-        return ("⚽ *Karibu wILife Michezo!*\n\nKila siku utapata mechi za leo, matokeo ya jana na makadirio "
-                f"ya mechi kubwa.\n\n{site}/mechi-za-leo/\n\nJibu ACHA wakati wowote kusitisha.")
+        return ("⚽ *Karibu wILife Michezo!*\n\nKila siku utapata ratiba ya leo, matokeo ya jana na utabiri "
+                f"wa mechi kubwa.\n\n{site}/mechi-za-leo/\n\nJibu ACHA wakati wowote ukitaka kusitisha ujumbe.")
     if not sub or not sub.active:
         return None
     sub.active, sub.left_at = False, timezone.now()
     sub.save(update_fields=["active", "left_at"])
-    return "Umesitisha. Hutapokea tena ujumbe wa michezo wa wILife. Tuma JIUNGE kurudi wakati wowote."
+    return "Umesitisha kupokea ujumbe. Hutapokea tena taarifa za michezo kutoka wILife. Tuma JIUNGE wakati wowote ili uanze kupokea tena."
 
 
 # ── Email: kujiunga, kuthibitisha, kujiondoa ──────────────────────────────────
@@ -103,13 +108,14 @@ def subscribe_email(address):
     sub.confirm_sent_at = timezone.now()
     sub.save()
     link = f"{_site()}/michezo/thibitisha/{sub.token}/"
-    plain = ("⚽ *Thibitisha: wILife Michezo*\n\nBofya link hii kuanza kupokea mechi za leo, matokeo ya jana "
-             f"na makadirio kila siku:\n\n{link}\n\nKama hukuomba hivi, puuza email hii — hutatumiwa kitu.")
+    plain = ("⚽ *Karibu wILife Michezo*\n\nUmebakiza hatua moja tu. Fungua kiungo hiki kuanza kupokea ratiba ya leo, "
+             f"matokeo ya jana na utabiri wa mechi kila siku:\n\n{link}\n\nKama hukuomba kujiunga, puuza barua "
+             "pepe hii — hutapokea ujumbe mwingine.")
     from django.template.loader import render_to_string
     page = render_to_string("news/email/confirm.html", {"link": link, "site": _site(), "logo": _logo_url(),
                                                         "email": address})
     try:
-        send_email(address, plain, subject="Thibitisha kujiunga na wILife Michezo", newsletter=True, html=page)
+        send_email(address, plain, subject="Thibitisha usajili wako — wILife Michezo", newsletter=True, html=page)
         DailyCount.bump("email")
     except Exception as exc:
         log.warning("confirmation email to %s failed: %s", address, exc)
@@ -187,7 +193,7 @@ def data(now=None):
         "soon": _by_league(soon, MAX_SOON), "soon_count": len(soon),
         "live_count": sum(r.is_playing for r in soon), "picks": picks,
         "links": {"today": f"{site}/mechi-za-leo/", "yesterday": f"{site}/matokeo-ya-jana/",
-                  "picks": f"{site}/makadirio/", "join": f"{site}/michezo/jiunge/"},
+                  "picks": f"{site}/utabiri/", "join": f"{site}/michezo/jiunge/"},
         "channel": channel_link(),
     }
 
@@ -197,7 +203,7 @@ def _row_text(r):
         live = "" if r.is_finished else f"  🔴 {r.clock}"
         return f"{r.home}  *{r.home_goals}–{r.away_goals}*  {r.away}{live}"
     when = timezone.localtime(r.kickoff).strftime("%H:%M") if r.kickoff else "--:--"
-    return f"{_clock_emoji(r.kickoff)} `{when}`  {r.home} vs {r.away}"
+    return f"{_clock_emoji(r.kickoff)} `{when}`  {r.home} dhidi ya {r.away}"
 
 
 def text(d, kind="whatsapp"):
@@ -207,7 +213,10 @@ def text(d, kind="whatsapp"):
     """
     if not d:
         return ""
-    parts = [f"⚽ *wILife MICHEZO*\n_{d['date_text']}_", RULE]
+    if kind == "channel":
+        parts = [f"⚽ *{channel_name().upper()}*\n_Habari za Soka Kila Upande · {d['date_text']}_", RULE]
+    else:
+        parts = [f"⚽ *wILife MICHEZO*\n_{d['date_text']}_", RULE]
     if d["done"]:
         block = [f"✅ *MATOKEO YA JANA*"]
         for name, _, items in d["done"]:
@@ -226,31 +235,33 @@ def text(d, kind="whatsapp"):
             block.append(f"\n_+ mechi {d['soon_count'] - MAX_SOON} zaidi kwenye tovuti_")
         parts += ["\n".join(block), RULE]
     if d["picks"]:
-        block = ["🔮 *MAKADIRIO YA LEO*"]
+        block = ["🔮 *UTABIRI WA LEO*"]
         for x in d["picks"]:
             m, p = x["m"], x["p"]
-            block.append(f"\n*{m.home} vs {m.away}*\n"
+            block.append(f"\n*{m.home} dhidi ya {m.away}*\n"
                          f"1️⃣ {p['home']}%   ✖️ {p['draw']}%   2️⃣ {p['away']}%\n"
-                         f"> Inayowezekana zaidi: {p['score']} · Magoli 3+: {p['over25']}%")
-        block.append(f"\n_Si uhakika · 18+ · Beti kwa uwajibikaji_\n{d['links']['picks']}")
+                         f"> Matokeo yanayotarajiwa zaidi: {p['score']} · Magoli 3 au zaidi: {p['over25']}%")
+        block.append(f"\n_Utabiri si uhakika · Kwa watu wenye umri wa miaka 18 na zaidi · Beti kwa uwajibikaji_\n{d['links']['picks']}")
         parts += ["\n".join(block), RULE]
-    parts.append(f"🔴 *LIVE na matokeo yote:*\n{d['links']['today']}")
+    parts.append(f"🔴 *MECHI ZINAZOENDELEA NA MATOKEO:*\n{d['links']['today']}")
     if kind == "whatsapp":
-        parts.append("_Jibu ACHA kusitisha ujumbe huu._")
+        parts.append("_Jibu ACHA wakati wowote ukitaka kusitisha ujumbe._")
     elif kind == "channel":
-        parts.append("📲 _Shiriki channel hii na rafiki anayependa mpira._")
+        parts.append(f"📲 _Mshirikishe {channel_name()} rafiki yako anayependa mpira._\n_— kutoka wILife_")
     return "\n\n".join(parts)
 
 
 def email_html(d, leave_url=""):
     """Email ya michezo (news/templates/news/email/digest.html) — nembo za timu, ubao wa matokeo, makadirio."""
     from django.template.loader import render_to_string
-    return render_to_string("news/email/digest.html", {**d, "leave_url": leave_url, "logo": _logo_url()})
+    return render_to_string("news/email/digest.html", {**d, "leave_url": leave_url, "logo": _logo_url(),
+                                                       "channel_name": channel_name(),
+                                                       "channel_logo": _logo_url("news/brand/soka360-96.png")})
 
 
-def _logo_url():
+def _logo_url(name="news/brand/logo-600.png"):
     from django.templatetags.static import static
-    path = static("news/brand/logo-600.png")
+    path = static(name)
     return path if path.startswith("http") else _site() + path
 
 
@@ -337,7 +348,7 @@ def _send_emails(slot, d, out, deadline):
             break
         leave = f"{_site()}/michezo/acha/{sub.token}/"
         try:
-            send_email(sub.email, f"{text(d, 'email')}\n\nKujiondoa: {leave}", newsletter=True,
+            send_email(sub.email, f"{text(d, 'email')}\n\nJiondoe kwenye orodha: {leave}", newsletter=True,
                        subject=_subject(d), html=email_html(d, leave),
                        headers={"List-Unsubscribe": f"<{leave}>",
                                 "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"})
@@ -362,8 +373,8 @@ def _send_emails(slot, d, out, deadline):
 
 def _subject(d):
     first = next((r for _, _, items in d["soon"] for r in items), None)
-    lead = f": {first.home} vs {first.away}" if first else ""
-    return f"⚽ Mechi za leo{lead} — wILife Michezo"[:120]
+    lead = f": {first.home} dhidi ya {first.away}" if first else ""
+    return f"⚽ Ratiba ya mechi za leo{lead} — wILife Michezo"[:120]
 
 
 def run(now=None, deadline=None, dry_run=False):

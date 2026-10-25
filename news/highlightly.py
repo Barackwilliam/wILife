@@ -234,17 +234,18 @@ def normalize(raw):
 
 STAT_SW = {
     "possession": "Umiliki wa mpira", "ball possession": "Umiliki wa mpira",
-    "expected goals": "Nafasi za kufunga (xG)", "total shots": "Mashuti yote", "shots": "Mashuti yote",
-    "shots on target": "Mashuti yaliyolenga lango", "shots off target": "Mashuti nje ya lango",
+    "expected goals": "Nafasi za kufunga zilizotengenezwa (xG)", "total shots": "Mashuti yote", "shots": "Mashuti yote",
+    "shots on target": "Mashuti yaliyolenga lango", "shots off target": "Mashuti yaliyotoka nje",
     "blocked shots": "Mashuti yaliyozuiwa", "corners": "Kona", "corner kicks": "Kona", "fouls": "Faulo",
     "offsides": "Kuotea", "yellow cards": "Kadi za njano", "red cards": "Kadi nyekundu",
-    "saves": "Kuokoa (kipa)", "goalkeeper saves": "Kuokoa (kipa)", "successful passes": "Pasi zilizofika",
-    "total passes": "Pasi zote", "passes": "Pasi zote", "pass accuracy": "Usahihi wa pasi",
-    "big chances": "Nafasi kubwa", "free kicks": "Mipira ya adhabu", "throw-ins": "Mirusho",
+    "saves": "Mipira iliyookolewa na kipa", "goalkeeper saves": "Mipira iliyookolewa na kipa",
+    "successful passes": "Pasi zilizofika kwa walengwa",
+    "total passes": "Jumla ya pasi", "passes": "Jumla ya pasi", "pass accuracy": "Usahihi wa pasi",
+    "big chances": "Nafasi za wazi za kufunga", "free kicks": "Mipira ya adhabu", "throw-ins": "Mirusho ya pembeni",
 }
-STAT_ORDER = ["Umiliki wa mpira", "Nafasi za kufunga (xG)", "Mashuti yote", "Mashuti yaliyolenga lango",
-              "Nafasi kubwa", "Kona", "Pasi zilizofika", "Usahihi wa pasi", "Faulo", "Kuotea", "Kadi za njano",
-              "Kadi nyekundu", "Kuokoa (kipa)"]
+STAT_ORDER = ["Umiliki wa mpira", "Nafasi za kufunga zilizotengenezwa (xG)", "Mashuti yote",
+              "Mashuti yaliyolenga lango", "Nafasi za wazi za kufunga", "Kona", "Pasi zilizofika kwa walengwa",
+              "Usahihi wa pasi", "Faulo", "Kuotea", "Kadi za njano", "Kadi nyekundu", "Mipira iliyookolewa na kipa"]
 
 
 def _num(v):

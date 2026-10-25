@@ -1562,13 +1562,13 @@ class FootballAutoLiveTest(TestCase):
         out = self.run_with(_Resp([_fixture(), _fixture(fid=999, league=140)]), _Resp([_fixture()]))
         self.assertEqual(out["failed"], 0, out)
         a = Article.objects.get()
-        self.assertEqual(a.title, "Arsenal vs Chelsea LIVE: Matokeo, Kikosi na Takwimu — Premier League")
+        self.assertEqual(a.title, "Arsenal dhidi ya Chelsea LIVE: Matokeo, Kikosi na Takwimu — Premier League")
         self.assertEqual((a.status, a.category, a.origin), ("published", "dunia", "football"))
         self.assertIn("Emirates Stadium, London", a.body)
         self.assertIsNone(a.live_started_at)
 
         hub = self.client.get("/live/").content.decode()
-        self.assertIn("Mechi zijazo", hub)
+        self.assertIn("Mechi zinazofuata", hub)
         self.assertIn('data-match="%d"' % a.pk, hub)
         self.assertIn('"@type": "CollectionPage"', hub)
         page = self.client.get(a.get_absolute_url()).content.decode()
@@ -1586,9 +1586,9 @@ class FootballAutoLiveTest(TestCase):
         self.assertEqual(a.live_score, "Arsenal 1 - 0 Chelsea")
         texts = list(a.live_updates.order_by("created_at", "id").values_list("label", "kind", "text"))
         self.assertEqual(texts[0][:2], ("1'", "whistle"))
-        self.assertEqual(texts[1], ("23'", "goal", "⚽ GOLI! B. Saka anaifungia Arsenal. Pasi: M. Ødegaard. "
+        self.assertEqual(texts[1], ("23'", "goal", "⚽ GOLI! B. Saka ameifungia Arsenal. Pasi ya mwisho: M. Ødegaard. "
                                                    "(Arsenal 1-0 Chelsea)"))
-        self.assertEqual(texts[2], ("30'", "card", "🟨 Kadi ya njano kwa M. Caicedo (Chelsea)."))
+        self.assertEqual(texts[2], ("30'", "card", "🟨 Kadi ya njano ameonyeshwa M. Caicedo (Chelsea)."))
 
         # Ombi lile lile tena: hakuna sasisho linalorudiwa
         self.run_with(_Resp([_fixture(status="1H", elapsed=33, hg=1, ag=0, events=[goal, card])]))
@@ -1607,7 +1607,7 @@ class FootballAutoLiveTest(TestCase):
         self.assertFalse(a.is_live)
         self.assertEqual(a.title, "Arsenal 2-0 Chelsea: Matokeo, Magoli na Takwimu — Premier League")
         self.assertIn("## Magoli", a.body)
-        self.assertIn("G. Martinelli anaifungia Arsenal kwa penalti", a.body)
+        self.assertIn("G. Martinelli ameifungia Arsenal kwa mkwaju wa penalti", a.body)
         self.assertEqual(LiveMatch.objects.get().status, "FT")
         page = self.client.get(a.get_absolute_url()).content.decode()
         event = next(d.get("about") for block in LiveCoverageTest._jsonld(None, page) for d in block
@@ -1615,7 +1615,7 @@ class FootballAutoLiveTest(TestCase):
         self.assertEqual((event["@type"], event["homeTeam"]["name"], event["location"]["name"]),
                          ("SportsEvent", "Arsenal", "Emirates Stadium"))
         cache.clear()
-        self.assertIn("Matokeo ya karibuni", self.client.get("/live/").content.decode())
+        self.assertIn("Matokeo ya hivi karibuni", self.client.get("/live/").content.decode())
         self.assertEqual(FootballState.objects.get().requests, 5)
         self.assertEqual(self.calls[1]["ids"], "101")
 
@@ -1632,7 +1632,7 @@ class FootballAutoLiveTest(TestCase):
         a = Article.objects.get()
         self.assertFalse(a.is_live)
         self.assertTrue(a.title.startswith("Arsenal 0-1 Chelsea"))
-        self.assertIn("C. Palmer anaifungia Chelsea", a.body)
+        self.assertIn("C. Palmer ameifungia Chelsea", a.body)
 
     def test_free_plan_without_ids_falls_back_to_live_and_finishes_matches(self):
         from news import football
@@ -1939,7 +1939,7 @@ class HighlightlyProviderTest(TestCase):
         self.assertEqual(self.calls[0][1]["date"], timezone.localdate().isoformat())
         a = Article.objects.get()                          # Premier League ya Kenya haikuchaguliwa
         self.assertEqual(a.sources[0]["publisher"], "Highlightly")
-        self.assertEqual(a.title, "Arsenal vs Chelsea LIVE: Matokeo, Kikosi na Takwimu — Premier League")
+        self.assertEqual(a.title, "Arsenal dhidi ya Chelsea LIVE: Matokeo, Kikosi na Takwimu — Premier League")
         m = LiveMatch.objects.get()
         self.assertEqual((m.home_logo, m.venue, m.status), ("https://hl.example/1.png", "Emirates Stadium", "NS"))
         self.assertIn('"Arsenal"', FootballState.objects.get().sample)
@@ -1955,9 +1955,9 @@ class HighlightlyProviderTest(TestCase):
         self.assertTrue(a.is_live)
         self.assertEqual(a.live_score, "Arsenal 1 - 0 Chelsea")
         rows = list(a.live_updates.order_by("created_at", "id").values_list("label", "kind", "text"))
-        self.assertEqual(rows[1], ("23'", "goal", "⚽ GOLI! B. Saka anaifungia Arsenal. Pasi: M. Ødegaard. "
+        self.assertEqual(rows[1], ("23'", "goal", "⚽ GOLI! B. Saka ameifungia Arsenal. Pasi ya mwisho: M. Ødegaard. "
                                                  "(Arsenal 1-0 Chelsea)"))
-        self.assertEqual(rows[2], ("45+2'", "card", "🟨 Kadi ya njano kwa M. Caicedo (Chelsea)."))
+        self.assertEqual(rows[2], ("45+2'", "card", "🟨 Kadi ya njano ameonyeshwa M. Caicedo (Chelsea)."))
         self.assertEqual(rows[3][:2], ("60'", "sub"))
         self.assertIn("J. Pedro ↔ N. Jackson", rows[3][2])
         self.assertEqual(LiveMatch.objects.get().minute, 61)
@@ -1967,7 +1967,7 @@ class HighlightlyProviderTest(TestCase):
         a.refresh_from_db()
         self.assertFalse(a.is_live)
         self.assertTrue(a.title.startswith("Arsenal 2-0 Chelsea: Matokeo"))
-        self.assertIn("G. Martinelli anaifungia Arsenal kwa penalti", a.body)
+        self.assertIn("G. Martinelli ameifungia Arsenal kwa mkwaju wa penalti", a.body)
         self.assertEqual(LiveMatch.objects.get().status, "FT")
 
     def test_status_and_score_mapping(self):
@@ -2051,7 +2051,7 @@ class MatchEnrichmentTest(TestCase):
             p = mock.patch(target)
             p.start()
             self.addCleanup(p.stop)
-        self.a = Article.objects.create(title="Arsenal vs Chelsea LIVE: Matokeo, Kikosi na Takwimu — Premier League",
+        self.a = Article.objects.create(title="Arsenal dhidi ya Chelsea LIVE: Matokeo, Kikosi na Takwimu — Premier League",
                                         category="dunia", excerpt="x", body="Awali.", status="published",
                                         published_at=timezone.now(), origin="football")
         self.m = LiveMatch.objects.create(article=self.a, fixture_id=1340772559, provider="highlightly",
@@ -2087,9 +2087,9 @@ class MatchEnrichmentTest(TestCase):
         x = self.m.extra
         self.assertEqual(x["referee"], "Michael Oliver")
         self.assertEqual(x["stats"][0], {"name": "Umiliki wa mpira", "home": "62%", "away": "38%", "pct": 62})
-        self.assertEqual(x["stats"][1]["name"], "Nafasi za kufunga (xG)")
+        self.assertEqual(x["stats"][1]["name"], "Nafasi za kufunga zilizotengenezwa (xG)")
         self.assertEqual((x["stats"][1]["home"], x["stats"][1]["away"]), ("1.91", "0.7"))
-        self.assertIn("Arsenal wanamiliki mpira zaidi (62% dhidi ya 38%).", self.m.insights)
+        self.assertIn("Arsenal wameutawala mpira kwa muda mwingi zaidi (62% dhidi ya 38%).", self.m.insights)
         page = self.client.get(self.a.get_absolute_url()).content.decode()
         for text in ("Uchambuzi wa wILife", "Takwimu", "Umiliki wa mpira", "Michael Oliver", "14°C"):
             self.assertIn(text, page)
@@ -2115,13 +2115,13 @@ class MatchEnrichmentTest(TestCase):
         self.assertEqual(x["h2h_tally"], {"W": 1, "D": 1, "L": 1})
         self.assertEqual((x["form_home"], x["form_away"]), (["W", "D"], ["L"]))
         tips = self.m.insights
-        self.assertIn("Katika mechi 3 za mwisho walizokutana, Arsenal wameshinda 1, Chelsea wameshinda 1 na sare ni 1.", tips)
-        self.assertIn("Arsenal: ushindi 1 katika mechi 2 zilizopita (ushindi, sare).", tips)
+        self.assertIn("Katika mechi 3 za mwisho walizokutana, Arsenal wameshinda 1, Chelsea wameshinda 1, na mechi 1 zimeisha kwa sare.", tips)
+        self.assertIn("Arsenal: imeshinda mechi 1 kati ya 2 zilizopita (ushindi, sare).", tips)
         self.a.refresh_from_db()
         self.assertIn("## Uchambuzi kabla ya mechi", self.a.body)
         self.assertIn("2026-09-01: Arsenal 2 - 0 Chelsea", self.a.body)
         page = self.client.get(self.a.get_absolute_url()).content.decode()
-        self.assertIn("Uso kwa uso", page)
+        self.assertIn("Historia ya kukutana", page)
         self.assertIn('class="f-W"', page)
 
     def test_lineups_near_kickoff_and_highlights_after_full_time(self):
@@ -2303,7 +2303,7 @@ class DayPagesTest(TestCase):
         self.assertIn(f'<link rel="canonical" href="https://www.wlife.online{url}">', page)
         self.assertIn("Simba", page)
         sitemap = self.client.get("/sitemap.xml").content.decode()
-        for loc in (url, "/mechi-za-leo/", "/matokeo-ya-jana/", "/makadirio/"):
+        for loc in (url, "/mechi-za-leo/", "/matokeo-ya-jana/", "/utabiri/"):
             self.assertIn(f"https://www.wlife.online{loc}</loc>", sitemap)
 
     def test_evening_refresh_fills_results_with_one_request_per_league(self):
@@ -2353,7 +2353,7 @@ class PredictionTest(TestCase):
         self.assertGreater(p["home"], 60)
         self.assertEqual(p["pick"], "1")
         self.assertRegex(p["score"], r"^\d-\d$")
-        self.assertIn("Makadirio ya wILife", " ".join(self.m.insights))
+        self.assertIn("Utabiri wa wILife", " ".join(self.m.insights))
 
     def test_not_enough_games_means_no_prediction(self):
         from news import predict
@@ -2378,12 +2378,13 @@ class PredictionTest(TestCase):
     def test_predictions_page_and_match_panel(self):
         from news import predict
         predict.ensure(self.m)
-        page = self.client.get("/makadirio/").content.decode()
-        for text in ("Makadirio ya Mechi za Leo", "Arsenal", "18+", '"@type": "SportsEvent"', "Poisson"):
+        page = self.client.get("/utabiri/").content.decode()
+        self.assertEqual(self.client.get("/makadirio/").status_code, 301)
+        for text in ("Utabiri wa Mechi za Leo", "Arsenal", "18+", '"@type": "SportsEvent"', "Poisson"):
             self.assertIn(text, page)
         match_page = self.client.get(self.a.get_absolute_url()).content.decode()
-        self.assertIn("Makadirio ya wILife", match_page)
-        self.assertIn("beti kwa uwajibikaji", match_page)
+        self.assertIn("Utabiri wa wILife", match_page)
+        self.assertIn("Beti kwa uwajibikaji", match_page)
 
 
 @override_settings(SITE_URL="https://www.wlife.online", AGENT_ENABLED=True, WHATSAPP_ENABLED=True,
@@ -2432,7 +2433,7 @@ class FootballDigestTest(TestCase):
         number, text = send.call_args[0][:2]
         self.assertEqual(number, "255711000111")
         for part in ("MATOKEO YA JANA", "🏆 *Ligi Kuu*", "Simba  *2–1*  Yanga", "MECHI ZA LEO",
-                     "`22:00`  Arsenal vs Chelsea",
+                     "`22:00`  Arsenal dhidi ya Chelsea",
                      "https://www.wlife.online/mechi-za-leo/", "ACHA"):
             self.assertIn(part, text)
 
@@ -2481,8 +2482,12 @@ class DigestChannelsTest(TestCase):
         from news.models import Subscriber
         Subscriber.objects.create(phone="255711000111")
         reply = digest.handle("255722000222", "JIUNGE")
-        self.assertIn("zimejaa", reply)
+        self.assertIn("imefika kikomo", reply)
         self.assertIn("https://whatsapp.com/channel/AbC123", reply)
+        self.assertIn("Soka360", reply)
+        page = self.client.get("/utabiri/").content.decode()
+        self.assertIn("Fuatilia Soka360", page)
+        self.assertIn("soka360-96", page)
         self.assertIn("https://www.wlife.online/michezo/jiunge/", reply)
         self.assertFalse(Subscriber.objects.filter(phone="255722000222").exists())
         self.assertIn("Tayari", digest.handle("0711000111", "jiunge"))          # aliyekuwemo hazuiwi
@@ -2494,21 +2499,21 @@ class DigestChannelsTest(TestCase):
             page = self.client.post("/michezo/jiunge/", {"email": "Msomaji@Mfano.com"}).content.decode()
             again = self.client.post("/michezo/jiunge/", {"email": "msomaji@mfano.com"}).content.decode()
             bot = self.client.post("/michezo/jiunge/", {"email": "x@y.com", "website": "spam"})
-        self.assertIn("Angalia email yako", page)
-        self.assertIn("Link imeshatumwa", again)                                  # haitumwi mara mbili
+        self.assertIn("Angalia barua pepe yako", page)
+        self.assertIn("Kiungo kimeshatumwa", again)                                  # haitumwi mara mbili
         self.assertEqual(bot.status_code, 200)
         self.assertEqual(post.call_count, 1)
         sub = EmailSubscriber.objects.get()
         self.assertEqual((sub.email, sub.confirmed), ("msomaji@mfano.com", False))
         self.assertIn(f"/michezo/thibitisha/{sub.token}/", post.call_args.kwargs["json"]["text"])
-        self.assertIn("Thibitisha email yangu", post.call_args.kwargs["json"]["html"])
-        self.assertIn("Umejiunga", self.client.get(f"/michezo/thibitisha/{sub.token}/").content.decode())
+        self.assertIn("Thibitisha barua pepe yangu", post.call_args.kwargs["json"]["html"])
+        self.assertIn("Umefanikiwa kujiunga", self.client.get(f"/michezo/thibitisha/{sub.token}/").content.decode())
         sub.refresh_from_db()
         self.assertTrue(sub.confirmed)
         self.client.get(f"/michezo/acha/{sub.token}/")                           # programu za email: GET haiondoi
         sub.refresh_from_db()
         self.assertTrue(sub.active)
-        self.assertIn("Umejiondoa", self.client.post(f"/michezo/acha/{sub.token}/").content.decode())
+        self.assertIn("Umefanikiwa kujiondoa", self.client.post(f"/michezo/acha/{sub.token}/").content.decode())
         sub.refresh_from_db()
         self.assertFalse(sub.active)
         self.assertEqual(self.client.get("/michezo/thibitisha/si-token/").status_code, 404)
@@ -2530,15 +2535,17 @@ class DigestChannelsTest(TestCase):
         self.assertEqual(send.call_count, 1)                                      # channel: posti moja tu
         self.assertEqual(send.call_args[0][0], "120363000000@newsletter")
         self.assertNotIn("ACHA", send.call_args[0][1])
+        self.assertTrue(send.call_args[0][1].startswith("⚽ *SOKA360*"))
         self.assertEqual(post.call_count, 3)                                      # kikomo cha email cha siku
         self.assertEqual(DailyCount.get("email"), 3)
         mail = post.call_args.kwargs["json"]
         self.assertIn("/michezo/acha/", mail["headers"]["List-Unsubscribe"])
-        self.assertTrue(mail["subject"].startswith("⚽ Mechi za leo: Arsenal vs Chelsea"))
-        for part in ("Mechi za leo &amp; matokeo ya jana", "Arsenal", "22:00", "Jiondoe", "Fuatilia LIVE",
+        self.assertTrue(mail["subject"].startswith("⚽ Ratiba ya mechi za leo: Arsenal dhidi ya Chelsea"))
+        for part in ("Ratiba ya mechi za leo na matokeo ya jana", "Arsenal", "22:00", "Jiondoe", "Fuatilia mechi mubashara", "Soka360",
+                     "soka360-96",
                      "https://whatsapp.com/channel/AbC123"):
             self.assertIn(part, mail["html"])
         self.assertNotIn("Dashibodi", mail["html"])                               # si email ya wakala
-        self.assertIn("Kujiondoa: https://www.wlife.online/michezo/acha/", mail["text"])
+        self.assertIn("Jiondoe kwenye orodha: https://www.wlife.online/michezo/acha/", mail["text"])
         self.assertIn("channel: imechapishwa", first["detail"])
         self.assertEqual(second["sent"], 0)

@@ -185,13 +185,13 @@ def insights(m):
     if t and sum(t.values()):
         n = sum(t.values())
         out.append(f"Katika mechi {n} za mwisho walizokutana, {m.home} wameshinda {t['W']}, "
-                   f"{m.away} wameshinda {t['L']} na sare ni {t['D']}.")
+                   f"{m.away} wameshinda {t['L']}, na mechi {t['D']} zimeisha kwa sare.")
     for side in ("home", "away"):
         letters = x.get(f"form_{side}") or []
         if letters:
             team = getattr(m, side)
             w = letters.count("W")
-            out.append(f"{team}: ushindi {w} katika mechi {len(letters)} zilizopita "
+            out.append(f"{team}: imeshinda mechi {w} kati ya {len(letters)} zilizopita "
                        f"({', '.join(FORM_SW[l] for l in letters)}).")
     guess = predict.sentence(m)
     if guess:
@@ -199,10 +199,10 @@ def insights(m):
     poss = next((r for r in x.get("stats") or [] if r["name"] == "Umiliki wa mpira"), None)
     if poss and m.status != "NS":
         lead = m.home if poss["pct"] >= 50 else m.away
-        out.append(f"{lead} wanamiliki mpira zaidi ({poss['home']} dhidi ya {poss['away']}).")
+        out.append(f"{lead} wameutawala mpira kwa muda mwingi zaidi ({poss['home']} dhidi ya {poss['away']}).")
     xg = next((r for r in x.get("stats") or [] if r["name"].startswith("Nafasi za kufunga")), None)
     if xg and m.status != "NS":
-        out.append(f"Nafasi za kufunga (xG): {m.home} {xg['home']} – {xg['away']} {m.away}.")
+        out.append(f"Nafasi za kufunga zilizotengenezwa (xG): {m.home} {xg['home']} – {xg['away']} {m.away}.")
     return out
 
 

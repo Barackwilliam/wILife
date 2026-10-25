@@ -999,3 +999,6 @@ a.fx:hover { background: var(--brand-soft); }
   .waj-mail { margin-left: 0; flex-wrap: wrap; }
   .waj-mail button { width: 100%; }
 }
+.waj-ch { display: inline-flex; align-items: center; gap: 8px; background: #111 !important; color: #ffc93c !important; }
+.waj-ch img { width: 24px; height: 24px; border-radius: 50%; }
+.waj-ch:hover { background: #000 !important; }

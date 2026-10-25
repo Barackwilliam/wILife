@@ -19,7 +19,7 @@ HOME_EDGE = 1.12           # faida ya kucheza nyumbani (wastani wa ligi kubwa)
 AWAY_EDGE = 0.90
 MIN_GAMES = 3              # chini ya hapa data haitoshi kukadiria
 MAX_GOALS = 10
-PICK_SW = {"1": "ushindi wa {home}", "X": "sare", "2": "ushindi wa {away}"}
+PICK_SW = {"1": "{home} ishinde", "X": "sare", "2": "{away} ishinde"}
 
 
 def _goals(score):
@@ -153,8 +153,8 @@ def sentence(m):
     p = (m.extra or {}).get("prediction")
     if not p:
         return ""
-    return (f"Makadirio ya wILife (kutokana na fomu na rekodi zao): {m.home} kushinda {p['home']}%, "
-            f"sare {p['draw']}%, {m.away} kushinda {p['away']}%; matokeo yanayowezekana zaidi ni {p['score']}.")
+    return (f"Utabiri wa wILife kwa kuzingatia kiwango na rekodi za timu: {m.home} kushinda {p['home']}%, "
+            f"sare {p['draw']}%, na {m.away} kushinda {p['away']}%. Matokeo yanayotarajiwa zaidi ni {p['score']}.")
 
 
 def record(days=30):
