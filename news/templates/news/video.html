@@ -1,0 +1,33 @@
+{% extends 'news/base.html' %}
+{% load news_tags %}
+{% block title %}{{ h.name }}: Video za Magoli na Highlights{% if h.competition %} — {{ h.competition }}{% endif %} | wILife{% endblock %}
+{% block description %}Tazama video za magoli na highlights za {{ h.name }}{% if match.score %} ({{ match.score }}){% endif %}{% if h.competition %}, {{ h.competition }}{% endif %}, {{ h.date|sw_date }}. Shiriki kwa WhatsApp kwenye wILife.{% endblock %}
+{% block og_type %}video.other{% endblock %}
+{% block og_title %}{{ h.name }}: Video za Magoli{% endblock %}
+{% block og_description %}{% if match.score %}{{ match.score }}. {% endif %}Magoli yote na matukio makubwa — tazama kwenye wILife.{% endblock %}
+{% block og_image %}{% if h.thumbnail %}{{ h.thumbnail }}{% else %}{% absolute og_default %}{% endif %}{% endblock %}
+{% block twitter_image %}{% if h.thumbnail %}{{ h.thumbnail }}{% else %}{% absolute og_default %}{% endif %}{% endblock %}
+{% block jsonld %}{% video_jsonld h %}{% endblock %}
+
+{% block content %}
+<nav class="crumbs" aria-label="breadcrumb"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><a href="{% url 'news:videos' %}">Video za magoli</a><span>/</span><span>{{ h.name }}</span></nav>
+<h1 class="fxd-title">{{ h.name }}: Video za Magoli na Highlights</h1>
+<p class="fxd-dek">{% if h.competition %}{{ h.competition }} · {% endif %}{{ h.date|sw_date }}{% if match.score %} · Matokeo: <b>{{ match.score }}</b>{% endif %}</p>
+{% include 'news/_video_player.html' with h=h heading="Tazama magoli" %}
+{% if match %}<p class="vh-open"><a href="{{ match.url }}">Matokeo, matukio na takwimu za mechi hii {% icon "arrow-right" %}</a></p>{% endif %}
+
+{% if more %}
+<section class="fxd-sec">
+  <h2>Video nyingine za magoli</h2>
+  <div class="vh-grid vh-grid-sm">{% for x in more %}
+    <a class="vh-card" href="{{ x.get_absolute_url }}">
+      <span class="vh-thumb">{% if x.thumbnail %}<img src="{{ x.thumbnail }}" alt="{{ x.name }}: video za magoli" loading="lazy" referrerpolicy="no-referrer">{% endif %}<i aria-hidden="true">▶</i></span>
+      <span class="vh-meta"><small>{{ x.competition }}</small><b>{{ x.name }}</b><time datetime="{{ x.date|date:'c' }}">{{ x.date|sw_ago }}</time></span>
+    </a>{% endfor %}
+  </div>
+  <p><a class="fxd-more" href="{% url 'news:videos' %}">Video zote za magoli {% icon "arrow-right" %}</a></p>
+</section>
+{% endif %}
+{% include 'news/_wa_join.html' %}
+{% include 'news/_video_js.html' %}
+{% endblock %}

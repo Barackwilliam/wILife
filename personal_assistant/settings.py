@@ -318,6 +318,9 @@ HIGHLIGHTLY_FAVOURITE_TEAMS = [x.strip() for x in env(
     "HIGHLIGHTLY_FAVOURITE_TEAMS",
     "Simba,Young Africans,Yanga,Azam,Singida Fountain Gate,Singida Black Stars,Tanzania",
 ).split(",") if x.strip()]
+# ScoreBat (scorebat.com/video-api): video za magoli/highlights, bure kwa embed. Tupu = imezimwa.
+SCOREBAT_TOKEN = env("SCOREBAT_TOKEN", "")
+SCOREBAT_FEED = env("SCOREBAT_FEED", "https://www.scorebat.com/video-api/v3/feed/")
 HIGHLIGHTLY_DAILY_LIMIT = int(env("HIGHLIGHTLY_DAILY_LIMIT", "100"))      # mpango wa bure: 100
 HIGHLIGHTLY_SCHEDULE_HOURS = int(env("HIGHLIGHTLY_SCHEDULE_HOURS", "24"))   # ratiba: mara moja kwa siku
 # Ligi kwa kipaumbele: EPL, La Liga, Serie A, Bundesliga, Ligue 1, UEFA Champions League,

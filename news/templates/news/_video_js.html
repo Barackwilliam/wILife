@@ -1,0 +1,28 @@
+<script>
+(function () {
+  function load(stage, src) {
+    var f = document.createElement('iframe');
+    f.src = src; f.title = 'Video za magoli'; f.loading = 'lazy';
+    f.allow = 'autoplay; fullscreen; encrypted-media; picture-in-picture'; f.allowFullscreen = true;
+    f.referrerPolicy = 'no-referrer-when-downgrade';
+    stage.innerHTML = ''; stage.appendChild(f); stage.classList.add('is-on');
+  }
+  document.addEventListener('click', function (e) {
+    var play = e.target.closest('.vx-play');
+    if (play) { load(play.closest('[data-vx]'), play.dataset.src); return; }
+    var chip = e.target.closest('.vx-chip');
+    if (chip) {
+      var box = chip.closest('.vx');
+      box.querySelectorAll('.vx-chip').forEach(function (c) { c.classList.toggle('on', c === chip); });
+      load(box.querySelector('[data-vx]'), chip.dataset.src); return;
+    }
+    var copy = e.target.closest('.vx [data-copy]');
+    if (copy && navigator.clipboard) {
+      navigator.clipboard.writeText(copy.dataset.copy).then(function () {
+        var t = copy.innerHTML; copy.textContent = '✓ Kiungo kimenakiliwa';
+        setTimeout(function () { copy.innerHTML = t; }, 1800);
+      });
+    }
+  });
+})();
+</script>

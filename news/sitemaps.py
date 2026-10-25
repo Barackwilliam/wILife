@@ -35,10 +35,10 @@ class SectionSitemap(Sitemap):
     priority = 1.0
 
     def items(self):
-        return ["home", "live_hub", "matches_today", "results_yesterday", "predictions", "latest"] + list(Category.values)
+        return ["home", "live_hub", "matches_today", "results_yesterday", "predictions", "videos", "latest"] + list(Category.values)
 
     def location(self, item):
-        if item in ("home", "live_hub", "matches_today", "results_yesterday", "predictions", "latest"):
+        if item in ("home", "live_hub", "matches_today", "results_yesterday", "predictions", "videos", "latest"):
             return reverse(f"news:{item}")
         return reverse("news:category", args=[item])
 
@@ -90,5 +90,18 @@ class DaySitemap(Sitemap):
         return reverse("news:matches_day", args=[item.isoformat()])
 
 
+class VideoSitemap(Sitemap):
+    """Kurasa za video za magoli (/video/<slug>/)."""
+    changefreq = "weekly"
+    priority = 0.6
+
+    def items(self):
+        from news.models import Highlight
+        return Highlight.objects.order_by("-date")[:1000]
+
+    def lastmod(self, obj):
+        return obj.updated_at
+
+
 SITEMAPS = {"days": DaySitemap, "topics": TopicSitemap, "sections": SectionSitemap, "articles": ArticleSitemap,
-            "services": ServiceSitemap, "pages": StaticSitemap}
+            "services": ServiceSitemap, "pages": StaticSitemap, "videos": VideoSitemap}

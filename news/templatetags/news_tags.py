@@ -442,3 +442,49 @@ def jamiitek_site():
 def jamiitek_service_url(service):
     from news.jamiitek_links import service_url
     return service_url(service)
+
+
+# ── Video za magoli (ScoreBat, news/scorebat.py) ─────────────────────────────
+
+def _video_objects(request, h):
+    url = _abs(request, h.get_absolute_url())
+    desc = (f"Video za magoli na highlights za {h.name}"
+            + (f" ({h.competition})" if h.competition else "") + " kwenye wILife.")
+    return [{"@type": "VideoObject", "name": f"{h.name}: {v['title']}" if len(h.videos) > 1 else f"{h.name}: Highlights",
+             "description": desc, "thumbnailUrl": [h.thumbnail] if h.thumbnail else None,
+             "uploadDate": h.date.isoformat(), "embedUrl": v["src"], "url": url,
+             "publisher": {"@type": "Organization", "name": "wILife", "url": _abs(request, "/")}}
+            for v in h.videos[:4]]
+
+
+@register.simple_tag(takes_context=True)
+def video_jsonld(context, h, crumbs=True):
+    """VideoObject (Google Video) kwa kila video ya mechi, + breadcrumb kwenye ukurasa wa video."""
+    request = context["request"]
+    data = [{"@context": "https://schema.org", **v} for v in _video_objects(request, h)]
+    if crumbs:
+        data.append({"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
+            {"@type": "ListItem", "position": 1, "name": "Mwanzo", "item": _abs(request, "/")},
+            {"@type": "ListItem", "position": 2, "name": "Video za magoli", "item": _abs(request, "/video/")},
+            {"@type": "ListItem", "position": 3, "name": h.name, "item": _abs(request, h.get_absolute_url())}]})
+    return _script(data)
+
+
+@register.simple_tag(takes_context=True)
+def videos_jsonld(context, items):
+    request = context["request"]
+    return _script({"@context": "https://schema.org", "@type": "ItemList", "name": "Video za magoli na highlights",
+                    "itemListElement": [{"@type": "ListItem", "position": i, "url": _abs(request, h.get_absolute_url())}
+                                        for i, h in enumerate(items, 1)]})
+
+
+@register.simple_tag
+def match_video(m):
+    """Video za magoli za mechi iliyokwisha (LiveMatch/Fixture), au None."""
+    if not (m and getattr(m, "is_finished", False)):
+        return None
+    from news import scorebat
+    try:
+        return scorebat.for_match(m.home, m.away, m.kickoff)
+    except Exception:          # ukurasa wa mechi usivunjike kwa sababu ya video
+        return None

@@ -18,7 +18,7 @@
   <meta name="twitter:title" content="{{ article.title }}"><meta name="twitter:description" content="{{ article.excerpt }}">
 {% endblock %}
 {% block preload %}<link rel="preload" as="image" href="{{ article.art_url }}"{% if article.srcset %} imagesrcset="{{ article.srcset }}" imagesizes="(max-width: 900px) 100vw, 860px"{% endif %} fetchpriority="high">{% endblock %}
-{% block jsonld %}{% article_jsonld article %}{% endblock %}
+{% block jsonld %}{% article_jsonld article %}{% if article.match %}{% match_video article.match as mv %}{% if mv %}{% video_jsonld mv False %}{% endif %}{% endif %}{% endblock %}
 
 {% block content %}
 <div class="progress-read" id="pr"></div>
@@ -43,7 +43,7 @@
     </header>
     {% if page_v %}<div id="mz-body" data-zone data-v="{{ page_v }}" data-feed="{% url 'news:live_feed' article.pk %}"
          data-active="{{ page_active|yesno:'1,0' }}">{% endif %}
-    {% if article.match %}{% include 'news/_match_panel.html' %}{% endif %}
+    {% if article.match %}{% match_video article.match as mv %}{% if mv %}{% include 'news/_video_player.html' with h=mv %}{% endif %}{% include 'news/_match_panel.html' %}{% endif %}
     {% if article.live_started_at %}{% include 'news/_live.html' %}{% endif %}
     {% if not article.match %}<div class="hero-img">{% include 'news/_img.html' with a=article big=True %}</div>{% endif %}
 
@@ -103,7 +103,7 @@
   </div></aside>
 </div>
 {% endblock %}
-{% block extra_scripts %}
+{% block extra_scripts %}{% if article.match %}{% include 'news/_video_js.html' %}{% endif %}
 {% if article.match or other_matches %}{% include 'news/_score_js.html' %}{% endif %}
 {% if page_v %}<script src="{% static 'news/match.js' %}" defer></script>{% endif %}
 <script>

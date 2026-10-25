@@ -1,4 +1,5 @@
 import json
+import requests
 from datetime import date, datetime, timedelta, timezone as dt_tz
 from unittest import mock
 
@@ -2957,3 +2958,133 @@ class OverdueFixtureTest(TestCase):
         self.assertIn("ilipangwa kuanza saa", page)
         self.assertIn("bado hatujapata taarifa zake mpya", page)
         self.assertNotIn("Jaribu tena baada ya muda mfupi", page)
+
+
+class _SBResp(_HLResp):
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise requests.HTTPError(f"HTTP {self.status_code}")
+
+
+def _sb_item(title="Arsenal - Chelsea", comp="ENGLAND: Premier League", hours_ago=3, embed=None, url=None, videos=None):
+    """Kipengele kimoja cha feed ya ScoreBat (v3)."""
+    when = (timezone.now() - timedelta(hours=hours_ago)).strftime("%Y-%m-%dT%H:%M:%S+0000")
+    src = embed or "<div style='width:100%'><iframe src='https://www.scorebat.com/embed/v/abc123/?utm_source=api' frameborder='0' allowfullscreen></iframe></div>"
+    return {"title": title, "competition": comp, "matchviewUrl": url or f"https://www.scorebat.com/embed/matchview/{abs(hash(title)) % 99999}/",
+            "thumbnail": "https://www.scorebat.com/og/m/og1.jpeg", "date": when,
+            "videos": videos if videos is not None else [{"id": "v1", "title": "Highlights", "embed": src}]}
+
+
+@override_settings(SCOREBAT_TOKEN="sb-token", SCOREBAT_FEED="https://www.scorebat.com/video-api/v3/feed/",
+                   SITE_URL="https://www.wlife.online")
+class ScoreBatVideoTest(TestCase):
+    """Video za magoli (ScoreBat): feed -> Highlight -> /video/, ukurasa wa video na kurasa za mechi."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+    def _sync(self, items):
+        from news import scorebat
+        with mock.patch("news.scorebat.requests.get",
+                        return_value=_SBResp({"response": items})) as get:
+            out = scorebat.run()
+        return out, get
+
+    def test_parse_keeps_only_scorebat_iframes(self):
+        from news import scorebat
+        evil = "<iframe src='https://evil.example/x'></iframe>"
+        items = scorebat.parse({"response": [
+            _sb_item(),
+            _sb_item(title="Roma - Lazio", embed=evil),                        # host isiyo ScoreBat: inarukwa
+            _sb_item(title="Napoli - Inter", embed="<iframe src=\"javascript:alert(1)\"></iframe>"),
+            {"title": "bila tarehe", "videos": []},
+        ]})
+        self.assertEqual([i["title"] for i in items], ["Arsenal - Chelsea"])
+        it = items[0]
+        self.assertEqual((it["home"], it["away"], it["home_key"]), ("Arsenal", "Chelsea", "arsenal"))
+        self.assertEqual(it["videos"], [{"title": "Highlights", "src": "https://www.scorebat.com/embed/v/abc123/?utm_source=api"}])
+        v1 = scorebat.parse([{"title": "A - B", "embed": "<iframe src='https://www.scorebat.com/embed/g/1/'></iframe>",
+                              "side1": {"name": "Atlético Madrid"}, "side2": {"name": "Real Betis FC"},
+                              "date": "2026-10-24T18:00:00+0000", "url": "https://www.scorebat.com/x/"}])
+        self.assertEqual((v1[0]["home_key"], v1[0]["away_key"]), ("atletico madrid", "real betis"))
+
+    def test_sync_stores_once_per_half_hour_and_needs_token(self):
+        from news.models import Highlight
+        out, get = self._sync([_sb_item(), _sb_item(title="Liverpool - Brighton")])
+        self.assertEqual(out["sent"], 2, out)
+        self.assertEqual(get.call_args.kwargs["params"], {"token": "sb-token"})
+        out, get = self._sync([_sb_item()])
+        get.assert_not_called()                                     # nusu saa hii imeshasomwa
+        self.assertEqual(Highlight.objects.count(), 2)
+        self.assertTrue(Highlight.objects.get(home="Arsenal").slug.startswith("arsenal-vs-chelsea-"))
+        with self.settings(SCOREBAT_TOKEN=""):
+            from news import scorebat
+            self.assertIn("SCOREBAT_TOKEN", scorebat.run()["detail"])
+
+    def test_bad_feed_is_reported_not_crashing(self):
+        from news import scorebat
+        with mock.patch("news.scorebat.requests.get", return_value=_SBResp({"error": "invalid token"})):
+            out = scorebat.run()
+        self.assertIn("feed haikuwa na video", out["detail"])
+        with mock.patch("news.scorebat.requests.get", side_effect=requests.ConnectionError("down")):
+            from news.models import DailyCount
+            DailyCount.objects.all().delete()
+            out = scorebat.run()
+        self.assertEqual(out["failed"], 1)
+
+    def test_hub_and_detail_pages(self):
+        self._sync([_sb_item(), _sb_item(title="Liverpool - Brighton", videos=[
+            {"title": "Highlights", "embed": "<iframe src='https://www.scorebat.com/embed/v/l1/'></iframe>"},
+            {"title": "Goal 1 - Salah", "embed": "<iframe src='https://www.scorebat.com/embed/v/l2/'></iframe>"}])])
+        hub = self.client.get("/video/").content.decode()
+        for text in ("<title>Video za Magoli na Highlights za Leo | wILife</title>", '"@type": "ItemList"',
+                     "Liverpool vs Brighton", "Arsenal vs Chelsea", 'data-src="https://www.scorebat.com/embed/v/'):
+            self.assertIn(text, hub)
+        from news.models import Highlight
+        h = Highlight.objects.get(home="Liverpool")
+        page = self.client.get(h.get_absolute_url()).content.decode()
+        for text in ("Liverpool vs Brighton: Video za Magoli na Highlights", '"@type": "VideoObject"',
+                     '"embedUrl": "https://www.scorebat.com/embed/v/l1/"', "Goal 1 - Salah", "Shiriki WhatsApp",
+                     "Nakili kiungo", f'<link rel="canonical" href="https://www.wlife.online{h.get_absolute_url()}">'):
+            self.assertIn(text, page)
+        self.assertNotRegex(page, r'<iframe[^>]*scorebat')       # iframe inapakiwa msomaji akibonyeza tu
+        self.assertNotIn("download", page.lower().split("<footer")[0].split("</header>")[-1])
+        sitemap = self.client.get("/sitemap.xml").content.decode()
+        self.assertIn(f"https://www.wlife.online{h.get_absolute_url()}</loc>", sitemap)
+        self.assertIn("https://www.wlife.online/video/</loc>", sitemap)
+        self.assertEqual(self.client.get("/video/hakuna/").status_code, 404)
+
+    def test_finished_match_pages_show_their_video(self):
+        from news.models import Fixture
+        self._sync([_sb_item(title="Manchester United - Bournemouth", hours_ago=1)])
+        f = Fixture.objects.create(provider="highlightly", fixture_id=9700, day=timezone.localdate(),
+                                   home="Manchester United", away="Bournemouth", competition="Premier League",
+                                   status="FT", home_goals=0, away_goals=2, kickoff=timezone.now() - timedelta(hours=3),
+                                   extra={"final": True, "fetched_at": timezone.now().isoformat()})
+        page = self.client.get(f.get_absolute_url()).content.decode()
+        self.assertIn('class="vx"', page)
+        self.assertIn('"@type": "VideoObject"', page)
+        Fixture.objects.filter(pk=f.pk).update(status="NS", home_goals=None, away_goals=None)
+        from django.core.cache import cache
+        cache.clear()                                               # ukurasa una nakala ya sekunde 30
+        page = self.client.get(f.get_absolute_url()).content.decode()
+        self.assertNotIn('class="vx"', page)                        # haijaisha: hakuna video
+        from news import scorebat
+        from news.models import Highlight
+        self.assertEqual(scorebat.match_page(Highlight.objects.get())["url"], f.get_absolute_url())
+
+    def test_fixture_keeps_team_ids_for_later_analysis(self):
+        from news import fixtures, football
+        from news.models import Fixture
+        item = {"fixture": {"id": 9800, "date": timezone.now().isoformat(), "status": {"short": "NS"}},
+                "league": {"id": 77, "name": "CAF Champions League"},
+                "teams": {"home": {"name": "Simba"}, "away": {"name": "15 de Agosto"}}, "goals": {},
+                "_extra": {"home_id": 50, "away_id": 51, "league_id": 77, "season": 2026, "stats": [1]}}
+        with self.settings(HIGHLIGHTLY_API_KEY="hl-key", HIGHLIGHTLY_LEAGUES=["*:CAF Champions League"]):
+            fixtures.store([item], timezone.localdate())
+            f = Fixture.objects.get(fixture_id=9800)
+            self.assertEqual({k: f.extra[k] for k in ("home_id", "away_id")}, {"home_id": 50, "away_id": 51})
+            self.assertNotIn("stats", f.extra)
+            self.assertEqual(football._item_from_fixture(f)["_extra"]["home_id"], 50)
