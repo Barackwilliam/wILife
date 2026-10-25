@@ -13,7 +13,7 @@
 {% with tips=m.insights %}{% if tips %}
 <section class="mp-ai" aria-label="Uchambuzi">
   <h2><span>✦</span> Uchambuzi wa wILife</h2>
-  <ul>{% for t in tips %}<li>{{ t }}</li>{% endfor %}</ul>
+  <ul>{% for t in tips %}<li><b>{{ t.label }}</b><span>{{ t.text }}</span></li>{% endfor %}</ul>
 </section>
 {% endif %}{% endwith %}
 

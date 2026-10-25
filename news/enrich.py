@@ -175,52 +175,66 @@ def highlights(state, m):
 
 # ── Uchambuzi wa Kiswahili (kwa ukurasa na makala) ─────────────────────────────
 
-FORM_SW = {"W": "ushindi", "D": "sare", "L": "kipigo"}
 
 
-def insights(m, with_prediction=True):
+def _count(letters):
+    return letters.count("W"), letters.count("D"), letters.count("L")
+
+
+def insight_items(m, with_prediction=True):
     """
-    Sentensi za uchambuzi kutokana na data — juu ya ukurasa na kwenye makala. Kwenye ukurasa utabiri
-    una kisanduku chake, kwa hiyo hapo sentensi ya utabiri hairudiwi (with_prediction=False).
+    Uchambuzi kwa vipengele vyenye kichwa ({label, text}), ili msomaji ajue kila takwimu inahusu nini:
+    mechi walizokutana wao kwa wao ni tofauti na mechi za kila timu dhidi ya timu nyingine.
+    Kwenye ukurasa utabiri una kisanduku chake, kwa hiyo hapo hauirudii (with_prediction=False).
     """
     x, out = m.extra or {}, []
     t = x.get("h2h_tally")
     if t and sum(t.values()):
         n = sum(t.values())
-        draws = f"na mechi {t['D']} zimeisha kwa sare" if t["D"] else "na hakuna mechi iliyoisha kwa sare"
-        out.append(f"Katika mechi {n} za mwisho walizokutana, {m.home} wameshinda {t['W']}, "
-                   f"{m.away} wameshinda {t['L']}, {draws}.")
+        draws = f"sare {t['D']}" if t["D"] else "hakuna sare"
+        out.append({"label": "Walipokutana wao kwa wao",
+                    "text": f"Katika mechi {n} za mwisho kati ya {m.home} na {m.away}: {m.home} wameshinda {t['W']}, "
+                            f"{m.away} wameshinda {t['L']}, {draws}."})
     for side in ("home", "away"):
         letters = x.get(f"form_{side}") or []
         if letters:
             team = getattr(m, side)
-            w = letters.count("W")
-            out.append(f"{team}: imeshinda mechi {w} kati ya {len(letters)} zilizopita "
-                       f"({', '.join(FORM_SW[l] for l in letters)}).")
+            w, d, l = _count(letters)
+            out.append({"label": f"Mechi {len(letters)} za mwisho za {team}",
+                        "text": f"Dhidi ya timu mbalimbali: ushindi {w}, sare {d}, kipigo {l}."})
     guess = predict.sentence(m) if with_prediction else ""
     if guess:
-        out.append(guess)
+        out.append({"label": "Utabiri", "text": guess})
     poss = next((r for r in x.get("stats") or [] if r["name"] == "Umiliki wa mpira"), None)
     if poss and m.status != "NS":
         lead = m.home if poss["pct"] >= 50 else m.away
-        out.append(f"{lead} wameutawala mpira kwa muda mwingi zaidi ({poss['home']} dhidi ya {poss['away']}).")
+        out.append({"label": "Umiliki wa mpira",
+                    "text": f"{lead} wameutawala mpira kwa muda mwingi zaidi: {m.home} {poss['home']} – "
+                            f"{poss['away']} {m.away}."})
     xg = next((r for r in x.get("stats") or [] if r["name"].startswith("Nafasi za kufunga")), None)
     if xg and m.status != "NS":
-        out.append(f"Nafasi za kufunga zilizotengenezwa (xG): {m.home} {xg['home']} – {xg['away']} {m.away}.")
+        out.append({"label": "Nafasi za kufunga zilizotengenezwa (xG)",
+                    "text": f"{m.home} {xg['home']} – {xg['away']} {m.away}."})
     return out
 
 
+def insights(m, with_prediction=True):
+    """Uchambuzi kama sentensi kamili (kichwa: maelezo) — kwa makala na majaribio."""
+    return [i["text"] if i["text"].startswith(i["label"]) else f"{i['label']}: {i['text']}"
+            for i in insight_items(m, with_prediction)]
+
+
 def _body_block(m):
-    """Aya ya uchambuzi kwa makala (SEO: maudhui halisi ya kipekee kwa kila mechi)."""
+    """Uchambuzi kwa makala (SEO: maudhui halisi ya kipekee kwa kila mechi), kipengele kimoja kwa mstari."""
     lines = insights(m)
     x = m.extra or {}
     parts = []
     if lines:
-        parts.append("## Uchambuzi kabla ya mechi\n\n" + " ".join(lines))
+        parts.append("## Uchambuzi kabla ya mechi\n\n" + "\n".join(f"- {line}" for line in lines))
     if x.get("h2h"):
-        rows = [f"{g['date']}: {g['home']} {g['score']} {g['away']}" for g in x["h2h"][:5] if g.get("score")]
+        rows = [f"- {g['date']}: {g['home']} {g['score']} {g['away']}" for g in x["h2h"][:5] if g.get("score")]
         if rows:
-            parts.append("## Matokeo ya mechi zilizopita kati yao\n\n" + "\n\n".join(rows))
+            parts.append("## Matokeo ya mechi zilizopita kati yao\n\n" + "\n".join(rows))
     return "\n\n".join(parts)
 
 

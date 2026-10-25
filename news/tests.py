@@ -2089,7 +2089,8 @@ class MatchEnrichmentTest(TestCase):
         self.assertEqual(x["stats"][0], {"name": "Umiliki wa mpira", "home": "62%", "away": "38%", "pct": 62})
         self.assertEqual(x["stats"][1]["name"], "Nafasi za kufunga zilizotengenezwa (xG)")
         self.assertEqual((x["stats"][1]["home"], x["stats"][1]["away"]), ("1.91", "0.7"))
-        self.assertIn("Arsenal wameutawala mpira kwa muda mwingi zaidi (62% dhidi ya 38%).", self.m.insights)
+        self.assertIn({"label": "Umiliki wa mpira",
+                       "text": "Arsenal wameutawala mpira kwa muda mwingi zaidi: Arsenal 62% – 38% Chelsea."}, self.m.insights)
         page = self.client.get(self.a.get_absolute_url()).content.decode()
         for text in ("Uchambuzi wa wILife", "Takwimu", "Umiliki wa mpira", "Michael Oliver", "14°C"):
             self.assertIn(text, page)
@@ -2115,8 +2116,11 @@ class MatchEnrichmentTest(TestCase):
         self.assertEqual(x["h2h_tally"], {"W": 1, "D": 1, "L": 1})
         self.assertEqual((x["form_home"], x["form_away"]), (["W", "D"], ["L"]))
         tips = self.m.insights
-        self.assertIn("Katika mechi 3 za mwisho walizokutana, Arsenal wameshinda 1, Chelsea wameshinda 1, na mechi 1 zimeisha kwa sare.", tips)
-        self.assertIn("Arsenal: imeshinda mechi 1 kati ya 2 zilizopita (ushindi, sare).", tips)
+        self.assertIn({"label": "Walipokutana wao kwa wao",
+                       "text": "Katika mechi 3 za mwisho kati ya Arsenal na Chelsea: Arsenal wameshinda 1, "
+                               "Chelsea wameshinda 1, sare 1."}, tips)
+        self.assertIn({"label": "Mechi 2 za mwisho za Arsenal",
+                       "text": "Dhidi ya timu mbalimbali: ushindi 1, sare 1, kipigo 0."}, tips)
         self.a.refresh_from_db()
         self.assertIn("## Uchambuzi kabla ya mechi", self.a.body)
         self.assertIn("2026-09-01: Arsenal 2 - 0 Chelsea", self.a.body)
@@ -2356,7 +2360,7 @@ class PredictionTest(TestCase):
         self.assertRegex(p["score"], r"^\d-\d$")
         from news.enrich import insights
         self.assertIn("Utabiri wa wILife", " ".join(insights(self.m)))          # kwenye makala
-        self.assertNotIn("Utabiri wa wILife", " ".join(self.m.insights))        # ukurasani una kisanduku chake
+        self.assertNotIn("Utabiri", [i["label"] for i in self.m.insights])      # ukurasani una kisanduku chake
 
     def test_home_side_with_better_results_and_record_is_not_the_underdog(self):
         """Wenyeji wenye matokeo bora na historia bora hawawi "wanyonge" kwa sababu wageni walishinda 4-0 mara moja."""
