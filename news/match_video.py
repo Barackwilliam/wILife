@@ -145,10 +145,17 @@ def _outro(site):
         pass
     _center(d, "Soka360", 600, covers._font(True, 64))
     f = covers._font(False, 34)
-    for i, line in enumerate(("Matokeo, magoli na highlights", "za mechi zote — kila siku")):
+    for i, line in enumerate(("Matokeo na video ya kila mechi", "hapa hapa WhatsApp")):
         _center(d, line, 700 + i * 48, f, fill=(255, 255, 255, 220))
+    tag = covers._font(True, 40)
+    label = "FOLLOW Soka360"
+    tw = d.textlength(label, font=tag)
+    d.rounded_rectangle(((W - tw) / 2 - 34, 850, (W + tw) / 2 + 34, 924), radius=37, fill=ACCENT)
+    _center(d, label, 864, tag)
+    _center(d, "Mshirikishe rafiki yako", 960, covers._font(False, 30),
+            fill=(255, 255, 255, 200))
     if site:
-        _center(d, site, 880, covers._font(True, 36), fill=ACCENT)
+        _center(d, site, 1060, covers._font(True, 32), fill=(255, 255, 255, 170))
     return img
 
 

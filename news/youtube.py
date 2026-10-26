@@ -116,6 +116,8 @@ def _seconds(iso):
 def teams_from_title(title):
     """'Simba SC vs Yanga | Highlights' -> ('Simba SC', 'Yanga'); vinginevyo ('', '')."""
     t = re.sub(r"(?i)\b(highlights?|all goals|magoli yote|full match|extended)\b", " ", title or "")
+    t = re.sub(r"(?i)^\W*(magoli|mabao|goals?)\b", " ", t)               # 'Magoli | Namungo 2-1 Coastal | …'
+    t = re.sub(r"^[\s|:\-–]+", "", t)
     t = re.sub(r"\s(\d{1,2})\s*[-–]\s*(\d{1,2})\s", " vs ", f" {t} ", count=1)   # 'Simba 2-0 Yanga' -> 'Simba vs Yanga'
     t = t.strip(" |:-–")
     m = _VS.match(t)

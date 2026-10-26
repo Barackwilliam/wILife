@@ -355,6 +355,7 @@ SOKA360_POSTS = env_bool("SOKA360_POSTS", True)
 SOKA360_GAP_MINUTES = int(env("SOKA360_GAP_MINUTES", "10"))
 SOKA360_RESULTS_PER_DAY = int(env("SOKA360_RESULTS_PER_DAY", "15"))
 SOKA360_HIGHLIGHTS_PER_DAY = int(env("SOKA360_HIGHLIGHTS_PER_DAY", "20"))
+SOKA360_FOLLOW_URL = env("SOKA360_FOLLOW_URL", "https://whatsapp.com/channel/0029VbEUHxl3GJOvK9RLS93F")
 SOKA360_WINDOW_HOURS = int(env("SOKA360_WINDOW_HOURS", "48"))
 NEWS_ENABLED = env_bool("NEWS_ENABLED", False)      # turn the daily drafting on
 NEWS_DRAFT_HOUR = int(env("NEWS_DRAFT_HOUR", "5"))  # local hour drafting starts
