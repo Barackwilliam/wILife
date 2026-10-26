@@ -3372,3 +3372,130 @@ class YouTubeSeededChannelsTest(TestCase):
                          ("Simba", "Mashujaa"))
         self.assertEqual(youtube.teams_from_title("JKT Tanzania 2-1 Namungo | Magoli | NBC Premier League - 29/08/2026"),
                          ("JKT Tanzania", "Namungo"))
+
+
+@override_settings(YOUTUBE_API_KEY="yt-key", SITE_URL="https://www.wlife.online", YOUTUBE_SEARCHES_PER_DAY=80,
+                   YOUTUBE_MIN_SUBSCRIBERS=100000)
+class YouTubeMatchSearchTest(TestCase):
+    """Kila mechi iliyokwisha kwenye mfumo inatafutiwa video — kutoka chaneli rasmi tu, inayochezeka Tanzania."""
+
+    OFFICIAL, FAN, BLOCKED, GAME, SHORT = "BBBBBBBBBB1", "BBBBBBBBBB2", "BBBBBBBBBB3", "BBBBBBBBBB4", "BBBBBBBBBB5"
+
+    def setUp(self):
+        from django.core.cache import cache
+        from news.models import Fixture, VideoChannel
+        cache.clear()
+        self.addCleanup(cache.clear)
+        VideoChannel.objects.all().delete()
+        self.now = timezone.now()
+        self.match = Fixture.objects.create(
+            fixture_id=9901, day=timezone.localdate(), kickoff=self.now - timedelta(hours=3), status="FT",
+            home="Arsenal", away="Chelsea", home_goals=2, away_goals=1, competition="Premier League", rank=1)
+        self.calls = []
+
+    def _video(self, vid, title, channel, blocked=None, duration="PT11M2S"):
+        cd = {"duration": duration, **({"regionRestriction": {"blocked": blocked}} if blocked else {})}
+        return {"id": vid, "status": {"embeddable": True, "privacyStatus": "public"}, "contentDetails": cd,
+                "snippet": {"title": title, "channelId": channel, "channelTitle": channel,
+                            "publishedAt": _iso_z(self.now - timedelta(minutes=40)), "liveBroadcastContent": "none",
+                            "thumbnails": {"high": {"url": "https://i.ytimg.com/vi/x/hqdefault.jpg"}}}}
+
+    def _fake(self, videos, channels):
+        def fake_get(url, params=None, timeout=None):
+            self.calls.append((url.rsplit("/", 1)[-1], params))
+            if url.endswith("/search"):
+                return _yt_resp({"items": [{"id": {"videoId": v["id"]}, "snippet": {"title": v["snippet"]["title"]}}
+                                           for v in videos]})
+            if url.endswith("/videos"):
+                ids = params["id"].split(",")
+                return _yt_resp({"items": [v for v in videos if v["id"] in ids]})
+            if url.endswith("/channels"):
+                ids = params["id"].split(",")
+                return _yt_resp({"items": [{"id": c, "snippet": {"title": t}, "statistics": {"subscriberCount": str(n)}}
+                                           for c, (t, n) in channels.items() if c in ids]})
+            return _yt_resp({"items": []})
+        return fake_get
+
+    def _standard(self):
+        videos = [self._video(self.FAN, "Arsenal vs Chelsea 2-1 | HIGHLIGHTS reaction", "UCfan"),
+                  self._video(self.BLOCKED, "Arsenal 2-1 Chelsea | Premier League Highlights", "UCnbc", blocked=["TZ"]),
+                  self._video(self.GAME, "Arsenal vs Chelsea highlights", "UCgame"),
+                  self._video(self.SHORT, "Arsenal vs Chelsea goals #shorts", "UCpl", duration="PT25S"),
+                  self._video(self.OFFICIAL, "HIGHLIGHTS | Arsenal 2-1 Chelsea | Premier League", "UCpl")]
+        channels = {"UCfan": ("Arsenal Fan TV", 1_500_000), "UCnbc": ("NBC Sports", 9_000_000),
+                    "UCgame": ("eFootball Arsenal Gaming", 400_000), "UCpl": ("Premier League", 20_000_000)}
+        return videos, channels
+
+    def test_finished_match_gets_official_video_only(self):
+        from news import youtube
+        from news.templatetags.news_tags import match_video
+        with mock.patch("news.youtube.requests.get", side_effect=self._fake(*self._standard())):
+            out = youtube.run(now=self.now)
+            again = youtube.run(now=self.now + timedelta(hours=13))     # tayari ina video: haitafutwi tena
+        self.assertEqual(out["sent"], 1, out)
+        self.assertEqual(again["sent"], 0, again)
+        self.assertEqual([c[0] for c in self.calls], ["search", "videos", "channels"])
+        q = self.calls[0][1]
+        self.assertEqual((q["q"], q["regionCode"], q["videoEmbeddable"]), ("Arsenal vs Chelsea highlights", "TZ", "true"))
+        h = match_video(self.match)
+        self.assertIsNotNone(h)
+        self.assertEqual((h.key, h.channel, h.home, h.away, h.competition),
+                         (f"yt:{self.OFFICIAL}", "Premier League", "Arsenal", "Chelsea", "Premier League"))
+        self.assertIn("youtube-nocookie.com/embed/" + self.OFFICIAL, h.main["src"])
+
+    def test_untrusted_results_store_nothing_and_retry_once_later(self):
+        from news import youtube
+        from news.models import Highlight
+        videos, channels = self._standard()
+        videos = videos[:3]                                   # bila video ya chaneli rasmi
+        with mock.patch("news.youtube.requests.get", side_effect=self._fake(videos, channels)):
+            youtube.run(now=self.now)
+            youtube.run(now=self.now + timedelta(hours=1))     # bado kabla ya saa 12: hapana
+            youtube.run(now=self.now + timedelta(hours=10))    # saa 13 baada ya mechi: jaribio la pili
+            youtube.run(now=self.now + timedelta(hours=20))    # majaribio yamekwisha
+        self.assertFalse(Highlight.objects.exists())
+        self.assertEqual([c[0] for c in self.calls].count("search"), 2)
+
+    def test_too_early_and_daily_limit(self):
+        from news import youtube
+        from news.models import Fixture
+        Fixture.objects.filter(pk=self.match.pk).update(kickoff=self.now - timedelta(minutes=90))
+        with mock.patch("news.youtube.requests.get", side_effect=self._fake(*self._standard())):
+            youtube.run(now=self.now)                          # chini ya saa 2: highlights bado hazijapakiwa
+            self.assertEqual(self.calls, [])
+            with self.settings(YOUTUBE_SEARCHES_PER_DAY=0):
+                youtube.run(now=self.now + timedelta(hours=1))
+            self.assertEqual(self.calls, [])
+
+    def test_admin_channel_is_trusted_even_if_small(self):
+        from news import youtube
+        from news.models import VideoChannel
+        VideoChannel.objects.create(link="https://www.youtube.com/@ndogo", channel_id="UCsmall", name="Klabu Ndogo TV",
+                                    checked_at=self.now)
+        videos = [self._video(self.OFFICIAL, "Arsenal vs Chelsea | Magoli yote", "UCsmall")]
+        with mock.patch("news.youtube.requests.get", side_effect=self._fake(videos, {})):
+            out = youtube.run(now=self.now)
+        self.assertEqual(out["sent"], 1, out)
+        self.assertNotIn("channels", [c[0] for c in self.calls])
+
+    def test_aliases_and_region_rules(self):
+        from news import youtube
+        self.assertTrue(youtube._mentions("Yanga 2-0 Simba | Highlights", youtube._aliases("Young Africans")))
+        self.assertFalse(youtube._mentions("Azam vs Simba highlights", youtube._aliases("Young Africans")))
+        ok = {"status": {"embeddable": True, "privacyStatus": "public"}, "snippet": {}}
+        self.assertTrue(youtube._playable(ok))
+        self.assertFalse(youtube._playable({**ok, "contentDetails": {"regionRestriction": {"allowed": ["US"]}}}))
+        self.assertTrue(youtube._playable({**ok, "contentDetails": {"regionRestriction": {"allowed": ["TZ", "KE"]}}}))
+        self.assertFalse(youtube._playable({**ok, "contentDetails": {"regionRestriction": {"blocked": ["TZ"]}}}))
+
+    def test_quota_error_is_recorded(self):
+        from news import youtube
+        with mock.patch("news.youtube.requests.get",
+                        return_value=_yt_resp({"error": {"message": "quotaExceeded"}}, status=403)):
+            out = youtube.run(now=self.now)
+        self.assertEqual(out["failed"], 1, out)
+        self.assertIn("utafutaji", out["detail"])
+
+
+def _iso_z(dt):
+    return dt.astimezone(dt_tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
