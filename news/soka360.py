@@ -96,19 +96,74 @@ def follow_url():
     return (getattr(settings, "SOKA360_FOLLOW_URL", "") or channel_link()).strip()
 
 
+# Mechi zenye majina yanayojulikana (kichwa cha posti) na rangi za timu — kwa team_key, maneno kamili
+DERBIES = (
+    ("EL CLÁSICO", ("barcelona",), ("real madrid",)),
+    ("KARIAKOO DERBY", ("simba",), ("young africans", "yanga")),
+    ("MANCHESTER DERBY", ("manchester city", "man city"), ("manchester united", "man united", "man utd")),
+    ("NORTH LONDON DERBY", ("arsenal",), ("tottenham", "tottenham hotspur", "spurs")),
+    ("MERSEYSIDE DERBY", ("liverpool",), ("everton",)),
+    ("MADRID DERBY", ("atletico madrid", "atletico"), ("real madrid",)),
+    ("DER KLASSIKER", ("bayern munich", "bayern munchen", "bayern"), ("borussia dortmund", "dortmund")),
+    ("LE CLASSIQUE", ("paris saint germain", "psg"), ("marseille", "olympique marseille")),
+    ("DERBY D'ITALIA", ("juventus",), ("inter", "internazionale", "inter milan")),
+    ("DERBY DELLA MADONNINA", ("inter", "internazionale", "inter milan"), ("milan",)),
+)
+COLORS = (
+    (("barcelona",), "🔵🔴"), (("real madrid",), "⚪👑"), (("simba",), "🔴⚪"), (("young africans", "yanga"), "🟢🟡"),
+    (("azam",), "🔵⚪"), (("manchester city", "man city"), "🩵"), (("manchester united", "man united", "man utd"), "🔴"),
+    (("arsenal",), "🔴⚪"), (("chelsea",), "🔵"), (("liverpool",), "🔴"), (("tottenham", "tottenham hotspur", "spurs"), "⚪"),
+    (("everton",), "🔵"), (("atletico madrid", "atletico"), "🔴⚪"), (("bayern munich", "bayern munchen", "bayern"), "🔴"),
+    (("borussia dortmund", "dortmund"), "🟡⚫"), (("juventus",), "⚪⚫"), (("inter", "internazionale", "inter milan"), "🔵⚫"),
+    (("milan",), "🔴⚫"), (("paris saint germain", "psg"), "🔵🔴"), (("marseille", "olympique marseille"), "⚪🔵"),
+)
+
+
+def _is(name, aliases):
+    """Jina lote (bila FC/SC/AC) ni mojawapo — si sehemu tu: 'Inter Miami' si Inter, 'Simba Queens' si Simba."""
+    from news.scorebat import team_key
+    return team_key(name) in aliases
+
+
+def derby(home, away):
+    for name, a, b in DERBIES:
+        if (_is(home, a) and _is(away, b)) or (_is(home, b) and _is(away, a)):
+            return name
+    return ""
+
+
+def _color(name):
+    return next((c for aliases, c in COLORS if _is(name, aliases)), "")
+
+
+def headline(home, away, competition, score=None):
+    """'🔥 EL CLÁSICO | FULL-TIME 🔥' na '🔵🔴 Barcelona 1–2 Real Madrid ⚪👑'."""
+    title = derby(home, away) or (competition or "SOKA").upper()
+    top = f"🔥 {title} | {'FULL-TIME' if score else 'HIGHLIGHTS'} 🔥"
+    mid = f"{score[0]}–{score[1]}" if score else "vs"
+    teams = f"{_color(home)} {home} {mid} {away} {_color(away)}".strip()
+    return top, teams
+
+
+def _footer(kind):
+    lines = ["", f"⚽ Usipitwe na {kind} za mechi nyingine!"]
+    if follow_url():
+        lines += ["", "📲 FOLLOW Soka360 kwa updates za soka kila siku:", follow_url()]
+    return lines
+
+
 def result_caption(m):
     from news.match_video import goals_of
-    lines = [f"⚽ *MATOKEO* | {m.home} {m.home_goals}-{m.away_goals} {m.away}"]
+    top, teams = headline(m.home, m.away, m.competition, (m.home_goals, m.away_goals))
+    lines = [top, "", teams, ""]
     if m.competition:
-        lines.append(f"🏆 {m.competition}")
+        lines.append(f"🏆 Competition: {m.competition}")
+    lines.append("🎥 Video: Muhtasari wa mechi — matokeo na wafungaji.")
     goals = goals_of(m)
     if goals:
-        lines += ["", "*Magoli:*"] + [f"{label} {text}".strip() for label, text in goals[:8]]
-    lines += ["", f"📊 Takwimu kamili: {_match_url(m)}"]
-    if follow_url():
-        lines += ["", "📲 *Fuata Soka360* upate matokeo na video ya kila mechi hapa hapa WhatsApp 👇", follow_url(),
-                  "Mshirikishe rafiki yako mpenda soka ⚽"]
-    return "\n".join(lines)
+        lines += ["", "⚽ MAGOLI:"] + [f"{label} {text}".strip() for label, text in goals[:8]]
+    lines += ["", "📊 MATOKEO NA TAKWIMU:", _match_url(m)]
+    return "\n".join(lines + _footer("matokeo"))
 
 
 def _post_result(channel, m):
@@ -144,18 +199,20 @@ def _highlights(now):
 def highlight_text(h):
     from news import scorebat
     match = scorebat.match_page(h)
-    score = f" {match['score']}" if match and match.get("score") else ""
-    lines = [f"🎬 *HIGHLIGHTS* | {h.home} vs {h.away}{score}"]
+    score = None
+    if match and match.get("score") and "-" in match["score"]:
+        score = tuple(match["score"].split("-", 1))
     competition = (match or {}).get("competition") or (h.competition if h.competition != h.channel else "")
+    top, teams = headline(h.home, h.away, competition, score)
+    lines = [top, "", teams, ""]
     if competition:
-        lines.append(f"🏆 {competition}")
-    lines += ["", f"▶️ Tazama video: {h.source_url}", ""]
-    if h.channel:
-        lines.append(f"📺 Video rasmi ya {h.channel}")
-    lines.append(f"📊 Matokeo na takwimu: {_site()}{match['url'] if match and match.get('url') else h.get_absolute_url()}")
-    if follow_url():
-        lines += ["", f"📲 *Fuata Soka360* upate highlights za kila mechi 👇", follow_url()]
-    return "\n".join(lines)
+        lines.append(f"🏆 Competition: {competition}")
+    credit = f" (video rasmi ya {h.channel})" if h.channel else ""
+    lines += [f"🎬 Highlights: Tazama matukio muhimu ya mechi hapa chini{credit}.",
+              "", "▶️ TAZAMA HIGHLIGHTS:", h.source_url,
+              "", "📊 MATOKEO NA TAKWIMU:",
+              f"{_site()}{match['url'] if match and match.get('url') else h.get_absolute_url()}"]
+    return "\n".join(lines + _footer("highlights"))
 
 
 def _post_highlight(channel, h):

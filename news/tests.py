@@ -3542,10 +3542,13 @@ class Soka360ChannelTest(TestCase):
         self.assertEqual((out["sent"], out["detail"]), (1, "result: Simba SC vs Young Africans"), out)
         channel, data, caption = video.call_args.args
         self.assertEqual((channel, data), ("120363000000000000@newsletter", b"mp4"))
-        self.assertIn("⚽ *MATOKEO* | Simba SC 2-1 Young Africans", caption)
+        self.assertTrue(caption.startswith("🔥 KARIAKOO DERBY | FULL-TIME 🔥\n\n🔴⚪ Simba SC 2–1 Young Africans 🟢🟡\n"),
+                        caption)
+        self.assertIn("🏆 Competition: NBC Premier League", caption)
+        self.assertIn("📊 MATOKEO NA TAKWIMU:\nhttps://www.wilife.online/", caption)
         self.assertIn("23' Jean Ahoua ameifungia Simba SC.", caption)
         self.assertIn("https://www.wilife.online/", caption)
-        self.assertIn("📲 *Fuata Soka360*", caption)
+        self.assertIn("📲 FOLLOW Soka360 kwa updates za soka kila siku:\nhttps://whatsapp.com/channel/", caption)
         self.assertIn("https://whatsapp.com/channel/0029VbEUHxl3GJOvK9RLS93F", caption)
         self.assertEqual(render.call_args.kwargs["site"], "www.wilife.online")
 
@@ -3555,11 +3558,12 @@ class Soka360ChannelTest(TestCase):
         out, video, text, _ = self._run(self.now + timedelta(minutes=11))
         self.assertEqual(out["sent"], 1, out)
         body = text.call_args.args[1]
-        self.assertIn("🎬 *HIGHLIGHTS* | Simba SC vs Young Africans", body)
-        self.assertIn("▶️ Tazama video: https://www.youtube.com/watch?v=CCCCCCCCCC1", body)
-        self.assertIn("🏆 NBC Premier League", body)
+        self.assertTrue(body.startswith("🔥 KARIAKOO DERBY | FULL-TIME 🔥\n\n🔴⚪ Simba SC 2–1 Young Africans 🟢🟡\n"), body)
+        self.assertIn("▶️ TAZAMA HIGHLIGHTS:\nhttps://www.youtube.com/watch?v=CCCCCCCCCC1", body)
+        self.assertIn("⚽ Usipitwe na highlights za mechi nyingine!", body)
+        self.assertIn("🏆 Competition: NBC Premier League", body)
         self.assertIn("https://whatsapp.com/channel/0029VbEUHxl3GJOvK9RLS93F", body)
-        self.assertIn("Video rasmi ya Simba SC Tanzania", body)
+        self.assertIn("(video rasmi ya Simba SC Tanzania)", body)
         preview = text.call_args.kwargs["preview"]
         self.assertEqual((preview["url"], preview["thumbnail"]),
                          ("https://www.youtube.com/watch?v=CCCCCCCCCC1", "https://i.ytimg.com/vi/CCCCCCCCCC1/hqdefault.jpg"))
@@ -3583,13 +3587,22 @@ class Soka360ChannelTest(TestCase):
             sent += [c.args[1] for c in text.call_args_list]
         self.assertEqual(len(sent), 1, sent)
         self.assertIn("CCCCCCCCCC1", sent[0])
-        self.assertNotIn("🏆 Azam TV", sent[0])
+        self.assertNotIn("Competition: Azam TV", sent[0])
         # posti za zamani (key ya video) hazirudiwi kwa mpangilio mpya
         ChannelPost.objects.all().delete()
         ChannelPost.objects.create(key="highlight:yt:CCCCCCCCCC1", kind="highlight", posted_at=self.now)
         ChannelPost.objects.create(key="highlight:yt:CCCCCCCCCC2", kind="highlight", posted_at=self.now)
         out, video, text, _ = self._run(self.now + timedelta(hours=1))
         self.assertEqual(out["detail"], "hakuna jipya")
+
+    def test_derby_names_and_colours(self):
+        from news import soka360
+        self.assertEqual(soka360.headline("FC Barcelona", "Real Madrid", "La Liga", (1, 2)),
+                         ("🔥 EL CLÁSICO | FULL-TIME 🔥", "🔵🔴 FC Barcelona 1–2 Real Madrid ⚪👑"))
+        self.assertEqual(soka360.headline("Namungo FC", "Coastal Union", "NBC Premier League", (2, 1)),
+                         ("🔥 NBC PREMIER LEAGUE | FULL-TIME 🔥", "Namungo FC 2–1 Coastal Union"))
+        self.assertEqual(soka360.derby("Inter Miami", "AC Milan"), "")          # jina lote, si sehemu yake
+        self.assertEqual(soka360.derby("Simba Queens", "Yanga Princess"), "")
 
     def test_failure_retries_then_gives_up(self):
         from news import soka360
