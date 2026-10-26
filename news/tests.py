@@ -3643,3 +3643,70 @@ class Soka360ChannelTest(TestCase):
         self.assertEqual((kw1["json"]["video"], kw1["json"]["text"]), ("YWJj", "Maelezo"))
         self.assertEqual(url2, "http://bridge/send")
         self.assertEqual(kw2["json"]["preview"], {"url": "https://y.t/v"})
+
+
+@override_settings(HIGHLIGHTLY_API_KEY="hl-key", API_FOOTBALL_KEY="", API_FOOTBALL_LIVE_SECONDS=0,
+                   HIGHLIGHTLY_LEAGUES=["England:Premier League", "Spain:La Liga"], API_FOOTBALL_MAX_PER_DAY=1,
+                   HIGHLIGHTLY_SCHEDULE_HOURS=24, SITE_URL="https://www.wlife.online", TIME_ZONE="Africa/Dar_es_Salaam")
+class ScheduleRecoveryTest(TestCase):
+    """'Mechi za leo' haibaki tupu siku nzima: ratiba inasomwa kila siku mpya ya EAT na kujaribiwa tena ikishindwa."""
+
+    def setUp(self):
+        from zoneinfo import ZoneInfo
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        for target in ("news.models.Article.render_cover", "news.indexnow.submit", "news.football._image"):
+            p = mock.patch(target, return_value=None)
+            p.start()
+            self.addCleanup(p.stop)
+        for target in ("news.enrich.run", "news.fixtures.rescan_day", "news.fixtures.refresh_results",
+                       "news.fixtures.backfill", "news.football.promote_favourites", "news.football.finalize",
+                       "news.football.sync_live"):
+            p = mock.patch(target, return_value=0)
+            p.start()
+            self.addCleanup(p.stop)
+        self.eat = ZoneInfo("Africa/Dar_es_Salaam")
+        self.calls = []
+
+    def _at(self, day, hour, minute=0):
+        return datetime(2026, 10, day, hour, minute, tzinfo=self.eat)
+
+    def _run(self, now, fail=False):
+        from news import football
+
+        def fake_get(url, params=None, headers=None, timeout=None):
+            self.calls.append(params.get("date"))
+            if fail:
+                raise requests.ConnectionError("mtandao")
+            kickoff = now.replace(hour=20, minute=0)
+            return _HLResp({"data": [_hl(mid=8800 + now.day, kickoff=kickoff)], "pagination": {"totalCount": 1}})
+        with mock.patch("news.highlightly.requests.get", side_effect=fake_get), \
+                mock.patch("django.utils.timezone.now", return_value=now):
+            return football.run(now=now)
+
+    def test_failed_morning_read_is_retried_not_after_24h(self):
+        from news.models import Fixture
+        self._run(self._at(26, 3, 5), fail=True)
+        self.assertEqual(self.calls, ["2026-10-26"])
+        self._run(self._at(26, 3, 20))                             # chini ya dakika 30: subiri
+        self.assertEqual(len(self.calls), 1)
+        self._run(self._at(26, 3, 40))                             # jaribio jipya, linafaulu
+        self.assertEqual(len(self.calls), 2)
+        self.assertTrue(Fixture.objects.filter(day=date(2026, 10, 26)).exists())
+        self._run(self._at(26, 12, 34))                            # leo ina ratiba: hakuna kusoma tena
+        self.assertEqual(len(self.calls), 2)
+
+    def test_retries_are_capped(self):
+        for minute in range(5, 60 * 4, 31):
+            self._run(self._at(26, 3) + timedelta(minutes=minute), fail=True)
+        self.assertEqual(len(self.calls), 1 + 4)
+
+    def test_new_local_day_reads_at_midnight_once(self):
+        from news.models import Fixture
+        self._run(self._at(25, 15))                                # Jumapili mchana
+        self._run(self._at(26, 0, 10))                             # Jumatatu 00:10 EAT (bado siku ya UTC ya jana)
+        self.assertEqual(self.calls, ["2026-10-25", "2026-10-26"])
+        self.assertTrue(Fixture.objects.filter(day=date(2026, 10, 26)).exists())
+        self._run(self._at(26, 3, 5))                              # siku mpya ya UTC: haisomi ratiba tena
+        self.assertEqual(len(self.calls), 2)
