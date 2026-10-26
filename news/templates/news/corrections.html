@@ -1,0 +1,23 @@
+{% extends 'news/base.html' %}
+{% load news_tags %}
+{% block title %}Masahihisho: Jinsi wILife Inavyosahihisha Makosa{% endblock %}
+{% block description %}Jinsi ya kutuonyesha kosa kwenye habari za wILife, tunavyolishughulikia, na orodha ya habari zilizosahihishwa.{% endblock %}
+{% block content %}
+<div style="max-width:780px">
+  <nav class="crumbs" aria-label="breadcrumb"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><a href="{% url 'news:policy' %}">Sera ya uhariri</a><span>/</span><span>Masahihisho</span></nav>
+  <header class="ph"><span class="eyebrow">Masahihisho</span><h1>Tukikosea, tunasahihisha kwa uwazi</h1></header>
+  <div class="prose">
+    <h2>Kutuonyesha kosa</h2>
+    <p>{% if contact_email %}Tuandikie <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>. Taja link ya habari, kosa lenyewe, na chanzo kinachoonyesha ukweli kama unacho.{% else %}Wasiliana nasi kupitia ukurasa wa <a href="{% url 'news:services' %}">huduma</a>. Taja link ya habari na kosa lenyewe.{% endif %}</p>
+    <h2>Tunachofanya</h2>
+    <ul>
+      <li>Mhariri anakagua kosa ulilotuonyesha dhidi ya vyanzo.</li>
+      <li>Kosa likithibitika, habari inarekebishwa, na tunaweka maelezo ya "Sahihisho" juu yake yanayoeleza kilichobadilika.</li>
+      <li>Tarehe ya kusasishwa kwa habari inabadilika ili wasomaji na injini za utafutaji waone toleo jipya.</li>
+    </ul>
+    <h2>Habari zilizosahihishwa</h2>
+    {% if fixed %}<ul>{% for a in fixed %}<li><a href="{{ a.get_absolute_url }}">{{ a.title }}</a> — {{ a.correction|truncatechars:160 }}</li>{% endfor %}</ul>
+    {% else %}<p>Hakuna habari iliyosahihishwa kwa sasa.</p>{% endif %}
+  </div>
+</div>
+{% endblock %}

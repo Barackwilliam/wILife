@@ -712,10 +712,19 @@ def run(now=None, deadline=None, dry_run=False):
             n = fixtures.refresh_results(state, now, daily_limit() - state.requests)
             if n:
                 notes.append(f"matokeo ya ratiba: maombi {n}")
+            from news import leagues           # kurasa za ligi: ligi mpya kutoka ratiba (bure)
+            leagues.sync()
             if not active(now):                 # siku iliyokosa ratiba kabisa si ya haraka: isubiri LIVE ziishe
                 n = fixtures.backfill(state, now, daily_limit() - state.requests)
                 if n:
                     notes.append(f"ratiba ya siku iliyokosekana: maombi {n}")
+                # Msimamo wa ligi na ratiba ya kesho: maombi yakiwa mengi tu, bila mechi zinazochezwa sasa
+                n = leagues.refresh_standings(state, now, daily_limit() - state.requests)
+                if n:
+                    notes.append(f"msimamo wa ligi: maombi {n}")
+                n = fixtures.read_ahead(state, now, daily_limit() - state.requests)
+                if n:
+                    notes.append(f"ratiba ya kesho: maombi {n}")
         if state.error:
             state.error = ""
             state.save(update_fields=["error"])

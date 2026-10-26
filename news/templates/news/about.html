@@ -14,6 +14,9 @@
       <li>Tunatenganisha habari na maoni.</li>
       <li>Tunasahihisha makosa haraka na kwa uwazi.</li>
     </ul>
+    <p>Soma <a href="{% url 'news:policy' %}">sera kamili ya uhariri</a> na <a href="{% url 'news:corrections' %}">sera ya masahihisho</a>.</p>
+    {% if authors %}<h2 id="wahariri">Timu ya wahariri</h2>
+    <ul>{% for a in authors %}<li><a href="{{ a.get_absolute_url }}">{{ a.name }}</a>{% if a.role %} — {{ a.role }}{% endif %}</li>{% endfor %}</ul>{% endif %}
     <h2>Teknolojia &amp; Biashara</h2>
     <p>wILife inaendeshwa na JamiiTek Digital Agency. Makala zinazoeleza huduma za JamiiTek zinachapishwa chini ya kundi la “Teknolojia &amp; Biashara” na zinaonyeshwa wazi kuwa ni za JamiiTek.</p>
     <h2>Faragha</h2>

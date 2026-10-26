@@ -97,6 +97,7 @@
         <a href="{% url 'news:predictions' %}" class="{% if u == 'predictions' %}on{% endif %}"><span class="dr-ic">{% icon "graph-up-arrow" %}</span>Utabiri wa mechi{% icon "chevron-right" %}</a>
         <a href="{% url 'news:videos' %}" class="{% if u == 'videos' or u == 'video' %}on{% endif %}"><span class="dr-ic">{% icon "youtube" %}</span>Video za magoli{% icon "chevron-right" %}</a>
         <a href="{% url 'news:teams' %}" class="{% if u == 'teams' or u == 'team' %}on{% endif %}"><span class="dr-ic">{% icon "shield-fill" %}</span>Timu: Simba, Yanga na zaidi{% icon "chevron-right" %}</a>
+        <a href="{% url 'news:leagues' %}" class="{% if u == 'leagues' or u == 'league' %}on{% endif %}"><span class="dr-ic">{% icon "trophy-fill" %}</span>Ligi: msimamo na ratiba{% icon "chevron-right" %}</a>
         <a href="{% url 'news:category' 'tanzania' %}" class="c-tanzania{% if dc == 'tanzania' %} on{% endif %}"><span class="dr-dot"></span>Tanzania{% icon "chevron-right" %}</a>
         <a href="{% url 'news:category' 'afrika' %}" class="c-afrika{% if dc == 'afrika' %} on{% endif %}"><span class="dr-dot"></span>Afrika{% icon "chevron-right" %}</a>
         <a href="{% url 'news:category' 'dunia' %}" class="c-dunia{% if dc == 'dunia' %} on{% endif %}"><span class="dr-dot"></span>Dunia{% icon "chevron-right" %}</a>
@@ -136,7 +137,7 @@
         </div>
         <div><h2>Habari</h2><a href="{% url 'news:category' 'tanzania' %}">Tanzania</a><a href="{% url 'news:category' 'afrika' %}">Afrika</a><a href="{% url 'news:category' 'dunia' %}">Dunia</a><a href="{% url 'news:category' 'jamiitek' %}">Teknolojia &amp; Biashara</a><a href="{% url 'news:latest' %}">Habari mpya zote</a><a href="{% url 'news:live_hub' %}">Matokeo ya mechi mubashara</a><a href="{% url 'news:matches_today' %}">Mechi za leo</a><a href="{% url 'news:results_yesterday' %}">Matokeo ya jana</a><a href="{% url 'news:predictions' %}">Utabiri wa mechi</a></div>
         <div><h2>JamiiTek</h2><a href="{% url 'news:services' %}">Huduma zote</a>{% for s in footer_services %}<a href="{{ s.get_absolute_url }}">{{ s.name }}</a>{% endfor %}</div>
-        <div><h2>wILife</h2><a href="{% url 'news:about' %}">Kuhusu sisi</a><a href="{% url 'news:about' %}#sera">Sera ya uhariri</a><a href="{% url 'home' %}">wILife App</a><a href="{% url 'news:rss' %}">RSS</a><a href="{% url 'news:sitemap' %}">Sitemap</a></div>
+        <div><h2>wILife</h2><a href="{% url 'news:about' %}">Kuhusu sisi</a><a href="{% url 'news:policy' %}">Sera ya uhariri</a><a href="{% url 'news:corrections' %}">Masahihisho</a><a href="{% url 'home' %}">wILife App</a><a href="{% url 'news:rss' %}">RSS</a><a href="{% url 'news:sitemap' %}">Sitemap</a></div>
       </div>
       <div class="bt"><span>&copy; {% now "Y" %} wILife · JamiiTek Digital Agency, Dar es Salaam</span><span><a href="{% url 'news:about' %}" style="display:inline">Faragha &amp; masharti</a></span></div>
     </div>

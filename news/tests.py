@@ -1996,7 +1996,9 @@ class HighlightlyProviderTest(TestCase):
         out = self.run_with(_HLResp({"message": "Invalid API key"}, status=401))
         self.assertEqual(out["failed"], 1)
         self.assertIn("Highlightly 401: Invalid API key", FootballState.objects.get().error)
-        self.run_with()                                   # dakika inayofuata: hakuna ombi jipya
+        with mock.patch("news.leagues.refresh_standings", return_value=0), \
+                mock.patch("news.fixtures.read_ahead", return_value=0):
+            self.run_with()                               # dakika inayofuata: hakuna ombi jipya la ratiba
         self.assertEqual(len(self.calls), 1)
 
     @override_settings(HIGHLIGHTLY_VIA_RAPIDAPI=True)
@@ -2615,7 +2617,9 @@ class OverdueMatchTest(TestCase):
         football._state().__class__.objects.update(schedule_at=timezone.now())   # ratiba ya leo imeshasomwa
         done = _hl(mid=7001, desc="Finished", score="2 - 1", events=[], kickoff=self.m.kickoff)
         with mock.patch("news.highlightly.requests.get", return_value=_HLResp([done])) as get, \
-                mock.patch("news.enrich.run", return_value=0):
+                mock.patch("news.enrich.run", return_value=0), \
+                mock.patch("news.leagues.refresh_standings", return_value=0), \
+                mock.patch("news.fixtures.read_ahead", return_value=0):
             out = football.run()
             again = football.run()                                      # imeisha: haiombwi tena
         self.assertIn("matokeo ya mwisho yaliyochelewa: maombi 1", out["detail"])
@@ -3542,10 +3546,13 @@ class Soka360ChannelTest(TestCase):
         self.assertEqual((out["sent"], out["detail"]), (1, "result: Simba SC vs Young Africans"), out)
         channel, data, caption = video.call_args.args
         self.assertEqual((channel, data), ("120363000000000000@newsletter", b"mp4"))
-        self.assertIn("⚽ *MATOKEO* | Simba SC 2-1 Young Africans", caption)
+        self.assertTrue(caption.startswith("🔥 KARIAKOO DERBY | FULL-TIME 🔥\n\n🔴⚪ Simba SC 2–1 Young Africans 🟢🟡\n"),
+                        caption)
+        self.assertIn("🏆 Competition: NBC Premier League", caption)
+        self.assertIn("📊 MATOKEO NA TAKWIMU:\nhttps://www.wilife.online/", caption)
         self.assertIn("23' Jean Ahoua ameifungia Simba SC.", caption)
         self.assertIn("https://www.wilife.online/", caption)
-        self.assertIn("📲 *Fuata Soka360*", caption)
+        self.assertIn("📲 FOLLOW Soka360 kwa updates za soka kila siku:\nhttps://whatsapp.com/channel/", caption)
         self.assertIn("https://whatsapp.com/channel/0029VbEUHxl3GJOvK9RLS93F", caption)
         self.assertEqual(render.call_args.kwargs["site"], "www.wilife.online")
 
@@ -3555,11 +3562,12 @@ class Soka360ChannelTest(TestCase):
         out, video, text, _ = self._run(self.now + timedelta(minutes=11))
         self.assertEqual(out["sent"], 1, out)
         body = text.call_args.args[1]
-        self.assertIn("🎬 *HIGHLIGHTS* | Simba SC vs Young Africans", body)
-        self.assertIn("▶️ Tazama video: https://www.youtube.com/watch?v=CCCCCCCCCC1", body)
-        self.assertIn("🏆 NBC Premier League", body)
+        self.assertTrue(body.startswith("🔥 KARIAKOO DERBY | FULL-TIME 🔥\n\n🔴⚪ Simba SC 2–1 Young Africans 🟢🟡\n"), body)
+        self.assertIn("▶️ TAZAMA HIGHLIGHTS:\nhttps://www.youtube.com/watch?v=CCCCCCCCCC1", body)
+        self.assertIn("⚽ Usipitwe na highlights za mechi nyingine!", body)
+        self.assertIn("🏆 Competition: NBC Premier League", body)
         self.assertIn("https://whatsapp.com/channel/0029VbEUHxl3GJOvK9RLS93F", body)
-        self.assertIn("Video rasmi ya Simba SC Tanzania", body)
+        self.assertIn("(video rasmi ya Simba SC Tanzania)", body)
         preview = text.call_args.kwargs["preview"]
         self.assertEqual((preview["url"], preview["thumbnail"]),
                          ("https://www.youtube.com/watch?v=CCCCCCCCCC1", "https://i.ytimg.com/vi/CCCCCCCCCC1/hqdefault.jpg"))
@@ -3583,13 +3591,22 @@ class Soka360ChannelTest(TestCase):
             sent += [c.args[1] for c in text.call_args_list]
         self.assertEqual(len(sent), 1, sent)
         self.assertIn("CCCCCCCCCC1", sent[0])
-        self.assertNotIn("🏆 Azam TV", sent[0])
+        self.assertNotIn("Competition: Azam TV", sent[0])
         # posti za zamani (key ya video) hazirudiwi kwa mpangilio mpya
         ChannelPost.objects.all().delete()
         ChannelPost.objects.create(key="highlight:yt:CCCCCCCCCC1", kind="highlight", posted_at=self.now)
         ChannelPost.objects.create(key="highlight:yt:CCCCCCCCCC2", kind="highlight", posted_at=self.now)
         out, video, text, _ = self._run(self.now + timedelta(hours=1))
         self.assertEqual(out["detail"], "hakuna jipya")
+
+    def test_derby_names_and_colours(self):
+        from news import soka360
+        self.assertEqual(soka360.headline("FC Barcelona", "Real Madrid", "La Liga", (1, 2)),
+                         ("🔥 EL CLÁSICO | FULL-TIME 🔥", "🔵🔴 FC Barcelona 1–2 Real Madrid ⚪👑"))
+        self.assertEqual(soka360.headline("Namungo FC", "Coastal Union", "NBC Premier League", (2, 1)),
+                         ("🔥 NBC PREMIER LEAGUE | FULL-TIME 🔥", "Namungo FC 2–1 Coastal Union"))
+        self.assertEqual(soka360.derby("Inter Miami", "AC Milan"), "")          # jina lote, si sehemu yake
+        self.assertEqual(soka360.derby("Simba Queens", "Yanga Princess"), "")
 
     def test_failure_retries_then_gives_up(self):
         from news import soka360
@@ -3662,7 +3679,7 @@ class ScheduleRecoveryTest(TestCase):
             self.addCleanup(p.stop)
         for target in ("news.enrich.run", "news.fixtures.rescan_day", "news.fixtures.refresh_results",
                        "news.fixtures.backfill", "news.football.promote_favourites", "news.football.finalize",
-                       "news.football.sync_live"):
+                       "news.football.sync_live", "news.fixtures.read_ahead", "news.leagues.refresh_standings"):
             p = mock.patch(target, return_value=0)
             p.start()
             self.addCleanup(p.stop)
@@ -3710,3 +3727,227 @@ class ScheduleRecoveryTest(TestCase):
         self.assertTrue(Fixture.objects.filter(day=date(2026, 10, 26)).exists())
         self._run(self._at(26, 3, 5))                              # siku mpya ya UTC: haisomi ratiba tena
         self.assertEqual(len(self.calls), 2)
+
+
+@override_settings(HIGHLIGHTLY_API_KEY="hl-key", API_FOOTBALL_KEY="", SITE_URL="https://www.wlife.online",
+                   HIGHLIGHTLY_LEAGUES=["England:Premier League", "Tanzania:Premier League"], LEAGUE_STANDINGS_MAX=8)
+class LeaguePagesTest(TestCase):
+    """Kurasa za ligi: zinaundwa kutoka ratiba, msimamo kutoka API (ombi 1 kwa ligi kwa siku), viungo na sitemap."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from news.models import Fixture
+        cache.clear()
+        self.addCleanup(cache.clear)
+        now = timezone.now()
+        self.epl = Fixture.objects.create(
+            fixture_id=501, day=timezone.localdate(), kickoff=now + timedelta(hours=3), status="NS", home="Arsenal",
+            away="Chelsea", competition="Premier League", competition_id=33, country="England", rank=1,
+            extra={"season": 2026, "league_id": 33})
+        self.tz = Fixture.objects.create(
+            fixture_id=502, day=timezone.localdate() - timedelta(days=1), kickoff=now - timedelta(hours=20),
+            status="FT", home="Simba SC", away="Young Africans", home_goals=2, away_goals=1,
+            competition="Premier League", competition_id=77, country="Tanzania", rank=0, extra={"season": 2026})
+
+    def test_sync_makes_distinct_pages_per_country(self):
+        from news import leagues
+        from news.models import League
+        self.assertEqual(leagues.sync(), 2)
+        self.assertEqual(leagues.sync(), 0)
+        self.assertEqual(sorted(League.objects.values_list("slug", flat=True)),
+                         ["premier-league-england", "premier-league-tanzania"])
+        self.assertEqual(League.objects.get(competition_id=77).name, "Premier League (Tanzania)")
+
+    def test_parse_standings_shapes(self):
+        from news import leagues
+        flat = [{"position": 2, "team": {"name": "Yanga", "logo": "https://x/y.png"}, "points": 20, "games": 9,
+                 "wins": 6, "draws": 2, "loses": 1, "scoredGoals": 15, "receivedGoals": 5},
+                {"position": 1, "team": {"name": "Simba"}, "points": 22, "played": 9, "won": 7, "drawn": 1, "lost": 1}]
+        nested = {"league": {"name": "X"}, "groups": [{"name": "Kundi A", "standings": flat},
+                                                       {"name": "Kundi B", "standings": flat}]}
+        one = leagues.parse({"data": flat})
+        self.assertEqual(len(one), 1)
+        self.assertEqual(one[0]["group"], "")
+        self.assertEqual([r["team"] for r in one[0]["rows"]], ["Simba", "Yanga"])
+        self.assertEqual((one[0]["rows"][1]["gd"], one[0]["rows"][0]["w"]), (10, 7))
+        self.assertEqual([t["group"] for t in leagues.parse(nested)], ["Kundi A", "Kundi B"])
+        self.assertEqual(leagues.parse({"message": "no data"}), [])
+
+    def test_refresh_one_league_per_run_and_keeps_note(self):
+        from news import football, leagues
+        from news.models import League
+        leagues.sync()
+        calls = []
+
+        def fake_get(url, params=None, headers=None, timeout=None):
+            calls.append((url, params))
+            if params["leagueId"] == 77:
+                return _HLResp({"groups": [{"standings": [
+                    {"position": 1, "team": {"name": "Simba SC"}, "points": 22, "games": 9},
+                    {"position": 2, "team": {"name": "Young Africans"}, "points": 20, "games": 9}]}]})
+            return _HLResp({"unexpected": True})
+        state = football._state()
+        now = timezone.now()
+        with mock.patch("news.highlightly.requests.get", side_effect=fake_get):
+            self.assertEqual(leagues.refresh_standings(state, now, 90), 1)
+            self.assertEqual(leagues.refresh_standings(state, now, 90), 1)
+            self.assertEqual(leagues.refresh_standings(state, now, 90), 0)            # zote zimesomwa leo
+            self.assertEqual(leagues.refresh_standings(state, now + timedelta(days=1), 30), 0)   # maombi machache
+        self.assertEqual([c[1]["leagueId"] for c in calls], [77, 33])               # kipaumbele: Tanzania (rank 0)
+        self.assertTrue(calls[0][0].endswith("/standings"))
+        self.assertEqual(calls[0][1]["season"], 2026)
+        tz = League.objects.get(competition_id=77)
+        self.assertEqual(tz.standings[0]["rows"][0]["team"], "Simba SC")
+        self.assertIn("jibu halikueleweka", League.objects.get(competition_id=33).standings_note)
+        self.assertEqual(leagues.standing_of(tz, "Simba")["pos"], 1)
+
+    def test_pages_links_and_sitemap(self):
+        from news import leagues
+        from news.models import League
+        leagues.sync()
+        tz = League.objects.get(competition_id=77)
+        League.objects.filter(pk=tz.pk).update(standings=[{"group": "", "rows": [
+            {"pos": 1, "team": "Simba SC", "logo": "", "p": 9, "w": 7, "d": 1, "l": 1, "gf": 18, "ga": 4, "gd": 14,
+             "pts": 22}]}])
+        page = self.client.get("/ligi/premier-league-tanzania/").content.decode()
+        for text in ("<title>Premier League (Tanzania): Msimamo wa Ligi", "Simba SC", "+14", "<b>22</b>",
+                     '"@type": "SportsOrganization"', "Matokeo ya karibuni", "Young Africans"):
+            self.assertIn(text, page)
+        hub = self.client.get("/ligi/").content.decode()
+        self.assertIn("/ligi/premier-league-england/", hub)
+        day = self.client.get("/mechi-za-leo/").content.decode()
+        self.assertIn('href="/ligi/premier-league-england/"', day)
+        fx = self.client.get(self.epl.get_absolute_url()).content.decode()
+        self.assertIn('href="/ligi/premier-league-england/"', fx)
+        sm = self.client.get("/sitemap.xml").content.decode()
+        self.assertIn("https://www.wlife.online/ligi/premier-league-tanzania/", sm)
+        self.assertIn("https://www.wlife.online" + self.epl.get_absolute_url(), sm)
+        self.assertEqual(self.client.get("/ligi/haipo/").status_code, 404)
+
+
+@override_settings(HIGHLIGHTLY_API_KEY="hl-key", API_FOOTBALL_KEY="", SITE_URL="https://www.wlife.online",
+                   HIGHLIGHTLY_LEAGUES=["Tanzania:Premier League"], TIME_ZONE="Africa/Dar_es_Salaam")
+class TomorrowAndPreviewTest(TestCase):
+    """Ratiba ya kesho (mara moja, maombi yakiwa mengi) na hakikisho la mechi kutoka data halisi tu."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+    def test_read_ahead_once_in_the_afternoon(self):
+        from zoneinfo import ZoneInfo
+        from news import fixtures, football
+        from news.models import Fixture
+        eat = ZoneInfo("Africa/Dar_es_Salaam")
+        calls = []
+
+        def fake_get(url, params=None, headers=None, timeout=None):
+            calls.append(params.get("date"))
+            kickoff = datetime(2026, 10, 27, 19, 0, tzinfo=eat)
+            return _HLResp({"data": [_hl(mid=9901, kickoff=kickoff, league="Premier League", country="Tanzania")],
+                            "pagination": {"totalCount": 1}})
+        state = football._state()
+        with mock.patch("news.highlightly.requests.get", side_effect=fake_get), \
+                mock.patch("news.indexnow.submit") as ping:
+            self.assertEqual(fixtures.read_ahead(state, datetime(2026, 10, 26, 11, 0, tzinfo=eat), 90), 0)  # asubuhi
+            self.assertEqual(fixtures.read_ahead(state, datetime(2026, 10, 26, 16, 0, tzinfo=eat), 40), 0)  # maombi machache
+            self.assertEqual(fixtures.read_ahead(state, datetime(2026, 10, 26, 16, 0, tzinfo=eat), 90), 1)
+            self.assertEqual(fixtures.read_ahead(state, datetime(2026, 10, 26, 18, 0, tzinfo=eat), 90), 0)  # mara moja
+        self.assertEqual(calls, ["2026-10-27"])
+        f = Fixture.objects.get(fixture_id=9901)
+        self.assertEqual(f.day, date(2026, 10, 27))
+        self.assertIn(f.get_absolute_url(), ping.call_args.args[0])
+        self.assertIn("/mechi-za-kesho/", ping.call_args.args[0])
+
+    def test_tomorrow_page_and_preview(self):
+        from news.models import Fixture, League
+        now = timezone.now()
+        tomorrow = timezone.localdate() + timedelta(days=1)
+        f = Fixture.objects.create(
+            fixture_id=9902, day=tomorrow, kickoff=now + timedelta(days=1), status="NS", home="Simba SC",
+            away="Young Africans", competition="Premier League", competition_id=77, country="Tanzania", rank=0,
+            extra={"venue": "Benjamin Mkapa", "city": "Dar es Salaam"})
+        Fixture.objects.create(fixture_id=9800, day=timezone.localdate() - timedelta(days=5),
+                               kickoff=now - timedelta(days=5), status="FT", home="KMC", away="Simba SC",
+                               home_goals=0, away_goals=3, competition="Premier League", competition_id=77,
+                               country="Tanzania", rank=0)
+        Fixture.objects.create(fixture_id=9801, day=timezone.localdate() - timedelta(days=4),
+                               kickoff=now - timedelta(days=4), status="FT", home="Simba Queens", away="JKT Queens",
+                               home_goals=0, away_goals=1, competition="Women", competition_id=78,
+                               country="Tanzania", rank=5)
+        League.objects.create(competition_id=77, competition="Premier League", country="Tanzania",
+                              name="Ligi Kuu Tanzania", slug="ligi-kuu-tanzania", standings=[{"group": "", "rows": [
+                                  {"pos": 1, "team": "Simba", "pts": 22, "p": 9},
+                                  {"pos": 2, "team": "Yanga", "pts": 20, "p": 9}]}])
+        page = self.client.get("/mechi-za-kesho/").content.decode()
+        self.assertIn("<title>Mechi za Kesho ", page)
+        self.assertIn(f.get_absolute_url(), page)
+        self.assertIn('href="/mechi-za-kesho/"', self.client.get("/mechi-za-leo/").content.decode())
+        fx = self.client.get(f.get_absolute_url()).content.decode()
+        self.assertIn("<title>Simba SC vs Young Africans: Hakikisho, Saa ya Mechi na Msimamo", fx)
+        self.assertIn("Simba SC watakuwa wenyeji wa Young Africans", fx)
+        self.assertIn("uwanjani Benjamin Mkapa, Dar es Salaam", fx)
+        self.assertIn("Simba SC wako nafasi ya 1 wakiwa na pointi 22 baada ya mechi 9", fx)
+        self.assertIn("Young Africans wako nafasi ya 2 wakiwa na pointi 20", fx)          # Yanga = Young Africans
+        self.assertIn("dhidi ya KMC (ugenini) 3-0", fx)
+        self.assertNotIn("JKT Queens", fx)                                                  # si Simba Queens
+        r = self.client.get(f"/mechi/{tomorrow.isoformat()}/")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(self.client.get(f"/mechi/{(tomorrow + timedelta(days=1)).isoformat()}/").status_code, 404)
+
+
+@override_settings(SITE_URL="https://www.wlife.online", JAMIITEK_EMAIL="habari@example.tz")
+class TrustPagesTest(TestCase):
+    """E-E-A-T: mhariri halisi kwenye habari anazochapisha, sera ya uhariri, masahihisho na data ya Google."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from news.models import Author
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.user = User.objects.create_user("mhariri", password="x", is_staff=True)
+        self.author = Author.objects.create(user=self.user, name="Asha Mohamed", slug="asha-mohamed",
+                                            role="Mhariri wa Michezo", bio="Miaka 6 ya uandishi wa michezo.",
+                                            links="https://www.linkedin.com/in/asha\nsi-link")
+
+    def test_publishing_signs_article_and_shows_author(self):
+        a = Article.objects.create(title="Simba yashinda", category="tanzania", excerpt="x", body="Aya moja.")
+        self.client.force_login(self.user)
+        with mock.patch("news.indexnow.submit"):
+            self.client.post("/habari-admin/rasimu/action/", {"action": "publish_one", "article": a.pk})
+        a.refresh_from_db()
+        self.assertEqual((a.status, a.author), ("published", self.author))
+        self.client.logout()
+        page = self.client.get(a.get_absolute_url()).content.decode()
+        self.assertIn('<a href="/mwandishi/asha-mohamed/" rel="author">Asha Mohamed</a>, Mhariri wa Michezo', page)
+        self.assertIn('"@type": "Person", "name": "Asha Mohamed"', page)
+        profile = self.client.get("/mwandishi/asha-mohamed/").content.decode()
+        for text in ("Asha Mohamed", "Miaka 6 ya uandishi", '"@type": "ProfilePage"', "Simba yashinda",
+                     "https://www.linkedin.com/in/asha"):
+            self.assertIn(text, profile)
+        self.assertNotIn("si-link", profile)
+        self.assertIn("/mwandishi/asha-mohamed/", self.client.get("/kuhusu/").content.decode())
+
+    def test_unsigned_article_keeps_news_desk_and_correction_note(self):
+        a = Article.objects.create(title="Bajeti mpya", category="tanzania", excerpt="x", body="Aya.",
+                                   status="published", published_at=timezone.now(),
+                                   correction="Tarehe ya kikao ilisahihishwa kuwa 12 Oktoba.")
+        page = self.client.get(a.get_absolute_url()).content.decode()
+        self.assertIn("<strong>Dawati la Habari, wILife</strong>", page)
+        self.assertIn("<b>Sahihisho:</b> Tarehe ya kikao ilisahihishwa", page)
+        fixes = self.client.get("/masahihisho/").content.decode()
+        self.assertIn("Bajeti mpya", fixes)
+        self.assertIn("mailto:habari@example.tz", fixes)
+
+    def test_policy_pages_and_organization_data(self):
+        policy = self.client.get("/sera-ya-uhariri/").content.decode()
+        for text in ("Hatubuni nukuu", "huhakikiwa na mhariri kabla ya kuchapishwa", "hatupakui wala kupakia upya",
+                     'href="/masahihisho/"'):
+            self.assertIn(text, policy)
+        home = self.client.get("/").content.decode()
+        self.assertIn('"correctionsPolicy": "https://www.wlife.online/masahihisho/"', home)
+        self.assertIn('"publishingPrinciples": "https://www.wlife.online/sera-ya-uhariri/"', home)
+        sm = self.client.get("/sitemap.xml").content.decode()
+        for path in ("/sera-ya-uhariri/", "/masahihisho/", "/mwandishi/asha-mohamed/"):
+            self.assertIn("https://www.wlife.online" + path, sm)

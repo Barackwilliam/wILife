@@ -275,7 +275,8 @@ def _day_page(request, day, kind):
         raise Http404
     counts = {"on": sum(r.is_playing for r in rows), "done": sum(r.is_finished for r in rows),
               "soon": sum(r.status == "NS" for r in rows)}
-    canonical = {today: "news:matches_today", today - timedelta(days=1): "news:results_yesterday"}.get(day)
+    canonical = {today: "news:matches_today", today - timedelta(days=1): "news:results_yesterday",
+                 today + timedelta(days=1): "news:matches_tomorrow"}.get(day)
     groups = fixtures.groups(rows)
     names = [name for name, _, _ in groups]
     leagues = ", ".join(names[:5])
@@ -287,6 +288,7 @@ def _day_page(request, day, kind):
         "kind": kind, "day": day, "date_text": swahili_date(day), "rows": rows, "groups": groups, "leagues": leagues,
         "has_pages": any(r.article for r in rows),
         "counts": counts, "is_today": day == today, "is_past": day < today,
+        "has_tomorrow": day != today + timedelta(days=1) and fixtures.has_day(today + timedelta(days=1)),
         "prev_day": day - timedelta(days=1) if fixtures.has_day(day - timedelta(days=1)) else None,   # siku isiyo na data haina kitufe
         "next_day": day + timedelta(days=1) if day + timedelta(days=2) < today else None,   # jana/leo zina vitufe vyao
         "canonical": reverse(canonical) if canonical else request.path,
@@ -298,6 +300,11 @@ def _day_page(request, day, kind):
 @_live_page
 def matches_today(request):
     return _day_page(request, timezone.localdate(), "leo")
+
+
+@_live_page
+def matches_tomorrow(request):
+    return _day_page(request, timezone.localdate() + timedelta(days=1), "kesho")
 
 
 @_live_page
@@ -313,7 +320,7 @@ def matches_day(request, day):
     except ValueError:
         raise Http404
     today = timezone.localdate()
-    if when > today or when < today - timedelta(days=400):
+    if when > today + timedelta(days=1) or when < today - timedelta(days=400):
         raise Http404
     return _day_page(request, when, "siku")
 
@@ -333,8 +340,27 @@ def fixture_detail(request, day, pk, slug):
         return redirect(f.get_absolute_url(), permanent=True)
     fixtures.refresh_detail(f)
     others = [r for r in fixtures.day_rows(f.day) if r.key != f"{f.provider}{f.fixture_id}"][:8]
+    from news import leagues
+    pre = leagues.preview(f) if f.status == "NS" else {}
     return render(request, "news/fixture.html", {"f": f, "x": f.extra or {}, "others": others, "now": timezone.now(),
+                                                 "pre": pre,
                                                  "date_text": swahili_date(f.day)})
+
+
+@_live_page
+def league_hub(request):
+    """Ligi zote zenye kurasa zao."""
+    from news.models import League
+    return render(request, "news/leagues.html", {"leagues": list(League.objects.filter(active=True))})
+
+
+@_live_page
+def league_detail(request, slug):
+    """Ukurasa wa ligi: msimamo, mechi za leo/kesho, matokeo, habari na video — vyote automatic."""
+    from news import leagues
+    from news.models import League
+    league = get_object_or_404(League, slug=slug, active=True)
+    return render(request, "news/league.html", {**leagues.summary(league), "year": timezone.localdate().year})
 
 
 @_live_page
@@ -595,7 +621,32 @@ def search(request):
 
 @public_page
 def about(request):
-    return render(request, "news/about.html", {"contact_email": getattr(settings, "JAMIITEK_EMAIL", "")})
+    from news.models import Author
+    return render(request, "news/about.html", {"contact_email": getattr(settings, "JAMIITEK_EMAIL", ""),
+                                               "authors": list(Author.objects.filter(active=True))})
+
+
+@public_page
+def editorial_policy(request):
+    """Sera ya uhariri kwa undani (Google: publishingPrinciples / ethicsPolicy)."""
+    return render(request, "news/policy.html", {"contact_email": getattr(settings, "JAMIITEK_EMAIL", "")})
+
+
+@public_page
+def corrections(request):
+    """Sera ya masahihisho na habari zilizosahihishwa (Google: correctionsPolicy)."""
+    fixed = list(_published().exclude(correction="").order_by("-updated_at")[:30])
+    return render(request, "news/corrections.html", {"contact_email": getattr(settings, "JAMIITEK_EMAIL", ""),
+                                                     "fixed": fixed})
+
+
+@public_page
+def author_detail(request, slug):
+    """Ukurasa wa mhariri: wasifu wake na habari alizozihakiki."""
+    from news.models import Author
+    author = get_object_or_404(Author, slug=slug, active=True)
+    articles = list(_published().filter(author=author).order_by("-published_at")[:24])
+    return render(request, "news/author.html", {"author": author, "articles": articles})
 
 
 def robots(request):
@@ -705,6 +756,7 @@ def review_action(request):
             messages.warning(request, "Hakuna rasimu za kuchapisha bado.")
         elif action == "publish_batch":
             n = pipeline.publish_batch(batch)
+            _sign(batch.articles.filter(status="published", author=None), request.user)
             if batch.approval and batch.approval.status == "pending":
                 batch.approval.status = "sent"
                 batch.approval.result = f"Published from review page ({n})"
@@ -720,6 +772,7 @@ def review_action(request):
         item = get_object_or_404(Article, pk=request.POST.get("article"))
         if action == "publish_one":
             item.publish()
+            _sign(Article.objects.filter(pk=item.pk, author=None), request.user)
             indexnow.submit([item.get_absolute_url()])
             _settle_request(item, "published")
             messages.success(request, f"Imechapishwa: {item.title}")
@@ -735,6 +788,14 @@ def review_action(request):
     if request.POST.get("next") in ("commission", "promo"):
         return redirect(f"news:{request.POST['next']}")
     return redirect("news:review")
+
+
+def _sign(articles, user):
+    """Habari zilizochapishwa zipate jina la mhariri aliyezihakiki (kama ana ukurasa wa Author)."""
+    from news.models import Author
+    author = Author.objects.filter(user=user, active=True).first() if getattr(user, "is_authenticated", False) else None
+    if author:
+        articles.update(author=author)
 
 
 def _settle_request(article, status, error=""):

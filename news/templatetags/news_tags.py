@@ -97,7 +97,7 @@ def article_jsonld(context, article):
         "dateModified": article.updated_at.isoformat(),
         "articleSection": article.get_category_display(),
         "keywords": article.keywords,
-        "author": {"@type": "Organization", "name": "Dawati la Habari, wILife", "url": _abs(request, "/kuhusu/")},
+        "author": _author(request, article),
         "publisher": {"@type": "Organization", "name": "wILife",
                       "logo": {"@type": "ImageObject", "url": _abs(request, static("news/brand/logo-600.png")),
                                "width": 600, "height": 466}},
@@ -298,7 +298,10 @@ def site_jsonld(context):
         "image": _abs(request, static("news/brand/og-default.jpg")),
         "parentOrganization": {"@type": "Organization", "name": "JamiiTek Digital Agency"},
         "sameAs": getattr(settings, "SOCIAL_LINKS", []) or None,
-        "publishingPrinciples": _abs(request, "/kuhusu/"),
+        "publishingPrinciples": _abs(request, "/sera-ya-uhariri/"),
+        "ethicsPolicy": _abs(request, "/sera-ya-uhariri/"),
+        "correctionsPolicy": _abs(request, "/masahihisho/"),
+        "verificationFactCheckingPolicy": _abs(request, "/sera-ya-uhariri/#mchakato"),
         "areaServed": "TZ", "knowsLanguage": "sw",
     }, {
         "@context": "https://schema.org", "@type": "WebSite", "name": "wILife", "url": root,
@@ -499,6 +502,70 @@ def match_video(m):
 
 
 # ── Kurasa za timu (news/teams.py) ─────────────────────────────────────────────
+
+def _author(request, article):
+    """Mhariri halisi (Person) akiwepo; vinginevyo Dawati la Habari (Organization)."""
+    a = getattr(article, "author", None)
+    if a is not None and a.active:
+        return {"@type": "Person", "name": a.name, "url": _abs(request, a.get_absolute_url()),
+                **({"jobTitle": a.role} if a.role else {}), **({"image": a.photo} if a.photo else {}),
+                **({"sameAs": a.link_list} if a.link_list else {})}
+    return {"@type": "Organization", "name": "Dawati la Habari, wILife", "url": _abs(request, "/kuhusu/")}
+
+
+@register.simple_tag(takes_context=True)
+def author_jsonld(context, author):
+    request = context["request"]
+    person = {"@type": "Person", "name": author.name, "url": _abs(request, author.get_absolute_url()),
+              "worksFor": {"@type": "NewsMediaOrganization", "name": "wILife", "url": _abs(request, "/")},
+              **({"jobTitle": author.role} if author.role else {}), **({"image": author.photo} if author.photo else {}),
+              **({"description": author.bio[:300]} if author.bio else {}),
+              **({"sameAs": author.link_list} if author.link_list else {})}
+    return _script({"@context": "https://schema.org", "@type": "ProfilePage", "mainEntity": person})
+
+
+@register.simple_tag(takes_context=True)
+def league_jsonld(context, league, upcoming=(), results=()):
+    """Ligi: SportsOrganization + breadcrumb + mechi zake (SportsEvent)."""
+    request = context["request"]
+    url = _abs(request, league.get_absolute_url())
+    data = [{"@context": "https://schema.org", "@type": "SportsOrganization", "name": league.name, "sport": "Soccer",
+             "url": url, **({"logo": league.logo} if league.logo else {}),
+             **({"description": league.intro[:300]} if league.intro else {})},
+            {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
+                {"@type": "ListItem", "position": 1, "name": "Mwanzo", "item": _abs(request, "/")},
+                {"@type": "ListItem", "position": 2, "name": "Ligi", "item": _abs(request, "/ligi/")},
+                {"@type": "ListItem", "position": 3, "name": league.name, "item": url}]}]
+    events = [r for r in list(upcoming)[:10] + list(results)[:10] if r.url]
+    if events:
+        data.append({"@context": "https://schema.org", "@type": "ItemList", "name": f"Mechi za {league.name}",
+                     "itemListElement": [{"@type": "ListItem", "position": i,
+                                          "item": sports_event(r, _abs(request, r.url))}
+                                         for i, r in enumerate(events, 1)]})
+    return _script(data)
+
+
+@register.simple_tag(takes_context=True)
+def leagues_jsonld(context, leagues):
+    request = context["request"]
+    return _script({"@context": "https://schema.org", "@type": "ItemList", "name": "Ligi na mashindano",
+                    "itemListElement": [{"@type": "ListItem", "position": i, "name": lg.name,
+                                         "url": _abs(request, lg.get_absolute_url())}
+                                        for i, lg in enumerate(leagues, 1)]})
+
+
+@register.simple_tag
+def league_for(row_or_fixture):
+    """Ukurasa wa ligi wa mechi hii (kwa namba ya ligi), au None."""
+    from news.models import League
+    cid = getattr(row_or_fixture, "competition_id", None)
+    if not cid:
+        return None
+    try:
+        return League.objects.filter(competition_id=cid, active=True).first()
+    except Exception:
+        return None
+
 
 @register.simple_tag(takes_context=True)
 def team_jsonld(context, team, logo="", next_match=None, articles=()):

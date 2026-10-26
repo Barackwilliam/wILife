@@ -2,7 +2,7 @@ from django import forms
 from django.contrib import admin
 from django.utils.html import format_html
 
-from news.models import (Article, ChannelPost, EditorSettings, Fixture, FootballState, Highlight, JamiiTekService, Team, VideoChannel, LiveMatch, LiveUpdate,
+from news.models import (Article, Author, ChannelPost, League, EditorSettings, Fixture, FootballState, Highlight, JamiiTekService, Team, VideoChannel, LiveMatch, LiveUpdate,
                          NewsBatch, NewsRequest, Subscriber, EmailSubscriber, DailyCount)
 
 
@@ -238,3 +238,20 @@ class ChannelPostAdmin(admin.ModelAdmin):
     list_filter = ("kind",)
     search_fields = ("title", "key")
     readonly_fields = ("key", "kind", "title", "posted_at", "tries", "error", "created_at")
+
+
+@admin.register(League)
+class LeagueAdmin(admin.ModelAdmin):
+    """Kurasa za ligi (/ligi/<slug>/) — zinaundwa zenyewe kutoka ratiba; badilisha jina/utangulizi hapa."""
+    list_display = ("name", "country", "season", "rank", "standings_at", "active")
+    list_editable = ("rank", "active")
+    search_fields = ("name", "competition", "country")
+    readonly_fields = ("competition_id", "competition", "country", "season", "standings_at", "standings_note")
+
+
+@admin.register(Author)
+class AuthorAdmin(admin.ModelAdmin):
+    """Wahariri halisi (/mwandishi/<slug>/). Ukimuunganisha na akaunti yake, habari anazochapisha zinapata jina lake."""
+    list_display = ("name", "role", "user", "active")
+    list_editable = ("active",)
+    prepopulated_fields = {"slug": ("name",)}
