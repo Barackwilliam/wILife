@@ -187,6 +187,40 @@ def backfill(state, now, left):
     return 0
 
 
+AHEAD_FROM_HOUR = 15                       # ratiba ya kesho: kuanzia saa 9 alasiri (EAT)
+AHEAD_MIN_LEFT = 60                        # ...maombi mengi yakiwa yamebaki tu (LIVE ya leo kwanza)
+AHEAD_INDEXNOW = 40                        # kurasa za mechi za kesho zinazotangazwa kwa injini za utafutaji
+
+
+def read_ahead(state, now, left):
+    """
+    Ratiba ya kesho mara moja (mchana/jioni ya leo): "Mechi za kesho" na kurasa za kila mechi zinapatikana
+    siku moja kabla — watu hutafuta mechi kabla haijachezwa. Inarudisha maombi yaliyotumika.
+    """
+    from news import highlightly, indexnow
+    from news.models import DailyCount
+    local = timezone.localtime(now)
+    tomorrow = local.date() + timedelta(days=1)
+    key = f"ahead:{tomorrow.isoformat()}"
+    if (local.hour < AHEAD_FROM_HOUR or left <= AHEAD_MIN_LEFT or Fixture.objects.filter(day=tomorrow).exists()
+            or DailyCount.get(key, day=tomorrow)):
+        return 0
+    DailyCount.bump(key, day=tomorrow)                 # jaribio moja tu kwa siku hiyo
+    before = state.requests
+    try:
+        store(highlightly.schedule(state, tomorrow), tomorrow)
+    except Exception as exc:
+        log.warning("read ahead %s failed: %s", tomorrow, exc)
+    state.save(update_fields=["requests", "remaining"])
+    pages = [f.get_absolute_url() for f in Fixture.objects.filter(day=tomorrow).order_by("rank", "kickoff")[:AHEAD_INDEXNOW]]
+    if pages:
+        try:
+            indexnow.submit(pages + ["/mechi-za-kesho/"])
+        except Exception as exc:
+            log.warning("indexnow (kesho) failed: %s", exc)
+    return state.requests - before
+
+
 def has_day(day):
     start, end = _bounds(day)
     return Fixture.objects.filter(day=day).exists() or LiveMatch.objects.filter(

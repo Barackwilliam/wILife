@@ -1,6 +1,6 @@
 {% extends 'news/base.html' %}
 {% load news_tags %}
-{% block title %}{{ f.home }} dhidi ya {{ f.away }}{% if f.has_score and f.is_finished %} {{ f.home_goals }}-{{ f.away_goals }}{% endif %}: Matokeo — {{ f.competition }} | wILife{% endblock %}
+{% block title %}{% if f.status == 'NS' %}{{ f.home }} vs {{ f.away }}: Hakikisho, Saa ya Mechi na Msimamo — {{ f.competition }} {{ f.day|date:"d/m" }}{% else %}{{ f.home }} dhidi ya {{ f.away }}{% if f.has_score and f.is_finished %} {{ f.home_goals }}-{{ f.away_goals }}{% endif %}: Matokeo — {{ f.competition }}{% endif %} | wILife{% endblock %}
 {% block description %}{{ f.home }} dhidi ya {{ f.away }} ({{ f.competition }}{% if f.round %}, {{ f.round }}{% endif %}), {{ date_text }}{% if f.kickoff %} saa {{ f.kickoff|time:"H:i" }}{% endif %} kwa saa za Afrika Mashariki.{% if f.has_score and f.is_finished %} Matokeo ya mwisho: {{ f.home }} {{ f.home_goals }}-{{ f.away_goals }} {{ f.away }}.{% endif %} Matukio na takwimu kwa Kiswahili.{% endblock %}
 {% block jsonld %}{% fixture_jsonld f %}{% match_video f as mv %}{% if mv %}{% video_jsonld mv False %}{% endif %}{% endblock %}
 
@@ -23,6 +23,22 @@
 {% teams_for f.home f.away as tlinks %}{% if tlinks %}<p class="tm-links">{% for t in tlinks %}<a href="{{ t.get_absolute_url }}">{% icon "shield-fill" %} {{ t.name }}: habari na matokeo</a>{% endfor %}</p>{% endif %}
 <h1 class="fxd-title">{{ f.home }} dhidi ya {{ f.away }}{% if f.has_score and f.is_finished %}: {{ f.home_goals }}-{{ f.away_goals }}{% endif %}</h1>
 <p class="fxd-dek">{{ f.competition }}{% if f.round %} · {{ f.round }}{% endif %} · {{ date_text }}{% if f.kickoff %}, saa {{ f.kickoff|time:"H:i" }} (Afrika Mashariki){% endif %}</p>
+
+{% if pre %}
+<section class="fxd-sec fxd-pre">
+  <h2>Hakikisho la mechi</h2>
+  <p>{{ f.home }} watakuwa wenyeji wa {{ f.away }} katika {{ f.competition }}{% if f.round %} ({{ f.round }}){% endif %}, {{ date_text }}{% if f.kickoff %} saa {{ f.kickoff|time:"H:i" }} kwa saa za Afrika Mashariki{% endif %}{% if x.venue %}, uwanjani {{ x.venue }}{% if x.city %}, {{ x.city }}{% endif %}{% endif %}.</p>
+  {% if pre.home_table or pre.away_table %}
+  <p>Kwenye msimamo wa {% if pre.league %}<a href="{{ pre.league.get_absolute_url }}">{{ pre.league.name }}</a>{% else %}ligi{% endif %}{% if pre.home_table.group %} ({{ pre.home_table.group }}){% endif %}:
+  {% if pre.home_table %}{{ f.home }} wako nafasi ya {{ pre.home_table.pos }} wakiwa na pointi {{ pre.home_table.pts }}{% if pre.home_table.p is not None %} baada ya mechi {{ pre.home_table.p }}{% endif %}{% endif %}{% if pre.home_table and pre.away_table %}; {% endif %}{% if pre.away_table %}{{ f.away }} wako nafasi ya {{ pre.away_table.pos }} wakiwa na pointi {{ pre.away_table.pts }}{% if pre.away_table.p is not None %} baada ya mechi {{ pre.away_table.p }}{% endif %}{% endif %}.</p>
+  {% endif %}
+  {% if pre.home_recent or pre.away_recent %}
+  <div class="fxd-form">
+    {% for name, rec in pre.forms %}{% if rec %}<div><b>{{ name }}</b> — matokeo ya karibuni:<ul>{% for r in rec %}<li><span class="tm-f tm-{{ r.res }}">{{ r.res }}</span> <a href="{{ r.url }}">{% if r.home %}dhidi ya {{ r.opponent }} (nyumbani){% else %}dhidi ya {{ r.opponent }} (ugenini){% endif %} {{ r.score }}</a></li>{% endfor %}</ul></div>{% endif %}{% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endif %}
 
 {% match_video f as mv %}{% if mv %}{% include 'news/_video_player.html' with h=mv %}{% include 'news/_video_js.html' %}{% endif %}
 

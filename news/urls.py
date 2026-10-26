@@ -35,6 +35,7 @@ urlpatterns = [
     path("live/matokeo.json", views.live_scores, name="live_scores"),
     path("mechi-za-leo/", views.matches_today, name="matches_today"),
     path("matokeo-ya-jana/", views.results_yesterday, name="results_yesterday"),
+    path("mechi-za-kesho/", views.matches_tomorrow, name="matches_tomorrow"),
     path("mechi/<str:day>/", views.matches_day, name="matches_day"),
     path("mechi/<str:day>/<int:pk>-<slug:slug>/", views.fixture_detail, name="fixture"),
     path("utabiri/", views.predictions, name="predictions"),

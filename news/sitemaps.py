@@ -36,11 +36,11 @@ class SectionSitemap(Sitemap):
 
     def items(self):
         return ["home", "live_hub", "matches_today", "results_yesterday", "predictions", "videos", "teams",
-                "leagues", "latest"] + list(Category.values)
+                "leagues", "matches_tomorrow", "latest"] + list(Category.values)
 
     def location(self, item):
         if item in ("home", "live_hub", "matches_today", "results_yesterday", "predictions", "videos", "teams",
-                    "leagues", "latest"):
+                    "leagues", "matches_tomorrow", "latest"):
             return reverse(f"news:{item}")
         return reverse("news:category", args=[item])
 

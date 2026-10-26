@@ -14,6 +14,7 @@ import logging
 from datetime import timedelta
 
 from django.conf import settings
+from django.db.models import Q
 from django.utils import timezone
 from django.utils.text import slugify
 
@@ -187,12 +188,13 @@ def _matches(lg, since, until):
 
 
 def standing_of(lg, team):
-    """Safu ya timu kwenye msimamo (kwa jina), au None."""
-    from news.scorebat import _close, team_key
-    key = team_key(team)
+    """Safu ya timu kwenye msimamo (jina kamili au majina yake mengine — Admin -> Teams), au None."""
+    from news.scorebat import team_key
+    from news.youtube import _aliases
+    names = _aliases(team)
     for table in lg.standings or []:
         for r in table.get("rows") or []:
-            if _close(team_key(r["team"]), key):
+            if team_key(r["team"]) in names:
                 return {**r, "group": table.get("group") or "", "size": len(table.get("rows") or [])}
     return None
 
@@ -227,3 +229,56 @@ def for_competition(competition_id=None, name=""):
     if name:
         return qs.filter(competition=name).order_by("rank").first()
     return None
+
+
+# ── Hakikisho la mechi (kabla haijaanza) ─────────────────────────────────────────
+
+def _recent(name, before, limit=5):
+    """Matokeo ya karibuni ya timu kwenye mechi TULIZOREKODI: [(res W/D/L, mpinzani, '2-1', ukurasa)]."""
+    from news.models import Fixture, LiveMatch
+    from news.scorebat import team_key
+    from news.youtube import _aliases
+    key = team_key(name)
+    if not key:
+        return []
+    names = _aliases(name)                   # jina kamili au majina yake mengine (Admin -> Teams): si 'Simba Queens'
+
+    word = key.split()[0]
+    since = before - timedelta(days=120)
+    rows = []
+    for src in (Fixture.objects.filter(status__in=LiveMatch.FINISHED, kickoff__lt=before, kickoff__gte=since)
+                .filter(Q(home__icontains=word) | Q(away__icontains=word)),
+                LiveMatch.objects.select_related("article").filter(
+                    status__in=LiveMatch.FINISHED, kickoff__lt=before, kickoff__gte=since, article__status="published")
+                .filter(Q(home__icontains=word) | Q(away__icontains=word))):
+        rows += list(src)
+    out, seen = [], set()
+    for m in sorted(rows, key=lambda m: m.kickoff, reverse=True):
+        home = team_key(m.home) in names
+        if not home and team_key(m.away) not in names:
+            continue
+        if m.home_goals is None or m.away_goals is None:
+            continue
+        ident = (m.kickoff.date(), team_key(m.home), team_key(m.away))
+        if ident in seen:
+            continue
+        seen.add(ident)
+        mine, theirs = (m.home_goals, m.away_goals) if home else (m.away_goals, m.home_goals)
+        res = "W" if mine > theirs else ("D" if mine == theirs else "L")
+        url = m.article.get_absolute_url() if isinstance(m, LiveMatch) else m.get_absolute_url()
+        out.append({"res": res, "opponent": m.away if home else m.home, "score": f"{mine}-{theirs}",
+                    "home": home, "url": url})
+        if len(out) >= limit:
+            break
+    return out
+
+
+def preview(f):
+    """Ukweli wa kabla ya mechi kwa ukurasa wake: nafasi kwenye msimamo na matokeo ya karibuni (tuliyonayo)."""
+    lg = for_competition(getattr(f, "competition_id", None))
+    when = f.kickoff or timezone.now()
+    home, away = _recent(f.home, when), _recent(f.away, when)
+    return {"league": lg,
+            "home_table": standing_of(lg, f.home) if lg else None,
+            "away_table": standing_of(lg, f.away) if lg else None,
+            "home_recent": home, "away_recent": away, "forms": [(f.home, home), (f.away, away)]}

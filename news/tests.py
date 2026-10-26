@@ -3819,3 +3819,75 @@ class LeaguePagesTest(TestCase):
         self.assertIn("https://www.wlife.online/ligi/premier-league-tanzania/", sm)
         self.assertIn("https://www.wlife.online" + self.epl.get_absolute_url(), sm)
         self.assertEqual(self.client.get("/ligi/haipo/").status_code, 404)
+
+
+@override_settings(HIGHLIGHTLY_API_KEY="hl-key", API_FOOTBALL_KEY="", SITE_URL="https://www.wlife.online",
+                   HIGHLIGHTLY_LEAGUES=["Tanzania:Premier League"], TIME_ZONE="Africa/Dar_es_Salaam")
+class TomorrowAndPreviewTest(TestCase):
+    """Ratiba ya kesho (mara moja, maombi yakiwa mengi) na hakikisho la mechi kutoka data halisi tu."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+    def test_read_ahead_once_in_the_afternoon(self):
+        from zoneinfo import ZoneInfo
+        from news import fixtures, football
+        from news.models import Fixture
+        eat = ZoneInfo("Africa/Dar_es_Salaam")
+        calls = []
+
+        def fake_get(url, params=None, headers=None, timeout=None):
+            calls.append(params.get("date"))
+            kickoff = datetime(2026, 10, 27, 19, 0, tzinfo=eat)
+            return _HLResp({"data": [_hl(mid=9901, kickoff=kickoff, league="Premier League", country="Tanzania")],
+                            "pagination": {"totalCount": 1}})
+        state = football._state()
+        with mock.patch("news.highlightly.requests.get", side_effect=fake_get), \
+                mock.patch("news.indexnow.submit") as ping:
+            self.assertEqual(fixtures.read_ahead(state, datetime(2026, 10, 26, 11, 0, tzinfo=eat), 90), 0)  # asubuhi
+            self.assertEqual(fixtures.read_ahead(state, datetime(2026, 10, 26, 16, 0, tzinfo=eat), 40), 0)  # maombi machache
+            self.assertEqual(fixtures.read_ahead(state, datetime(2026, 10, 26, 16, 0, tzinfo=eat), 90), 1)
+            self.assertEqual(fixtures.read_ahead(state, datetime(2026, 10, 26, 18, 0, tzinfo=eat), 90), 0)  # mara moja
+        self.assertEqual(calls, ["2026-10-27"])
+        f = Fixture.objects.get(fixture_id=9901)
+        self.assertEqual(f.day, date(2026, 10, 27))
+        self.assertIn(f.get_absolute_url(), ping.call_args.args[0])
+        self.assertIn("/mechi-za-kesho/", ping.call_args.args[0])
+
+    def test_tomorrow_page_and_preview(self):
+        from news.models import Fixture, League
+        now = timezone.now()
+        tomorrow = timezone.localdate() + timedelta(days=1)
+        f = Fixture.objects.create(
+            fixture_id=9902, day=tomorrow, kickoff=now + timedelta(days=1), status="NS", home="Simba SC",
+            away="Young Africans", competition="Premier League", competition_id=77, country="Tanzania", rank=0,
+            extra={"venue": "Benjamin Mkapa", "city": "Dar es Salaam"})
+        Fixture.objects.create(fixture_id=9800, day=timezone.localdate() - timedelta(days=5),
+                               kickoff=now - timedelta(days=5), status="FT", home="KMC", away="Simba SC",
+                               home_goals=0, away_goals=3, competition="Premier League", competition_id=77,
+                               country="Tanzania", rank=0)
+        Fixture.objects.create(fixture_id=9801, day=timezone.localdate() - timedelta(days=4),
+                               kickoff=now - timedelta(days=4), status="FT", home="Simba Queens", away="JKT Queens",
+                               home_goals=0, away_goals=1, competition="Women", competition_id=78,
+                               country="Tanzania", rank=5)
+        League.objects.create(competition_id=77, competition="Premier League", country="Tanzania",
+                              name="Ligi Kuu Tanzania", slug="ligi-kuu-tanzania", standings=[{"group": "", "rows": [
+                                  {"pos": 1, "team": "Simba", "pts": 22, "p": 9},
+                                  {"pos": 2, "team": "Yanga", "pts": 20, "p": 9}]}])
+        page = self.client.get("/mechi-za-kesho/").content.decode()
+        self.assertIn("<title>Mechi za Kesho ", page)
+        self.assertIn(f.get_absolute_url(), page)
+        self.assertIn('href="/mechi-za-kesho/"', self.client.get("/mechi-za-leo/").content.decode())
+        fx = self.client.get(f.get_absolute_url()).content.decode()
+        self.assertIn("<title>Simba SC vs Young Africans: Hakikisho, Saa ya Mechi na Msimamo", fx)
+        self.assertIn("Simba SC watakuwa wenyeji wa Young Africans", fx)
+        self.assertIn("uwanjani Benjamin Mkapa, Dar es Salaam", fx)
+        self.assertIn("Simba SC wako nafasi ya 1 wakiwa na pointi 22 baada ya mechi 9", fx)
+        self.assertIn("Young Africans wako nafasi ya 2 wakiwa na pointi 20", fx)          # Yanga = Young Africans
+        self.assertIn("dhidi ya KMC (ugenini) 3-0", fx)
+        self.assertNotIn("JKT Queens", fx)                                                  # si Simba Queens
+        r = self.client.get(f"/mechi/{tomorrow.isoformat()}/")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(self.client.get(f"/mechi/{(tomorrow + timedelta(days=1)).isoformat()}/").status_code, 404)

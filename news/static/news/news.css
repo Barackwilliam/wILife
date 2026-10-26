@@ -1165,3 +1165,8 @@ a.fx:hover { background: var(--brand-soft); }
 .lg-table tbody tr:hover { background: var(--brand-soft); }
 .lg-table td:first-child { color: var(--muted); font-weight: 800; }
 @media (max-width: 560px) { .lg-table th, .lg-table td { padding: 8px 5px; font-size: .85rem; } }
+.fxd-pre p { line-height: 1.65; }
+.fxd-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 14px; margin-top: 10px; }
+.fxd-form ul { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; }
+.fxd-form li { display: flex; align-items: center; gap: 8px; font-size: .92rem; }
+.fxd-form li a { color: var(--ink); }

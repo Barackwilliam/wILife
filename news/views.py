@@ -275,7 +275,8 @@ def _day_page(request, day, kind):
         raise Http404
     counts = {"on": sum(r.is_playing for r in rows), "done": sum(r.is_finished for r in rows),
               "soon": sum(r.status == "NS" for r in rows)}
-    canonical = {today: "news:matches_today", today - timedelta(days=1): "news:results_yesterday"}.get(day)
+    canonical = {today: "news:matches_today", today - timedelta(days=1): "news:results_yesterday",
+                 today + timedelta(days=1): "news:matches_tomorrow"}.get(day)
     groups = fixtures.groups(rows)
     names = [name for name, _, _ in groups]
     leagues = ", ".join(names[:5])
@@ -287,6 +288,7 @@ def _day_page(request, day, kind):
         "kind": kind, "day": day, "date_text": swahili_date(day), "rows": rows, "groups": groups, "leagues": leagues,
         "has_pages": any(r.article for r in rows),
         "counts": counts, "is_today": day == today, "is_past": day < today,
+        "has_tomorrow": day != today + timedelta(days=1) and fixtures.has_day(today + timedelta(days=1)),
         "prev_day": day - timedelta(days=1) if fixtures.has_day(day - timedelta(days=1)) else None,   # siku isiyo na data haina kitufe
         "next_day": day + timedelta(days=1) if day + timedelta(days=2) < today else None,   # jana/leo zina vitufe vyao
         "canonical": reverse(canonical) if canonical else request.path,
@@ -298,6 +300,11 @@ def _day_page(request, day, kind):
 @_live_page
 def matches_today(request):
     return _day_page(request, timezone.localdate(), "leo")
+
+
+@_live_page
+def matches_tomorrow(request):
+    return _day_page(request, timezone.localdate() + timedelta(days=1), "kesho")
 
 
 @_live_page
@@ -313,7 +320,7 @@ def matches_day(request, day):
     except ValueError:
         raise Http404
     today = timezone.localdate()
-    if when > today or when < today - timedelta(days=400):
+    if when > today + timedelta(days=1) or when < today - timedelta(days=400):
         raise Http404
     return _day_page(request, when, "siku")
 
@@ -333,7 +340,10 @@ def fixture_detail(request, day, pk, slug):
         return redirect(f.get_absolute_url(), permanent=True)
     fixtures.refresh_detail(f)
     others = [r for r in fixtures.day_rows(f.day) if r.key != f"{f.provider}{f.fixture_id}"][:8]
+    from news import leagues
+    pre = leagues.preview(f) if f.status == "NS" else {}
     return render(request, "news/fixture.html", {"f": f, "x": f.extra or {}, "others": others, "now": timezone.now(),
+                                                 "pre": pre,
                                                  "date_text": swahili_date(f.day)})
 
 
