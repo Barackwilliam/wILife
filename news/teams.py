@@ -110,7 +110,7 @@ def news(team, limit=NEWS):
 def videos(team, limit=4):
     from news.scorebat import team_key
     keys = {team_key(n) for n in team.match_names.split(",") if n.strip()}
-    qs = Highlight.objects.filter(Q(home_key__in=keys) | Q(away_key__in=keys))
+    qs = Highlight.objects.filter(Q(home_key__in=keys) | Q(away_key__in=keys) | Q(team=team))
     return list(qs[:limit])
 
 

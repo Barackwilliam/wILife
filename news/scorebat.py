@@ -242,6 +242,8 @@ def match_page(h):
 
 def title(h, match=None):
     """Kichwa chenye matokeo na maneno yanayotafutwa: 'Arsenal vs Chelsea 2-1 Highlights: Video za Magoli Yote'."""
+    if not (h.home and h.away):
+        return h.title[:120]                  # mf. video ya YouTube isiyo ya mechi moja: kichwa chake halisi
     match = match if match is not None else match_page(h)
     score = f" {match['score']}" if match and match.get("score") else ""
     return f"{h.name}{score} Highlights: Video za Magoli Yote"

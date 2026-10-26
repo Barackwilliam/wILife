@@ -631,7 +631,8 @@ def video_sitemap(request):
             f"<video:description>{escape(desc[:2048])}</video:description>"
             f"<video:player_loc>{escape(v['src'])}</video:player_loc>"
             f"<video:publication_date>{h.date.isoformat()}</video:publication_date>"
-            f"<video:family_friendly>yes</video:family_friendly>{tags}"
+            + (f"<video:duration>{h.duration}</video:duration>" if h.duration and h.duration <= 28800 else "")
+            + f"<video:family_friendly>yes</video:family_friendly>{tags}"
             f"</video:video></url>")
     body = ('<?xml version="1.0" encoding="UTF-8"?>\n'
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" '
