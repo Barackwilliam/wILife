@@ -1996,7 +1996,9 @@ class HighlightlyProviderTest(TestCase):
         out = self.run_with(_HLResp({"message": "Invalid API key"}, status=401))
         self.assertEqual(out["failed"], 1)
         self.assertIn("Highlightly 401: Invalid API key", FootballState.objects.get().error)
-        self.run_with()                                   # dakika inayofuata: hakuna ombi jipya
+        with mock.patch("news.leagues.refresh_standings", return_value=0), \
+                mock.patch("news.fixtures.read_ahead", return_value=0):
+            self.run_with()                               # dakika inayofuata: hakuna ombi jipya la ratiba
         self.assertEqual(len(self.calls), 1)
 
     @override_settings(HIGHLIGHTLY_VIA_RAPIDAPI=True)
@@ -2615,7 +2617,9 @@ class OverdueMatchTest(TestCase):
         football._state().__class__.objects.update(schedule_at=timezone.now())   # ratiba ya leo imeshasomwa
         done = _hl(mid=7001, desc="Finished", score="2 - 1", events=[], kickoff=self.m.kickoff)
         with mock.patch("news.highlightly.requests.get", return_value=_HLResp([done])) as get, \
-                mock.patch("news.enrich.run", return_value=0):
+                mock.patch("news.enrich.run", return_value=0), \
+                mock.patch("news.leagues.refresh_standings", return_value=0), \
+                mock.patch("news.fixtures.read_ahead", return_value=0):
             out = football.run()
             again = football.run()                                      # imeisha: haiombwi tena
         self.assertIn("matokeo ya mwisho yaliyochelewa: maombi 1", out["detail"])
@@ -3675,7 +3679,7 @@ class ScheduleRecoveryTest(TestCase):
             self.addCleanup(p.stop)
         for target in ("news.enrich.run", "news.fixtures.rescan_day", "news.fixtures.refresh_results",
                        "news.fixtures.backfill", "news.football.promote_favourites", "news.football.finalize",
-                       "news.football.sync_live"):
+                       "news.football.sync_live", "news.fixtures.read_ahead", "news.leagues.refresh_standings"):
             p = mock.patch(target, return_value=0)
             p.start()
             self.addCleanup(p.stop)
