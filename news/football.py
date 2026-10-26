@@ -60,7 +60,39 @@ def _state(now=None):
         if prev:
             state.live_mode = prev.live_mode
             state.save(update_fields=["live_mode"])
+        # Siku ya UTC inaanza saa 03:00 Afrika Mashariki: ratiba ya siku hii (ya kwetu) ikiwa tayari imesomwa
+        # usiku wa manane, isisomwe tena (kurasa kadhaa za maombi).
+        last = FootballState.objects.filter(day__lt=day).exclude(schedule_at=None).order_by("-day").first()
+        if last and _local(last.schedule_at).date() == _local(now or timezone.now()).date():
+            state.schedule_at = last.schedule_at
+            state.save(update_fields=["schedule_at"])
     return state
+
+
+SCHEDULE_RETRY = timedelta(minutes=30)
+SCHEDULE_RETRIES = 4
+
+
+def schedule_due(state, now, every):
+    """
+    Ratiba ya leo isomwe sasa? Mara moja kila siku ya Afrika Mashariki (saa 00:00, si kila saa 24 tangu
+    usomaji uliopita), na tena baada ya dakika 30 kama leo bado haina mechi kabisa (usomaji ulishindwa:
+    mtandao, API, au maombi ya siku yalikuwa yamekwisha) — hadi mara SCHEDULE_RETRIES kwa siku.
+    Kabla ya hili, usomaji mmoja ulioshindwa uliacha "Mechi za leo" tupu siku nzima.
+    """
+    from news.models import DailyCount, Fixture
+    if not state.schedule_at:
+        return True
+    today = _local(now).date()
+    if _local(state.schedule_at).date() != today or now - state.schedule_at >= every:
+        return True
+    if now - state.schedule_at < SCHEDULE_RETRY or Fixture.objects.filter(day=today).exists():
+        return False
+    key = f"schedule-retry:{today.isoformat()}"
+    if DailyCount.get(key, day=today) >= SCHEDULE_RETRIES:
+        return False
+    DailyCount.bump(key, day=today)
+    return True
 
 
 def provider():
@@ -646,7 +678,7 @@ def run(now=None, deadline=None, dry_run=False):
         if provider() == "highlightly":          # ratiba ya siku nzima ni kurasa kadhaa — mara chache
             hours = getattr(settings, "HIGHLIGHTLY_SCHEDULE_HOURS", 24)
         every = timedelta(hours=hours)
-        if not state.schedule_at or now - state.schedule_at >= every:
+        if schedule_due(state, now, every):
             state.schedule_at = now           # muda wa jaribio — kosa lisirudiwe kila dakika
             state.save(update_fields=["schedule_at"])
             notes.append(f"ratiba: mpya {sync_schedule(state, now)}")
