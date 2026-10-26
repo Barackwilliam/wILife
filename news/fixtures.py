@@ -196,7 +196,7 @@ def has_day(day):
 class Row:
     """Mstari mmoja wa ukurasa wa siku — kutoka Fixture au LiveMatch."""
     def __init__(self, src, article=None, rank=99):
-        for k in ("competition", "competition_logo", "round", "home", "away", "home_logo", "away_logo",
+        for k in ("competition", "competition_id", "competition_logo", "round", "home", "away", "home_logo", "away_logo",
                   "home_goals", "away_goals", "status", "minute", "kickoff"):
             setattr(self, k, getattr(src, k, None))
         self.venue = getattr(src, "venue", "")

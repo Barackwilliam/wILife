@@ -1,0 +1,14 @@
+{% extends 'news/base.html' %}
+{% load news_tags %}
+{% block title %}Ligi za Soka: Msimamo, Ratiba na Matokeo — Ligi Kuu Tanzania, EPL, LaLiga na Zaidi | wILife{% endblock %}
+{% block description %}Msimamo wa ligi, ratiba na matokeo kwa Kiswahili: {% for lg in leagues|slice:":5" %}{{ lg.name }}{% if not forloop.last %}, {% endif %}{% endfor %} na mashindano mengine. Inasasishwa kila siku.{% endblock %}
+{% block jsonld %}{% leagues_jsonld leagues %}{% endblock %}
+{% block content %}
+<nav class="crumbs" aria-label="breadcrumb"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><span>Ligi</span></nav>
+<h1 class="fxd-title">Ligi na Mashindano</h1>
+<p class="fxd-dek">Msimamo wa ligi, mechi za leo, matokeo ya karibuni, habari na video za magoli za kila ligi.</p>
+<div class="tm-list">{% for lg in leagues %}
+  <a class="tm-card" href="{{ lg.get_absolute_url }}">{% if lg.logo %}<img src="{{ lg.logo }}" alt="" width="40" height="40" loading="lazy" referrerpolicy="no-referrer">{% else %}{% icon "trophy-fill" %}{% endif %}<b>{{ lg.name }}</b>{% icon "chevron-right" %}</a>{% empty %}
+  <p class="vh-empty">Ligi zitaonekana hapa ratiba ikisomwa.</p>{% endfor %}
+</div>
+{% endblock %}

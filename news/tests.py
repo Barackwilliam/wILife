@@ -3723,3 +3723,99 @@ class ScheduleRecoveryTest(TestCase):
         self.assertTrue(Fixture.objects.filter(day=date(2026, 10, 26)).exists())
         self._run(self._at(26, 3, 5))                              # siku mpya ya UTC: haisomi ratiba tena
         self.assertEqual(len(self.calls), 2)
+
+
+@override_settings(HIGHLIGHTLY_API_KEY="hl-key", API_FOOTBALL_KEY="", SITE_URL="https://www.wlife.online",
+                   HIGHLIGHTLY_LEAGUES=["England:Premier League", "Tanzania:Premier League"], LEAGUE_STANDINGS_MAX=8)
+class LeaguePagesTest(TestCase):
+    """Kurasa za ligi: zinaundwa kutoka ratiba, msimamo kutoka API (ombi 1 kwa ligi kwa siku), viungo na sitemap."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from news.models import Fixture
+        cache.clear()
+        self.addCleanup(cache.clear)
+        now = timezone.now()
+        self.epl = Fixture.objects.create(
+            fixture_id=501, day=timezone.localdate(), kickoff=now + timedelta(hours=3), status="NS", home="Arsenal",
+            away="Chelsea", competition="Premier League", competition_id=33, country="England", rank=1,
+            extra={"season": 2026, "league_id": 33})
+        self.tz = Fixture.objects.create(
+            fixture_id=502, day=timezone.localdate() - timedelta(days=1), kickoff=now - timedelta(hours=20),
+            status="FT", home="Simba SC", away="Young Africans", home_goals=2, away_goals=1,
+            competition="Premier League", competition_id=77, country="Tanzania", rank=0, extra={"season": 2026})
+
+    def test_sync_makes_distinct_pages_per_country(self):
+        from news import leagues
+        from news.models import League
+        self.assertEqual(leagues.sync(), 2)
+        self.assertEqual(leagues.sync(), 0)
+        self.assertEqual(sorted(League.objects.values_list("slug", flat=True)),
+                         ["premier-league-england", "premier-league-tanzania"])
+        self.assertEqual(League.objects.get(competition_id=77).name, "Premier League (Tanzania)")
+
+    def test_parse_standings_shapes(self):
+        from news import leagues
+        flat = [{"position": 2, "team": {"name": "Yanga", "logo": "https://x/y.png"}, "points": 20, "games": 9,
+                 "wins": 6, "draws": 2, "loses": 1, "scoredGoals": 15, "receivedGoals": 5},
+                {"position": 1, "team": {"name": "Simba"}, "points": 22, "played": 9, "won": 7, "drawn": 1, "lost": 1}]
+        nested = {"league": {"name": "X"}, "groups": [{"name": "Kundi A", "standings": flat},
+                                                       {"name": "Kundi B", "standings": flat}]}
+        one = leagues.parse({"data": flat})
+        self.assertEqual(len(one), 1)
+        self.assertEqual(one[0]["group"], "")
+        self.assertEqual([r["team"] for r in one[0]["rows"]], ["Simba", "Yanga"])
+        self.assertEqual((one[0]["rows"][1]["gd"], one[0]["rows"][0]["w"]), (10, 7))
+        self.assertEqual([t["group"] for t in leagues.parse(nested)], ["Kundi A", "Kundi B"])
+        self.assertEqual(leagues.parse({"message": "no data"}), [])
+
+    def test_refresh_one_league_per_run_and_keeps_note(self):
+        from news import football, leagues
+        from news.models import League
+        leagues.sync()
+        calls = []
+
+        def fake_get(url, params=None, headers=None, timeout=None):
+            calls.append((url, params))
+            if params["leagueId"] == 77:
+                return _HLResp({"groups": [{"standings": [
+                    {"position": 1, "team": {"name": "Simba SC"}, "points": 22, "games": 9},
+                    {"position": 2, "team": {"name": "Young Africans"}, "points": 20, "games": 9}]}]})
+            return _HLResp({"unexpected": True})
+        state = football._state()
+        now = timezone.now()
+        with mock.patch("news.highlightly.requests.get", side_effect=fake_get):
+            self.assertEqual(leagues.refresh_standings(state, now, 90), 1)
+            self.assertEqual(leagues.refresh_standings(state, now, 90), 1)
+            self.assertEqual(leagues.refresh_standings(state, now, 90), 0)            # zote zimesomwa leo
+            self.assertEqual(leagues.refresh_standings(state, now + timedelta(days=1), 30), 0)   # maombi machache
+        self.assertEqual([c[1]["leagueId"] for c in calls], [77, 33])               # kipaumbele: Tanzania (rank 0)
+        self.assertTrue(calls[0][0].endswith("/standings"))
+        self.assertEqual(calls[0][1]["season"], 2026)
+        tz = League.objects.get(competition_id=77)
+        self.assertEqual(tz.standings[0]["rows"][0]["team"], "Simba SC")
+        self.assertIn("jibu halikueleweka", League.objects.get(competition_id=33).standings_note)
+        self.assertEqual(leagues.standing_of(tz, "Simba")["pos"], 1)
+
+    def test_pages_links_and_sitemap(self):
+        from news import leagues
+        from news.models import League
+        leagues.sync()
+        tz = League.objects.get(competition_id=77)
+        League.objects.filter(pk=tz.pk).update(standings=[{"group": "", "rows": [
+            {"pos": 1, "team": "Simba SC", "logo": "", "p": 9, "w": 7, "d": 1, "l": 1, "gf": 18, "ga": 4, "gd": 14,
+             "pts": 22}]}])
+        page = self.client.get("/ligi/premier-league-tanzania/").content.decode()
+        for text in ("<title>Premier League (Tanzania): Msimamo wa Ligi", "Simba SC", "+14", "<b>22</b>",
+                     '"@type": "SportsOrganization"', "Matokeo ya karibuni", "Young Africans"):
+            self.assertIn(text, page)
+        hub = self.client.get("/ligi/").content.decode()
+        self.assertIn("/ligi/premier-league-england/", hub)
+        day = self.client.get("/mechi-za-leo/").content.decode()
+        self.assertIn('href="/ligi/premier-league-england/"', day)
+        fx = self.client.get(self.epl.get_absolute_url()).content.decode()
+        self.assertIn('href="/ligi/premier-league-england/"', fx)
+        sm = self.client.get("/sitemap.xml").content.decode()
+        self.assertIn("https://www.wlife.online/ligi/premier-league-tanzania/", sm)
+        self.assertIn("https://www.wlife.online" + self.epl.get_absolute_url(), sm)
+        self.assertEqual(self.client.get("/ligi/haipo/").status_code, 404)

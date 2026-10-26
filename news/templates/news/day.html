@@ -32,7 +32,7 @@
   <div id="lv-zone" data-v="{{ page_v }}">
   {% for name, logo, items in groups %}
   <section class="dy-lg" aria-label="{{ name }}">
-    <h2 class="dy-lgh">{% if logo %}<img src="{{ logo }}" alt="" width="20" height="20" loading="lazy" referrerpolicy="no-referrer">{% endif %}{{ name }}<span>{{ items|length }}</span></h2>
+    {% league_for items.0 as lg %}<h2 class="dy-lgh">{% if logo %}<img src="{{ logo }}" alt="" width="20" height="20" loading="lazy" referrerpolicy="no-referrer">{% endif %}{% if lg %}<a href="{{ lg.get_absolute_url }}" title="Msimamo wa {{ lg.name }}">{{ name }}</a>{% else %}{{ name }}{% endif %}<span>{{ items|length }}</span></h2>
     <div class="dy-rows">{% for r in items %}{% include 'news/_fx_row.html' %}{% endfor %}</div>
   </section>
   {% empty %}

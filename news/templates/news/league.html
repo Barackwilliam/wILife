@@ -1,0 +1,75 @@
+{% extends 'news/base.html' %}
+{% load news_tags %}
+{% block title %}{{ league.name }}: Msimamo wa Ligi, Ratiba na Matokeo {{ year }} | wILife{% endblock %}
+{% block description %}Msimamo wa {{ league.name }}{% if tables %} (nafasi ya kwanza: {{ tables.0.rows.0.team }}, pointi {{ tables.0.rows.0.pts }}){% endif %}, mechi za leo, matokeo ya karibuni, habari na video za magoli — kwa Kiswahili kwenye wILife.{% endblock %}
+{% block og_title %}{{ league.name }}: Msimamo, Ratiba na Matokeo{% endblock %}
+{% block jsonld %}{% league_jsonld league upcoming results %}{% endblock %}
+
+{% block content %}{% endblock %}
+
+{% block fullbleed %}
+<section class="lh-hero tm-hero" aria-labelledby="lg-title">
+  <div class="wrap">
+    <nav class="crumbs lh-crumbs" aria-label="breadcrumb"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><a href="{% url 'news:leagues' %}">Ligi</a><span>/</span><span>{{ league.name }}</span></nav>
+    <div class="tm-head">
+      <span class="tm-logo">{% if league.logo %}<img src="{{ league.logo }}" alt="Nembo ya {{ league.name }}" width="96" height="96" referrerpolicy="no-referrer" onerror="this.remove()">{% else %}{% icon "trophy-fill" "sb-crest" %}{% endif %}</span>
+      <div>
+        <h1 id="lg-title">{{ league.name }}</h1>
+        <p class="lh-sub">Msimamo, ratiba, matokeo, habari na video za magoli{% if league.season %} · msimu {{ league.season }}{% endif %}.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap tm-body">
+  {% if league.intro %}<section class="tm-intro"><h2 class="vh-h2">Kuhusu {{ league.name }}</h2>{{ league.intro|linebreaks }}</section>{% endif %}
+
+  {% for table in tables %}
+  <section class="lg-table" aria-label="Msimamo{% if table.group %} {{ table.group }}{% endif %}">
+    <h2 class="dy-lgh">Msimamo wa ligi{% if table.group %} · {{ table.group }}{% endif %}{% if league.standings_at %}<span>{{ league.standings_at|sw_ago }}</span>{% endif %}</h2>
+    <div class="lg-scroll"><table>
+      <thead><tr><th>#</th><th class="lg-team">Timu</th><th title="Mechi">P</th><th title="Ushindi">W</th><th title="Sare">D</th><th title="Vipigo">L</th><th title="Tofauti ya magoli">+/-</th><th title="Pointi">Pts</th></tr></thead>
+      <tbody>{% for r in table.rows %}<tr><td>{{ r.pos }}</td><td class="lg-team">{% if r.logo %}<img src="{{ r.logo }}" alt="" width="20" height="20" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}{{ r.team }}</td><td>{{ r.p|default_if_none:"–" }}</td><td>{{ r.w|default_if_none:"–" }}</td><td>{{ r.d|default_if_none:"–" }}</td><td>{{ r.l|default_if_none:"–" }}</td><td>{% if r.gd is None %}–{% elif r.gd > 0 %}+{{ r.gd }}{% else %}{{ r.gd }}{% endif %}</td><td><b>{{ r.pts }}</b></td></tr>{% endfor %}</tbody>
+    </table></div>
+  </section>
+  {% endfor %}
+
+  {% if upcoming %}
+  <section class="dy-lg" aria-label="Mechi zijazo">
+    <h2 class="dy-lgh">Mechi za leo na kesho<span>{{ upcoming|length }}</span></h2>
+    <div class="dy-rows">{% for r in upcoming %}{% include 'news/_fx_row.html' %}{% endfor %}</div>
+  </section>
+  {% endif %}
+
+  {% if results %}
+  <section class="dy-lg" aria-label="Matokeo ya karibuni">
+    <h2 class="dy-lgh">Matokeo ya karibuni<span>{{ results|length }}</span></h2>
+    <div class="dy-rows">{% for r in results %}{% include 'news/_fx_row.html' %}{% endfor %}</div>
+  </section>
+  {% endif %}
+
+  {% if videos %}
+  <section class="c-video">
+    <div class="sh"><h2>Video za magoli</h2><a href="{% url 'news:videos' %}">Zote {% icon "arrow-right" %}</a></div>
+    <div class="vh-grid">{% for h in videos %}
+      <a class="vh-card" href="{{ h.get_absolute_url }}">
+        <span class="vh-thumb">{% if h.thumbnail %}<img src="{{ h.thumbnail }}" alt="{{ h.name }}: video za magoli" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}<i aria-hidden="true">▶</i></span>
+        <span class="vh-meta"><b>{{ h.name }}</b><time datetime="{{ h.date|date:'c' }}">{{ h.date|sw_ago }}</time></span>
+      </a>{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if news %}
+  <section>
+    <div class="sh"><h2>Habari za {{ league.name }}</h2></div>
+    <div class="grid3 tm-news">{% for a in news %}{% include 'news/_card.html' with compact=True %}{% endfor %}</div>
+  </section>
+  {% endif %}
+
+  {% if not tables and not upcoming and not results %}<p class="vh-empty">Msimamo, ratiba na matokeo ya {{ league.name }} yataonekana hapa yakipatikana. Angalia <a href="{% url 'news:matches_today' %}">mechi za leo</a>.</p>{% endif %}
+</div>
+{% include 'news/_wa_join.html' %}
+{% endblock %}
+
+{% block extra_scripts %}{% include 'news/_score_js.html' %}{% endblock %}

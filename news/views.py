@@ -338,6 +338,22 @@ def fixture_detail(request, day, pk, slug):
 
 
 @_live_page
+def league_hub(request):
+    """Ligi zote zenye kurasa zao."""
+    from news.models import League
+    return render(request, "news/leagues.html", {"leagues": list(League.objects.filter(active=True))})
+
+
+@_live_page
+def league_detail(request, slug):
+    """Ukurasa wa ligi: msimamo, mechi za leo/kesho, matokeo, habari na video — vyote automatic."""
+    from news import leagues
+    from news.models import League
+    league = get_object_or_404(League, slug=slug, active=True)
+    return render(request, "news/league.html", {**leagues.summary(league), "year": timezone.localdate().year})
+
+
+@_live_page
 def team_hub(request):
     """Timu zenye kurasa zao."""
     from news.models import Team

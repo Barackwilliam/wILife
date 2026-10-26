@@ -781,3 +781,33 @@ class ChannelPost(models.Model):
 
     def __str__(self):
         return f"{self.get_kind_display()}: {self.title}"
+
+
+class League(models.Model):
+    """
+    Ligi/mashindano yenye ukurasa wake (/ligi/<slug>/ — news/leagues.py): msimamo, ratiba, matokeo, habari
+    na video. Zinaundwa zenyewe kutoka ratiba (Fixture); jina na utangulizi vinaweza kuhaririwa kwenye Admin.
+    """
+    competition_id = models.BigIntegerField(unique=True, help_text="Namba ya ligi kwa mtoaji data (Highlightly)")
+    competition = models.CharField(max_length=80, help_text="Jina kama API inavyoliandika")
+    country = models.CharField(max_length=60, blank=True)
+    name = models.CharField(max_length=120, help_text="Jina la kuonyesha, mf. 'Ligi Kuu Tanzania (NBC Premier League)'")
+    slug = models.SlugField(max_length=120, unique=True)
+    logo = models.URLField(max_length=300, blank=True)
+    season = models.PositiveIntegerField(null=True, blank=True)
+    rank = models.PositiveSmallIntegerField(default=99, help_text="Kipaumbele (HIGHLIGHTLY_LEAGUES)")
+    intro = models.TextField(blank=True, help_text="Utangulizi wa ukurasa — ukweli tu, kwa Kiswahili")
+    standings = models.JSONField(default=list, blank=True, editable=False,
+                                 help_text="[{group, rows: [{pos, team, logo, p, w, d, l, gf, ga, pts}]}]")
+    standings_at = models.DateTimeField(null=True, blank=True, editable=False)
+    standings_note = models.TextField(blank=True, editable=False, help_text="Kosa au mfano wa jibu la API")
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["rank", "name"]
+
+    def __str__(self):
+        return self.name
+
+    def get_absolute_url(self):
+        return reverse("news:league", args=[self.slug])

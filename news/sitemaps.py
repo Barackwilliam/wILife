@@ -36,11 +36,11 @@ class SectionSitemap(Sitemap):
 
     def items(self):
         return ["home", "live_hub", "matches_today", "results_yesterday", "predictions", "videos", "teams",
-                "latest"] + list(Category.values)
+                "leagues", "latest"] + list(Category.values)
 
     def location(self, item):
         if item in ("home", "live_hub", "matches_today", "results_yesterday", "predictions", "videos", "teams",
-                    "latest"):
+                    "leagues", "latest"):
             return reverse(f"news:{item}")
         return reverse("news:category", args=[item])
 
@@ -115,6 +115,35 @@ class TeamSitemap(Sitemap):
         return Team.objects.filter(active=True)
 
 
+class LeagueSitemap(Sitemap):
+    """Kurasa za ligi (/ligi/<slug>/) — msimamo na matokeo yanabadilika kila siku."""
+    changefreq = "daily"
+    priority = 0.8
+
+    def items(self):
+        from news.models import League
+        return League.objects.filter(active=True)
+
+
+class FixtureSitemap(Sitemap):
+    """Kurasa za mechi zisizo na LIVE (/mechi/<tarehe>/<id>-…/) — hakikisho kabla, matokeo baadaye."""
+    changefreq = "hourly"
+    priority = 0.6
+
+    def items(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        from news.models import Fixture, LiveMatch
+        since = timezone.localdate() - timedelta(days=30)
+        live = set(LiveMatch.objects.filter(article__status="published", fixture_id__isnull=False)
+                   .values_list("fixture_id", flat=True))
+        return [f for f in Fixture.objects.filter(day__gte=since).order_by("-day", "rank")[:3000]
+                if f.fixture_id not in live]          # mechi zenye LIVE: ukurasa wa habari yake uko kwenye articles
+
+    def lastmod(self, obj):
+        return obj.updated_at
+
+
 SITEMAPS = {"days": DaySitemap, "topics": TopicSitemap, "sections": SectionSitemap, "articles": ArticleSitemap,
             "services": ServiceSitemap, "pages": StaticSitemap, "videos": VideoSitemap,
-            "teams": TeamSitemap}
+            "teams": TeamSitemap, "leagues": LeagueSitemap, "fixtures": FixtureSitemap}

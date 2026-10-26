@@ -501,6 +501,49 @@ def match_video(m):
 # ── Kurasa za timu (news/teams.py) ─────────────────────────────────────────────
 
 @register.simple_tag(takes_context=True)
+def league_jsonld(context, league, upcoming=(), results=()):
+    """Ligi: SportsOrganization + breadcrumb + mechi zake (SportsEvent)."""
+    request = context["request"]
+    url = _abs(request, league.get_absolute_url())
+    data = [{"@context": "https://schema.org", "@type": "SportsOrganization", "name": league.name, "sport": "Soccer",
+             "url": url, **({"logo": league.logo} if league.logo else {}),
+             **({"description": league.intro[:300]} if league.intro else {})},
+            {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
+                {"@type": "ListItem", "position": 1, "name": "Mwanzo", "item": _abs(request, "/")},
+                {"@type": "ListItem", "position": 2, "name": "Ligi", "item": _abs(request, "/ligi/")},
+                {"@type": "ListItem", "position": 3, "name": league.name, "item": url}]}]
+    events = [r for r in list(upcoming)[:10] + list(results)[:10] if r.url]
+    if events:
+        data.append({"@context": "https://schema.org", "@type": "ItemList", "name": f"Mechi za {league.name}",
+                     "itemListElement": [{"@type": "ListItem", "position": i,
+                                          "item": sports_event(r, _abs(request, r.url))}
+                                         for i, r in enumerate(events, 1)]})
+    return _script(data)
+
+
+@register.simple_tag(takes_context=True)
+def leagues_jsonld(context, leagues):
+    request = context["request"]
+    return _script({"@context": "https://schema.org", "@type": "ItemList", "name": "Ligi na mashindano",
+                    "itemListElement": [{"@type": "ListItem", "position": i, "name": lg.name,
+                                         "url": _abs(request, lg.get_absolute_url())}
+                                        for i, lg in enumerate(leagues, 1)]})
+
+
+@register.simple_tag
+def league_for(row_or_fixture):
+    """Ukurasa wa ligi wa mechi hii (kwa namba ya ligi), au None."""
+    from news.models import League
+    cid = getattr(row_or_fixture, "competition_id", None)
+    if not cid:
+        return None
+    try:
+        return League.objects.filter(competition_id=cid, active=True).first()
+    except Exception:
+        return None
+
+
+@register.simple_tag(takes_context=True)
 def team_jsonld(context, team, logo="", next_match=None, articles=()):
     """SportsTeam + mechi ijayo (SportsEvent) + breadcrumb + orodha ya habari."""
     request = context["request"]

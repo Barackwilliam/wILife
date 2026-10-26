@@ -97,6 +97,7 @@
         <a href="{% url 'news:predictions' %}" class="{% if u == 'predictions' %}on{% endif %}"><span class="dr-ic">{% icon "graph-up-arrow" %}</span>Utabiri wa mechi{% icon "chevron-right" %}</a>
         <a href="{% url 'news:videos' %}" class="{% if u == 'videos' or u == 'video' %}on{% endif %}"><span class="dr-ic">{% icon "youtube" %}</span>Video za magoli{% icon "chevron-right" %}</a>
         <a href="{% url 'news:teams' %}" class="{% if u == 'teams' or u == 'team' %}on{% endif %}"><span class="dr-ic">{% icon "shield-fill" %}</span>Timu: Simba, Yanga na zaidi{% icon "chevron-right" %}</a>
+        <a href="{% url 'news:leagues' %}" class="{% if u == 'leagues' or u == 'league' %}on{% endif %}"><span class="dr-ic">{% icon "trophy-fill" %}</span>Ligi: msimamo na ratiba{% icon "chevron-right" %}</a>
         <a href="{% url 'news:category' 'tanzania' %}" class="c-tanzania{% if dc == 'tanzania' %} on{% endif %}"><span class="dr-dot"></span>Tanzania{% icon "chevron-right" %}</a>
         <a href="{% url 'news:category' 'afrika' %}" class="c-afrika{% if dc == 'afrika' %} on{% endif %}"><span class="dr-dot"></span>Afrika{% icon "chevron-right" %}</a>
         <a href="{% url 'news:category' 'dunia' %}" class="c-dunia{% if dc == 'dunia' %} on{% endif %}"><span class="dr-dot"></span>Dunia{% icon "chevron-right" %}</a>
