@@ -171,6 +171,11 @@ def run_football_youtube(now=None, deadline=None, dry_run=False):
     return run(now=now, deadline=deadline, dry_run=dry_run)
 
 
+def run_soka360(now=None, deadline=None, dry_run=False):
+    from news.soka360 import run
+    return run(now=now, deadline=deadline, dry_run=dry_run)
+
+
 def run_football_digest(now=None, deadline=None, dry_run=False):
     from news.digest import run
     return run(now=now, deadline=deadline, dry_run=dry_run)
@@ -188,6 +193,7 @@ JOBS = {
     "football": run_football,          # mechi zinazochezwa sasa — muda ni muhimu
     "football_video": run_football_video,   # video za magoli (ScoreBat)
     "football_youtube": run_football_youtube,   # video za chaneli rasmi za YouTube (Admin -> Video channels)
+    "soka360": run_soka360,            # WhatsApp Channel: video za matokeo + highlights rasmi, posti 1 kwa tick
     "morning_brief": run_morning_brief,
     "expiry_watch": run_expiry_watch,
     "invoice_watch": run_invoice_watch,

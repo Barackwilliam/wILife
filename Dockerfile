@@ -19,8 +19,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 # Same Debian release as stage 1, so native modules (e.g. sharp) still load.
 COPY --from=bridge /usr/local/bin/node /usr/local/bin/node
-# DejaVu fonts for the generated article cover images.
-RUN apt-get update && apt-get install -y --no-install-recommends fonts-dejavu-core \
+# DejaVu fonts for the generated article cover images; ffmpeg for the Soka360 result videos
+# (news/match_video.py) and the WhatsApp video thumbnails.
+RUN apt-get update && apt-get install -y --no-install-recommends fonts-dejavu-core ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

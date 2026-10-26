@@ -4,7 +4,8 @@
  * Logs in to a normal WhatsApp number as a linked device and gives Django
  * two things:
  *
- *   POST /send            Django -> WhatsApp   { to, text }      (X-Bridge-Key)
+ *   POST /send            Django -> WhatsApp   { to, text, preview? }   (X-Bridge-Key)
+ *   POST /send-video      Django -> Channel    { to, video (base64 MP4), text }
  *   inbound messages      WhatsApp -> Django   /agent/whatsapp/baileys/
  *
  * Django handles all decisions (who may approve what). This bridge only moves
@@ -47,7 +48,10 @@ if (!BRIDGE_API_KEY) {
 }
 
 const app = express();
-app.use(express.json({ limit: '64kb' }));
+// /send-video hubeba MP4 (base64) — kikomo kikubwa kwa njia hiyo tu
+const smallJson = express.json({ limit: '64kb' });
+const videoJson = express.json({ limit: '25mb' });
+app.use((req, res, next) => (req.path === '/send-video' ? videoJson : smallJson)(req, res, next));
 
 let sock = null;
 let auth = null;
@@ -108,7 +112,10 @@ app.post('/send', requireKey, async (req, res) => {
 
     try {
         if (jid.endsWith('@newsletter')) {
-            const sent = await sock.sendMessage(jid, { text });
+            const content = { text };
+            const linkPreview = await buildPreview(req.body?.preview, text);
+            if (linkPreview) content.linkPreview = linkPreview;
+            const sent = await sock.sendMessage(jid, content);
             return res.json({ success: true, id: sent?.key?.id || 'sent' });
         }
         const [found] = await sock.onWhatsApp(jid);
@@ -119,6 +126,56 @@ app.post('/send', requireKey, async (req, res) => {
         res.json({ success: true, id: sent?.key?.id || 'sent' });
     } catch (e) {
         console.error('send failed:', e.message);
+        res.status(502).json({ success: false, error: e.message });
+    }
+});
+
+// Kadi ya link {url, title, description, thumbnail}: Django inatoa maelezo, bridge inapakua picha ndogo.
+// Link ya YouTube yenye kadi hii inachezwa ndani ya WhatsApp (picture-in-picture).
+async function buildPreview(preview, text) {
+    const url = String(preview?.url || '');
+    if (!/^https:\/\//.test(url) || !text.includes(url)) return undefined;
+    let jpegThumbnail;
+    const thumb = String(preview?.thumbnail || '');
+    if (/^https:\/\/(i\.ytimg\.com|img\.youtube\.com)\//.test(thumb)) {
+        try {
+            const r = await axios.get(thumb, { responseType: 'arraybuffer', timeout: 8000, maxContentLength: 2_000_000 });
+            const sharp = require('sharp');
+            jpegThumbnail = await sharp(Buffer.from(r.data)).resize(320).jpeg({ quality: 70 }).toBuffer();
+        } catch (e) {
+            console.error('preview thumbnail failed:', e.message);
+        }
+    }
+    return {
+        'canonical-url': url,
+        'matched-text': url,
+        title: String(preview?.title || '').slice(0, 200),
+        description: String(preview?.description || '').slice(0, 300),
+        ...(jpegThumbnail ? { jpegThumbnail } : {}),
+    };
+}
+
+// Video (MP4, base64) kwenye WhatsApp Channel: { to: '...@newsletter', video, text (maelezo) }
+app.post('/send-video', requireKey, async (req, res) => {
+    const jid = toJid(req.body?.to);
+    const caption = String(req.body?.text || '').slice(0, 1000);
+    let video;
+    try {
+        video = Buffer.from(String(req.body?.video || ''), 'base64');
+    } catch (e) {
+        video = null;
+    }
+    if (!jid.endsWith('@newsletter') || !video || video.length < 1000) {
+        return res.status(400).json({ success: false, error: 'channel (to) and video are required' });
+    }
+    if (connectionStatus !== 'connected' || !sock) {
+        return res.status(503).json({ success: false, error: `not connected (${connectionStatus})` });
+    }
+    try {
+        const sent = await sock.sendMessage(jid, { video, caption, mimetype: 'video/mp4' });
+        res.json({ success: true, id: sent?.key?.id || 'sent' });
+    } catch (e) {
+        console.error('send-video failed:', e.message);
         res.status(502).json({ success: false, error: e.message });
     }
 });
