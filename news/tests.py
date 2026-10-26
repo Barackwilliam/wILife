@@ -3504,7 +3504,8 @@ def _iso_z(dt):
 
 @override_settings(WHATSAPP_CHANNEL="120363000000000000@newsletter", AGENT_ENABLED=True, WHATSAPP_ENABLED=True,
                    SITE_URL="https://www.wilife.online", SOKA360_POSTS=True, SOKA360_GAP_MINUTES=10,
-                   SOKA360_RESULTS_PER_DAY=15, SOKA360_HIGHLIGHTS_PER_DAY=20, SOKA360_WINDOW_HOURS=48)
+                   SOKA360_RESULTS_PER_DAY=15, SOKA360_HIGHLIGHTS_PER_DAY=20, SOKA360_WINDOW_HOURS=48,
+                   SOKA360_FOLLOW_URL="https://whatsapp.com/channel/0029VbEUHxl3GJOvK9RLS93F")
 class Soka360ChannelTest(TestCase):
     """Channel ya Soka360: video yetu ya matokeo (MP4) + link za highlights rasmi zinazochezwa ndani ya WhatsApp."""
 
@@ -3542,6 +3543,8 @@ class Soka360ChannelTest(TestCase):
         self.assertIn("⚽ *MATOKEO* | Simba SC 2-1 Young Africans", caption)
         self.assertIn("23' Jean Ahoua ameifungia Simba SC.", caption)
         self.assertIn("https://www.wilife.online/", caption)
+        self.assertIn("📲 *Fuata Soka360*", caption)
+        self.assertIn("https://whatsapp.com/channel/0029VbEUHxl3GJOvK9RLS93F", caption)
         self.assertEqual(render.call_args.kwargs["site"], "www.wilife.online")
 
         out, video, text, _ = self._run(self.now + timedelta(minutes=5))     # nafasi kati ya posti
