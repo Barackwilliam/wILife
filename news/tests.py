@@ -3237,8 +3237,10 @@ class YouTubeChannelTest(TestCase):
 
     def setUp(self):
         from django.core.cache import cache
+        from news.models import VideoChannel
         cache.clear()
         self.addCleanup(cache.clear)
+        VideoChannel.objects.all().delete()          # chaneli za data migration zina jaribio lake (YouTubeSeeded…)
 
     def _channel(self, **kw):
         from news.models import Team, VideoChannel
@@ -3339,3 +3341,34 @@ class YouTubeChannelTest(TestCase):
             r = self.client.post(url, {"link": "https://www.youtube.com/@HakunaKitu", "active": "on"}, secure=True)
         self.assertContains(r, "Chaneli haikupatikana")
         self.assertEqual(VideoChannel.objects.count(), 1)
+
+
+@override_settings(YOUTUBE_API_KEY="yt-key")
+class YouTubeSeededChannelsTest(TestCase):
+    """Chaneli zilizowekwa kwenye code zinathibitishwa zenyewe key ikiwepo; kichwa cha Azam TV kinasomeka."""
+
+    def test_seeded_channels_resolve_then_sync(self):
+        from news import youtube
+        from news.models import VideoChannel
+        self.assertEqual(sorted(VideoChannel.objects.values_list("link", flat=True)), [
+            "https://www.youtube.com/@YoungAfricansSCTV", "https://www.youtube.com/@azamtvtz",
+            "https://www.youtube.com/@simbasctanzania255"])
+        self.assertEqual(VideoChannel.objects.get(link__endswith="@simbasctanzania255").team.slug, "simba")
+        ids = iter("UC" + c * 22 for c in "xyz")
+
+        def fake_get(url, params=None, timeout=None):
+            if url.endswith("/channels"):
+                return _yt_resp({"items": [{"id": next(ids), "snippet": {"title": params["forHandle"]}}]})
+            return _yt_resp({"items": []})
+        with mock.patch("news.youtube.requests.get", side_effect=fake_get):
+            out = youtube.run()
+        self.assertEqual(out["failed"], 0, out)
+        self.assertEqual(VideoChannel.objects.exclude(channel_id=None).count(), 3)
+        self.assertIn("imethibitishwa", out["detail"])
+
+    def test_azam_tv_title(self):
+        from news import youtube
+        self.assertEqual(youtube.teams_from_title("Simba 6-1 Mashujaa | Highlights | NBC Premier League 13/10/2026"),
+                         ("Simba", "Mashujaa"))
+        self.assertEqual(youtube.teams_from_title("JKT Tanzania 2-1 Namungo | Magoli | NBC Premier League - 29/08/2026"),
+                         ("JKT Tanzania", "Namungo"))

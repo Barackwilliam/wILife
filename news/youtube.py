@@ -196,6 +196,18 @@ def run(now=None, deadline=None, dry_run=False):
     now = now or timezone.now()
     every = timedelta(minutes=max(15, int(getattr(settings, "YOUTUBE_EVERY_MINUTES", 60))))
     notes = []
+    for ch in VideoChannel.objects.filter(active=True, channel_id=None):
+        try:                                   # chaneli zilizowekwa kwenye code (data migration): zithibitishwe
+            cid, name = resolve(ch.link)
+        except Exception as exc:
+            VideoChannel.objects.filter(pk=ch.pk).update(error=str(exc)[:300])
+            notes.append(f"{ch.link}: haikuthibitishwa")
+            continue
+        if VideoChannel.objects.filter(channel_id=cid).exclude(pk=ch.pk).exists():
+            VideoChannel.objects.filter(pk=ch.pk).update(active=False, error="Chaneli hii tayari ipo")
+            continue
+        VideoChannel.objects.filter(pk=ch.pk).update(channel_id=cid, name=name, error="")
+        notes.append(f"{name}: imethibitishwa")
     for ch in VideoChannel.objects.filter(active=True).exclude(channel_id=None):
         if ch.checked_at and now - ch.checked_at < every:
             continue
