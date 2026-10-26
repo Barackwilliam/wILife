@@ -166,6 +166,11 @@ def run_football_video(now=None, deadline=None, dry_run=False):
     return run(now=now, deadline=deadline, dry_run=dry_run)
 
 
+def run_football_youtube(now=None, deadline=None, dry_run=False):
+    from news.youtube import run
+    return run(now=now, deadline=deadline, dry_run=dry_run)
+
+
 def run_football_digest(now=None, deadline=None, dry_run=False):
     from news.digest import run
     return run(now=now, deadline=deadline, dry_run=dry_run)
@@ -181,7 +186,8 @@ def run_news_requests(now=None, deadline=None, dry_run=False):
 JOBS = {
     "schedule_reminders": run_schedule_reminders,
     "football": run_football,          # mechi zinazochezwa sasa — muda ni muhimu
-    "football_video": run_football_video,   # video za magoli (ScoreBat) — ombi 1 kila nusu saa
+    "football_video": run_football_video,   # video za magoli (ScoreBat)
+    "football_youtube": run_football_youtube,   # video za chaneli rasmi za YouTube (Admin -> Video channels)
     "morning_brief": run_morning_brief,
     "expiry_watch": run_expiry_watch,
     "invoice_watch": run_invoice_watch,

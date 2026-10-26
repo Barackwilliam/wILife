@@ -647,7 +647,11 @@ class Highlight(models.Model):
     date = models.DateTimeField(db_index=True)
     thumbnail = models.URLField(max_length=500, blank=True)
     source_url = models.URLField(max_length=500, blank=True)
-    videos = models.JSONField(default=list, help_text="[{title, src}] — src ni iframe ya scorebat.com tu")
+    videos = models.JSONField(default=list, help_text="[{title, src}] — src ni iframe ya scorebat.com au youtube-nocookie.com tu")
+    channel = models.CharField(max_length=120, blank=True, help_text="Chaneli rasmi ya YouTube (kwa video za YouTube)")
+    team = models.ForeignKey("Team", null=True, blank=True, on_delete=models.SET_NULL, related_name="videos",
+                             help_text="Timu ya chaneli rasmi (video zake zinaonekana kwenye ukurasa wa timu)")
+    duration = models.PositiveIntegerField(null=True, blank=True, help_text="Sekunde")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -668,6 +672,18 @@ class Highlight(models.Model):
     @property
     def name(self):
         return f"{self.home} vs {self.away}" if self.home and self.away else self.title
+
+    @property
+    def source_label(self):
+        return f"YouTube — {self.channel}" if self.provider == "youtube" else "ScoreBat"
+
+    @property
+    def duration_iso(self):
+        if not self.duration:
+            return ""
+        m, s = divmod(self.duration, 60)
+        h, m = divmod(m, 60)
+        return f"PT{h}H{m}M{s}S" if h else f"PT{m}M{s}S"
 
     @property
     def keywords(self):
@@ -718,3 +734,32 @@ class Team(models.Model):
     @property
     def terms(self):
         return [t.strip() for t in self.news_terms.split(",") if t.strip()]
+
+
+class VideoChannel(models.Model):
+    """
+    Chaneli RASMI ya YouTube (klabu, ligi, shirikisho) ambayo video zake zinaingia wILife (news/youtube.py).
+    Kwenye Admin unabandika kiungo (https://www.youtube.com/@jina au /channel/UC...) — mfumo unathibitisha
+    chaneli kupitia YouTube Data API na kujaza jina na namba yake. Chaneli zisizo rasmi zisiongezwe.
+    """
+    link = models.CharField(max_length=200, help_text="Kiungo cha chaneli, mf. https://www.youtube.com/@jina")
+    channel_id = models.CharField(max_length=40, blank=True, unique=True, null=True, editable=False)
+    name = models.CharField(max_length=120, blank=True, editable=False)
+    team = models.ForeignKey("Team", null=True, blank=True, on_delete=models.SET_NULL,
+                             help_text="Kama ni chaneli ya timu moja (mf. Simba SC)")
+    highlights_only = models.BooleanField(
+        default=True, help_text="Chukua video zenye 'highlights', 'magoli', 'mabao', 'goals' n.k. kwenye kichwa tu")
+    active = models.BooleanField(default=True)
+    checked_at = models.DateTimeField(null=True, blank=True, editable=False)
+    error = models.CharField(max_length=300, blank=True, editable=False)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name or self.link
+
+    @property
+    def uploads(self):
+        """Orodha ya video zote za chaneli: UC... -> UU..."""
+        return "UU" + self.channel_id[2:] if self.channel_id and self.channel_id.startswith("UC") else ""

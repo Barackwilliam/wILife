@@ -1,7 +1,8 @@
+from django import forms
 from django.contrib import admin
 from django.utils.html import format_html
 
-from news.models import (Article, EditorSettings, Fixture, FootballState, Highlight, JamiiTekService, Team, LiveMatch, LiveUpdate,
+from news.models import (Article, EditorSettings, Fixture, FootballState, Highlight, JamiiTekService, Team, VideoChannel, LiveMatch, LiveUpdate,
                          NewsBatch, NewsRequest, Subscriber, EmailSubscriber, DailyCount)
 
 
@@ -190,3 +191,41 @@ class TeamAdmin(admin.ModelAdmin):
     list_display = ("name", "slug", "active", "sort")
     list_editable = ("active", "sort")
     prepopulated_fields = {"slug": ("name",)}
+
+
+class VideoChannelForm(forms.ModelForm):
+    class Meta:
+        model = VideoChannel
+        fields = ("link", "team", "highlights_only", "active")
+
+    def clean_link(self):
+        """Kiungo kinathibitishwa na YouTube (ombi 1) — chaneli isiyopo au kiungo kibaya kinakataliwa."""
+        from news import youtube
+        link = self.cleaned_data["link"].strip()
+        if not youtube.key():
+            raise forms.ValidationError("Weka YOUTUBE_API_KEY kwenye Render kwanza.")
+        try:
+            self._resolved = youtube.resolve(link)
+        except youtube.YouTubeError as exc:
+            raise forms.ValidationError(str(exc))
+        dup = VideoChannel.objects.filter(channel_id=self._resolved[0]).exclude(pk=self.instance.pk)
+        if dup.exists():
+            raise forms.ValidationError(f"Chaneli hii tayari imeongezwa: {dup.first()}")
+        return link
+
+    def save(self, commit=True):
+        obj = super().save(commit=False)
+        obj.channel_id, obj.name = self._resolved
+        obj.checked_at = None                    # isomwe kwenye mzunguko unaofuata
+        if commit:
+            obj.save()
+        return obj
+
+
+@admin.register(VideoChannel)
+class VideoChannelAdmin(admin.ModelAdmin):
+    """Chaneli RASMI za YouTube (klabu, ligi, shirikisho). Bandika kiungo — jina na namba vinajazwa vyenyewe."""
+    form = VideoChannelForm
+    list_display = ("__str__", "team", "highlights_only", "active", "checked_at", "error")
+    list_editable = ("active",)
+    readonly_fields = ("name", "channel_id", "checked_at", "error")

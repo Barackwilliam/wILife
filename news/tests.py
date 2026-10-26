@@ -3223,3 +3223,152 @@ class TeamPageTest(TestCase):
                                                     _sb_item(title="Arsenal - Chelsea")]}))
         vids = teams.videos(Team.objects.get(slug="simba"))
         self.assertEqual([v.name for v in vids], ["Simba SC vs Yanga"])
+
+
+def _yt_resp(body, status=200):
+    r = _SBResp(body, status)
+    r.text = json.dumps(body)
+    return r
+
+
+@override_settings(YOUTUBE_API_KEY="yt-key", SITE_URL="https://www.wlife.online")
+class YouTubeChannelTest(TestCase):
+    """Video za chaneli RASMI za YouTube: Admin anabandika kiungo, kazi inasoma video mpya zinazofaa."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from news.models import VideoChannel
+        cache.clear()
+        self.addCleanup(cache.clear)
+        VideoChannel.objects.all().delete()          # chaneli za data migration zina jaribio lake (YouTubeSeeded…)
+
+    def _channel(self, **kw):
+        from news.models import Team, VideoChannel
+        return VideoChannel.objects.create(link="https://www.youtube.com/@SimbaRasmi", channel_id="UC" + "a" * 22,
+                                           name="Simba SC Rasmi", team=Team.objects.get(slug="simba"), **kw)
+
+    def test_parse_link_and_titles(self):
+        from news import youtube
+        self.assertEqual(youtube.parse_link("https://www.youtube.com/@SimbaRasmi"), {"forHandle": "@SimbaRasmi"})
+        self.assertEqual(youtube.parse_link("https://youtube.com/channel/UC" + "b" * 22), {"id": "UC" + "b" * 22})
+        self.assertIsNone(youtube.parse_link("https://example.com/simba"))
+        for title, teams in (("Simba SC vs Yanga | Highlights", ("Simba SC", "Yanga")),
+                             ("HIGHLIGHTS | SIMBA SC 2-0 YANGA SC", ("SIMBA SC", "YANGA SC")),
+                             ("Simba dhidi ya Azam: Magoli yote", ("Simba", "Azam")),
+                             ("Mazoezi ya Simba leo", ("", ""))):
+            self.assertEqual(youtube.teams_from_title(title), teams, title)
+        self.assertEqual(youtube._seconds("PT9M41S"), 581)
+        self.assertEqual(youtube._seconds("PT1H2M"), 3720)
+
+    def test_sync_keeps_only_public_embeddable_highlights(self):
+        from news import youtube
+        from news.models import Highlight, VideoChannel
+        ch = self._channel()
+        good, live, private, noembed, training = "AAAAAAAAAA1", "AAAAAAAAAA2", "AAAAAAAAAA3", "AAAAAAAAAA4", "AAAAAAAAAA5"
+        sn = lambda t: {"title": t, "publishedAt": "2026-10-25T18:00:00Z",
+                        "thumbnails": {"high": {"url": "https://i.ytimg.com/vi/x/hqdefault.jpg"},
+                                       "maxres": {"url": "https://i.ytimg.com/vi/x/maxresdefault.jpg"}}}
+        playlist = {"items": [{"contentDetails": {"videoId": v}, "snippet": sn(t)} for v, t in (
+            (good, "HIGHLIGHTS | Simba SC 6-1 15 de Agosto"), (live, "LIVE: Simba vs Yanga highlights"),
+            (private, "Magoli yote ya wiki"), (noembed, "Simba vs KMC highlights"), (training, "Mazoezi ya leo"))]}
+        details = {"items": [
+            {"id": good, "status": {"embeddable": True, "privacyStatus": "public"},
+             "contentDetails": {"duration": "PT9M41S"}, "snippet": {**sn("HIGHLIGHTS | Simba SC 6-1 15 de Agosto"),
+                                                                    "liveBroadcastContent": "none"}},
+            {"id": live, "status": {"embeddable": True, "privacyStatus": "public"},
+             "contentDetails": {"duration": "PT0S"}, "snippet": {**sn("LIVE"), "liveBroadcastContent": "live"}},
+            {"id": private, "status": {"embeddable": True, "privacyStatus": "unlisted"},
+             "contentDetails": {}, "snippet": sn("x")},
+            {"id": noembed, "status": {"embeddable": False, "privacyStatus": "public"},
+             "contentDetails": {}, "snippet": sn("x")}]}
+        calls = []
+
+        def fake_get(url, params=None, timeout=None):
+            calls.append((url, params))
+            return _yt_resp(playlist if url.endswith("/playlistItems") else details)
+        with mock.patch("news.youtube.requests.get", side_effect=fake_get):
+            out = youtube.run()
+            again = youtube.run()                                   # bado ndani ya saa: haisomwi tena
+        self.assertEqual((out["sent"], out["failed"]), (1, 0), out)
+        self.assertEqual(again["sent"], 0)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[0][1]["playlistId"], "UU" + "a" * 22)
+        self.assertEqual(calls[0][1]["key"], "yt-key")
+        self.assertNotIn(training, calls[1][1]["id"])              # si highlights: haikuombwa hata maelezo
+        h = Highlight.objects.get()
+        self.assertEqual((h.provider, h.home, h.away, h.duration, h.channel), ("youtube", "Simba SC", "15 de Agosto",
+                                                                               581, "Simba SC Rasmi"))
+        self.assertEqual(h.videos, [{"title": "Video", "src": f"https://www.youtube-nocookie.com/embed/{good}"}])
+        self.assertEqual(h.thumbnail, "https://i.ytimg.com/vi/x/maxresdefault.jpg")
+        page = self.client.get(h.get_absolute_url()).content.decode()
+        for text in ("Video rasmi kutoka YouTube (Simba SC Rasmi)", "Tazama YouTube", '"duration": "PT9M41S"',
+                     f'<iframe src="https://www.youtube-nocookie.com/embed/{good}"'):
+            self.assertIn(text, page)
+        self.assertIn("<video:duration>581</video:duration>", self.client.get("/video-sitemap.xml").content.decode())
+        team_page = self.client.get("/timu/simba/").content.decode()
+        self.assertIn(h.get_absolute_url(), team_page)              # chaneli ya timu -> ukurasa wa timu
+        self.assertEqual(VideoChannel.objects.get(pk=ch.pk).error, "")
+
+    def test_api_error_is_recorded_not_raised(self):
+        from news import youtube
+        from news.models import VideoChannel
+        ch = self._channel()
+        with mock.patch("news.youtube.requests.get",
+                        return_value=_yt_resp({"error": {"message": "API key not valid"}}, status=400)):
+            out = youtube.run()
+        self.assertEqual(out["failed"], 1)
+        self.assertIn("API key not valid", VideoChannel.objects.get(pk=ch.pk).error)
+        with self.settings(YOUTUBE_API_KEY=""):
+            self.assertIn("YOUTUBE_API_KEY", youtube.run()["detail"])
+
+    def test_admin_resolves_link_and_rejects_bad_ones(self):
+        from django.contrib.auth.models import User
+        from news.models import VideoChannel
+        boss = User.objects.create_superuser("bossyt", "b@x.com", "x")
+        self.client.force_login(boss)
+        url = "/admin/news/videochannel/add/"
+        ok = _yt_resp({"items": [{"id": "UC" + "c" * 22, "snippet": {"title": "Young Africans SC"}}]})
+        with mock.patch("news.youtube.requests.get", return_value=ok) as get, \
+                mock.patch.dict("os.environ", {"STAFF_2FA_REQUIRED": "false"}):
+            r = self.client.post(url, {"link": "https://www.youtube.com/@YangaRasmi", "highlights_only": "on",
+                                       "active": "on"}, secure=True)
+        self.assertIn(r.status_code, (302, 200))
+        self.assertEqual(get.call_args.kwargs["params"]["forHandle"], "@YangaRasmi")
+        ch = VideoChannel.objects.get()
+        self.assertEqual((ch.channel_id, ch.name), ("UC" + "c" * 22, "Young Africans SC"))
+        with mock.patch("news.youtube.requests.get", return_value=_yt_resp({"items": []})), \
+                mock.patch.dict("os.environ", {"STAFF_2FA_REQUIRED": "false"}):
+            r = self.client.post(url, {"link": "https://www.youtube.com/@HakunaKitu", "active": "on"}, secure=True)
+        self.assertContains(r, "Chaneli haikupatikana")
+        self.assertEqual(VideoChannel.objects.count(), 1)
+
+
+@override_settings(YOUTUBE_API_KEY="yt-key")
+class YouTubeSeededChannelsTest(TestCase):
+    """Chaneli zilizowekwa kwenye code zinathibitishwa zenyewe key ikiwepo; kichwa cha Azam TV kinasomeka."""
+
+    def test_seeded_channels_resolve_then_sync(self):
+        from news import youtube
+        from news.models import VideoChannel
+        self.assertEqual(sorted(VideoChannel.objects.values_list("link", flat=True)), [
+            "https://www.youtube.com/@YoungAfricansSCTV", "https://www.youtube.com/@azamtvtz",
+            "https://www.youtube.com/@simbasctanzania255"])
+        self.assertEqual(VideoChannel.objects.get(link__endswith="@simbasctanzania255").team.slug, "simba")
+        ids = iter("UC" + c * 22 for c in "xyz")
+
+        def fake_get(url, params=None, timeout=None):
+            if url.endswith("/channels"):
+                return _yt_resp({"items": [{"id": next(ids), "snippet": {"title": params["forHandle"]}}]})
+            return _yt_resp({"items": []})
+        with mock.patch("news.youtube.requests.get", side_effect=fake_get):
+            out = youtube.run()
+        self.assertEqual(out["failed"], 0, out)
+        self.assertEqual(VideoChannel.objects.exclude(channel_id=None).count(), 3)
+        self.assertIn("imethibitishwa", out["detail"])
+
+    def test_azam_tv_title(self):
+        from news import youtube
+        self.assertEqual(youtube.teams_from_title("Simba 6-1 Mashujaa | Highlights | NBC Premier League 13/10/2026"),
+                         ("Simba", "Mashujaa"))
+        self.assertEqual(youtube.teams_from_title("JKT Tanzania 2-1 Namungo | Magoli | NBC Premier League - 29/08/2026"),
+                         ("JKT Tanzania", "Namungo"))

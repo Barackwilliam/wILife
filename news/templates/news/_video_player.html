@@ -31,8 +31,8 @@ inaiona video kama maudhui makuu). src inatoka scorebat.parse — https://www.sc
   <div class="vx-act">
     <a class="vx-a vx-wa" href="https://wa.me/?text={{ h.name|urlencode }}%20%E2%80%94%20video%20za%20magoli%3A%20{{ share_url|urlencode }}" target="_blank" rel="noopener">{% icon "whatsapp" %} Shiriki WhatsApp</a>
     <button type="button" class="vx-a" data-copy="{{ share_url }}">{% icon "share" %} Nakili kiungo</button>
-    {% if h.source_url %}<a class="vx-a" href="{{ h.source_url }}" target="_blank" rel="noopener nofollow">{% icon "box-arrow-up-right" %} Fungua kwa ukubwa</a>{% endif %}
+    {% if h.source_url %}<a class="vx-a" href="{{ h.source_url }}" target="_blank" rel="noopener nofollow">{% icon "box-arrow-up-right" %} {% if h.provider == 'youtube' %}Tazama YouTube{% else %}Fungua kwa ukubwa{% endif %}</a>{% endif %}
   </div>
-  <p class="vx-note">Video inaonyeshwa kupitia ScoreBat; haki zake ni za wamiliki wake (ligi na vituo vya TV).</p>
+  <p class="vx-note">{% if h.provider == 'youtube' %}Video rasmi kutoka YouTube ({{ h.channel }}); haki zake ni za mmiliki wa chaneli.{% else %}Video inaonyeshwa kupitia ScoreBat; haki zake ni za wamiliki wake (ligi na vituo vya TV).{% endif %}</p>
 </section>
 {% endif %}{% endwith %}

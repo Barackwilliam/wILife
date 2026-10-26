@@ -458,6 +458,7 @@ def _video_objects(request, h):
              "description": desc, "thumbnailUrl": [h.thumbnail] if h.thumbnail else None,
              "uploadDate": h.date.isoformat(), "embedUrl": v["src"], "url": url, "inLanguage": "sw",
              "isFamilyFriendly": True, "keywords": ", ".join(k for k in h.keywords if k), "about": about,
+             **({"duration": h.duration_iso} if h.duration else {}),
              "publisher": {"@type": "Organization", "name": "wILife", "url": _abs(request, "/"),
                            "logo": {"@type": "ImageObject", "url": _abs(request, static("news/brand/logo-600.png"))}}}
             for i, v in enumerate(h.videos[:4])]
