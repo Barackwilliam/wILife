@@ -3891,3 +3891,59 @@ class TomorrowAndPreviewTest(TestCase):
         r = self.client.get(f"/mechi/{tomorrow.isoformat()}/")
         self.assertEqual(r.status_code, 200)
         self.assertEqual(self.client.get(f"/mechi/{(tomorrow + timedelta(days=1)).isoformat()}/").status_code, 404)
+
+
+@override_settings(SITE_URL="https://www.wlife.online", JAMIITEK_EMAIL="habari@example.tz")
+class TrustPagesTest(TestCase):
+    """E-E-A-T: mhariri halisi kwenye habari anazochapisha, sera ya uhariri, masahihisho na data ya Google."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from news.models import Author
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.user = User.objects.create_user("mhariri", password="x", is_staff=True)
+        self.author = Author.objects.create(user=self.user, name="Asha Mohamed", slug="asha-mohamed",
+                                            role="Mhariri wa Michezo", bio="Miaka 6 ya uandishi wa michezo.",
+                                            links="https://www.linkedin.com/in/asha\nsi-link")
+
+    def test_publishing_signs_article_and_shows_author(self):
+        a = Article.objects.create(title="Simba yashinda", category="tanzania", excerpt="x", body="Aya moja.")
+        self.client.force_login(self.user)
+        with mock.patch("news.indexnow.submit"):
+            self.client.post("/habari-admin/rasimu/action/", {"action": "publish_one", "article": a.pk})
+        a.refresh_from_db()
+        self.assertEqual((a.status, a.author), ("published", self.author))
+        self.client.logout()
+        page = self.client.get(a.get_absolute_url()).content.decode()
+        self.assertIn('<a href="/mwandishi/asha-mohamed/" rel="author">Asha Mohamed</a>, Mhariri wa Michezo', page)
+        self.assertIn('"@type": "Person", "name": "Asha Mohamed"', page)
+        profile = self.client.get("/mwandishi/asha-mohamed/").content.decode()
+        for text in ("Asha Mohamed", "Miaka 6 ya uandishi", '"@type": "ProfilePage"', "Simba yashinda",
+                     "https://www.linkedin.com/in/asha"):
+            self.assertIn(text, profile)
+        self.assertNotIn("si-link", profile)
+        self.assertIn("/mwandishi/asha-mohamed/", self.client.get("/kuhusu/").content.decode())
+
+    def test_unsigned_article_keeps_news_desk_and_correction_note(self):
+        a = Article.objects.create(title="Bajeti mpya", category="tanzania", excerpt="x", body="Aya.",
+                                   status="published", published_at=timezone.now(),
+                                   correction="Tarehe ya kikao ilisahihishwa kuwa 12 Oktoba.")
+        page = self.client.get(a.get_absolute_url()).content.decode()
+        self.assertIn("<strong>Dawati la Habari, wILife</strong>", page)
+        self.assertIn("<b>Sahihisho:</b> Tarehe ya kikao ilisahihishwa", page)
+        fixes = self.client.get("/masahihisho/").content.decode()
+        self.assertIn("Bajeti mpya", fixes)
+        self.assertIn("mailto:habari@example.tz", fixes)
+
+    def test_policy_pages_and_organization_data(self):
+        policy = self.client.get("/sera-ya-uhariri/").content.decode()
+        for text in ("Hatubuni nukuu", "huhakikiwa na mhariri kabla ya kuchapishwa", "hatupakui wala kupakia upya",
+                     'href="/masahihisho/"'):
+            self.assertIn(text, policy)
+        home = self.client.get("/").content.decode()
+        self.assertIn('"correctionsPolicy": "https://www.wlife.online/masahihisho/"', home)
+        self.assertIn('"publishingPrinciples": "https://www.wlife.online/sera-ya-uhariri/"', home)
+        sm = self.client.get("/sitemap.xml").content.decode()
+        for path in ("/sera-ya-uhariri/", "/masahihisho/", "/mwandishi/asha-mohamed/"):
+            self.assertIn("https://www.wlife.online" + path, sm)

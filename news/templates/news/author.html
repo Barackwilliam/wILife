@@ -1,0 +1,19 @@
+{% extends 'news/base.html' %}
+{% load news_tags %}
+{% block title %}{{ author.name }}{% if author.role %}, {{ author.role }}{% endif %} — wILife{% endblock %}
+{% block description %}{% if author.bio %}{{ author.bio|truncatechars:150 }}{% else %}Habari zilizohakikiwa na {{ author.name }} kwenye wILife.{% endif %}{% endblock %}
+{% block jsonld %}{% author_jsonld author %}{% endblock %}
+{% block content %}
+<nav class="crumbs" aria-label="breadcrumb"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><a href="{% url 'news:about' %}">Kuhusu sisi</a><span>/</span><span>{{ author.name }}</span></nav>
+<header class="au-head">
+  {% if author.photo %}<img src="{{ author.photo }}" alt="{{ author.name }}" width="96" height="96" loading="lazy" referrerpolicy="no-referrer">{% endif %}
+  <div><h1 class="fxd-title">{{ author.name }}</h1>{% if author.role %}<p class="fxd-dek">{{ author.role }}, wILife</p>{% endif %}
+  {% if author.link_list %}<p class="tm-links">{% for u in author.link_list %}<a href="{{ u }}" rel="me noopener" target="_blank">{% icon "link-45deg" %} {{ u|cut:"https://"|truncatechars:40 }}</a>{% endfor %}</p>{% endif %}</div>
+</header>
+{% if author.bio %}<div class="prose" style="max-width:780px">{{ author.bio|linebreaks }}</div>{% endif %}
+<section>
+  <div class="sh"><h2>Habari alizohakiki</h2></div>
+  {% if articles %}<div class="grid3 tm-news">{% for a in articles %}{% include 'news/_card.html' with compact=True %}{% endfor %}</div>
+  {% else %}<p class="vh-empty">Habari alizohakiki zitaonekana hapa.</p>{% endif %}
+</section>
+{% endblock %}

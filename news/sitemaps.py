@@ -58,7 +58,7 @@ class StaticSitemap(Sitemap):
     priority = 0.4
 
     def items(self):
-        return ["news:services", "news:about"]
+        return ["news:services", "news:about", "news:policy", "news:corrections"]
 
     def location(self, item):
         return reverse(item)
@@ -144,6 +144,16 @@ class FixtureSitemap(Sitemap):
         return obj.updated_at
 
 
+class AuthorSitemap(Sitemap):
+    changefreq = "weekly"
+    priority = 0.4
+
+    def items(self):
+        from news.models import Author
+        return Author.objects.filter(active=True)
+
+
 SITEMAPS = {"days": DaySitemap, "topics": TopicSitemap, "sections": SectionSitemap, "articles": ArticleSitemap,
             "services": ServiceSitemap, "pages": StaticSitemap, "videos": VideoSitemap,
-            "teams": TeamSitemap, "leagues": LeagueSitemap, "fixtures": FixtureSitemap}
+            "teams": TeamSitemap, "leagues": LeagueSitemap, "fixtures": FixtureSitemap,
+            "authors": AuthorSitemap}

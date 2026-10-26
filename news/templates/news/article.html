@@ -31,7 +31,7 @@
       <h1 id="mz-title" data-zone>{{ article.title }}</h1>
       <p class="dek" id="mz-dek" data-zone>{{ article.excerpt }}</p>
       <div class="byline">
-        <div class="who">{% include 'partials/brand_mark.html' %}<div><strong>Dawati la Habari, wILife</strong><small>{% if article.published_at %}<time datetime="{{ article.published_at|date:'c' }}">{{ article.published_at|sw_date }}, {{ article.published_at|time:"H:i" }}</time> · {% endif %}{{ article.reading_minutes }} dk kusoma · <span class="vw" title="Imesomwa mara {{ views }}">{% icon "eye" %} {{ views|views_short }}</span></small></div></div>
+        <div class="who">{% if article.author and article.author.photo %}<img class="au-mini" src="{{ article.author.photo }}" alt="" width="36" height="36" loading="lazy" referrerpolicy="no-referrer">{% else %}{% include 'partials/brand_mark.html' %}{% endif %}<div>{% if article.author and article.author.active %}<strong><a href="{{ article.author.get_absolute_url }}" rel="author">{{ article.author.name }}</a>{% if article.author.role %}, {{ article.author.role }}{% endif %}</strong>{% else %}<strong>Dawati la Habari, wILife</strong>{% endif %}<small>{% if article.published_at %}<time datetime="{{ article.published_at|date:'c' }}">{{ article.published_at|sw_date }}, {{ article.published_at|time:"H:i" }}</time> · {% endif %}{{ article.reading_minutes }} dk kusoma · <span class="vw" title="Imesomwa mara {{ views }}">{% icon "eye" %} {{ views|views_short }}</span></small></div></div>
         {% absolute article.get_absolute_url as share_url %}
         <div class="share">
           <a class="wa" href="https://wa.me/?text={{ article.title|urlencode }}%20{{ share_url|urlencode }}" target="_blank" rel="noopener" aria-label="Shiriki WhatsApp">{% icon "whatsapp" %}</a>
@@ -41,6 +41,7 @@
         </div>
       </div>
     </header>
+    {% if article.correction %}<aside class="art-fix" role="note"><b>Sahihisho:</b> {{ article.correction }} <a href="{% url 'news:corrections' %}">Sera ya masahihisho</a></aside>{% endif %}
     {% if page_v %}<div id="mz-body" data-zone data-v="{{ page_v }}" data-feed="{% url 'news:live_feed' article.pk %}"
          data-active="{{ page_active|yesno:'1,0' }}">{% endif %}
     {% if article.match %}{% teams_for article.match.home article.match.away as tlinks %}{% if tlinks %}<p class="tm-links">{% for t in tlinks %}<a href="{{ t.get_absolute_url }}">{% icon "shield-fill" %} {{ t.name }}: habari na matokeo</a>{% endfor %}</p>{% endif %}{% endif %}

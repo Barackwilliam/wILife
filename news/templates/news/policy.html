@@ -1,0 +1,47 @@
+{% extends 'news/base.html' %}
+{% block title %}Sera ya Uhariri ya wILife: Jinsi Tunavyoandaa na Kuhakiki Habari{% endblock %}
+{% block description %}Jinsi wILife inavyoandaa habari: vyanzo, matumizi ya AI na uhakiki wa mhariri, kanuni za uandishi, habari za michezo na video, na jinsi tunavyosahihisha makosa.{% endblock %}
+{% block content %}
+<div style="max-width:780px">
+  <nav class="crumbs" aria-label="breadcrumb"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><a href="{% url 'news:about' %}">Kuhusu sisi</a><span>/</span><span>Sera ya uhariri</span></nav>
+  <header class="ph"><span class="eyebrow">Sera ya uhariri</span><h1>Jinsi tunavyoandaa na kuhakiki habari</h1></header>
+  <div class="prose">
+    <p>wILife ni chombo cha habari cha mtandaoni kinacholeta habari za Tanzania, Afrika na Dunia kwa Kiswahili. Kinaendeshwa na JamiiTek Digital Agency, Dar es Salaam. Ukurasa huu unaeleza kanuni tunazofuata kila siku.</p>
+
+    <h2 id="mchakato">Habari zinavyoandaliwa</h2>
+    <ol>
+      <li><strong>Vyanzo.</strong> Tunakusanya taarifa kutoka vyanzo vinavyoaminika, na kila habari inaonyesha vyanzo vyake ili msomaji aweze kusoma habari asili.</li>
+      <li><strong>Rasimu.</strong> Rasimu huandaliwa kwa msaada wa akili bandia (AI) kwa kutumia taarifa za vyanzo hivyo pekee.</li>
+      <li><strong>Uhakiki wa mhariri.</strong> Kila rasimu huhakikiwa na mhariri kabla ya kuchapishwa. Mhariri anaweza kuirekebisha, kuichapisha au kuikataa.{% if authors %} Habari iliyohakikiwa na mhariri mwenye ukurasa wake inaonyesha jina lake.{% endif %}</li>
+    </ol>
+
+    <h2 id="kanuni">Kanuni za uandishi</h2>
+    <ul>
+      <li>Hatubuni nukuu, takwimu, majina, tarehe wala matukio. Taarifa zikiwa chache, tunaandika habari fupi badala ya kubuni.</li>
+      <li>Tunaandika kwa maneno yetu wenyewe, bila kunakili sentensi za chanzo.</li>
+      <li>Kiini cha habari (nani, nini, wapi, lini) kinakuja kwanza.</li>
+      <li>Sehemu ya "Kwa nini ni muhimu" inaeleza umuhimu wa habari kwa Mtanzania bila kuongeza ukweli mpya.</li>
+      <li>Lugha rasmi na isiyo na upendeleo. Tunatenganisha habari na maoni, na hatutoi maoni ya kisiasa.</li>
+    </ul>
+
+    <h2 id="michezo">Habari za michezo, utabiri na video</h2>
+    <ul>
+      <li>Ratiba, matokeo, matukio na takwimu za mechi zinatoka kwa mtoa data wa michezo na zinasasishwa automatic.</li>
+      <li><a href="{% url 'news:predictions' %}">Utabiri</a> ni makadirio ya kitakwimu kutoka fomu ya timu na mechi walizokutana — si uhakika. Kila makadirio yanapimwa baada ya mechi, na rekodi yake iko wazi kwa wasomaji.</li>
+      <li>Video za magoli zinatoka kwenye chaneli rasmi za klabu, ligi na watangazaji. Tunaziweka kwa njia ambayo mmiliki ameruhusu, na hatupakui wala kupakia upya video za watu wengine.</li>
+    </ul>
+
+    <h2 id="picha">Picha</h2>
+    <p>Picha nyingi za habari ni michoro tunayoitengeneza wenyewe, ili kuepuka kutumia picha za wengine bila ruhusa. Picha nyingine huwekwa na mhariri.</p>
+
+    <h2 id="jamiitek">Maudhui ya JamiiTek</h2>
+    <p>Makala zinazoeleza huduma za JamiiTek Digital Agency zinachapishwa chini ya kundi la "Teknolojia &amp; Biashara", na zinaonyeshwa wazi kuwa ni za JamiiTek.</p>
+
+    <h2 id="masahihisho">Masahihisho</h2>
+    <p>Tukikosea, tunasahihisha haraka na kwa uwazi. Soma <a href="{% url 'news:corrections' %}">sera yetu ya masahihisho</a>.</p>
+
+    <h2 id="mawasiliano">Wasiliana nasi</h2>
+    <p>{% if contact_email %}Umeona kosa, au una habari? Tuandikie <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.{% else %}Umeona kosa, au una habari? Wasiliana nasi kupitia ukurasa wa <a href="{% url 'news:services' %}">huduma</a>.{% endif %}</p>
+  </div>
+</div>
+{% endblock %}

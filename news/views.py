@@ -621,7 +621,32 @@ def search(request):
 
 @public_page
 def about(request):
-    return render(request, "news/about.html", {"contact_email": getattr(settings, "JAMIITEK_EMAIL", "")})
+    from news.models import Author
+    return render(request, "news/about.html", {"contact_email": getattr(settings, "JAMIITEK_EMAIL", ""),
+                                               "authors": list(Author.objects.filter(active=True))})
+
+
+@public_page
+def editorial_policy(request):
+    """Sera ya uhariri kwa undani (Google: publishingPrinciples / ethicsPolicy)."""
+    return render(request, "news/policy.html", {"contact_email": getattr(settings, "JAMIITEK_EMAIL", "")})
+
+
+@public_page
+def corrections(request):
+    """Sera ya masahihisho na habari zilizosahihishwa (Google: correctionsPolicy)."""
+    fixed = list(_published().exclude(correction="").order_by("-updated_at")[:30])
+    return render(request, "news/corrections.html", {"contact_email": getattr(settings, "JAMIITEK_EMAIL", ""),
+                                                     "fixed": fixed})
+
+
+@public_page
+def author_detail(request, slug):
+    """Ukurasa wa mhariri: wasifu wake na habari alizozihakiki."""
+    from news.models import Author
+    author = get_object_or_404(Author, slug=slug, active=True)
+    articles = list(_published().filter(author=author).order_by("-published_at")[:24])
+    return render(request, "news/author.html", {"author": author, "articles": articles})
 
 
 def robots(request):
@@ -731,6 +756,7 @@ def review_action(request):
             messages.warning(request, "Hakuna rasimu za kuchapisha bado.")
         elif action == "publish_batch":
             n = pipeline.publish_batch(batch)
+            _sign(batch.articles.filter(status="published", author=None), request.user)
             if batch.approval and batch.approval.status == "pending":
                 batch.approval.status = "sent"
                 batch.approval.result = f"Published from review page ({n})"
@@ -746,6 +772,7 @@ def review_action(request):
         item = get_object_or_404(Article, pk=request.POST.get("article"))
         if action == "publish_one":
             item.publish()
+            _sign(Article.objects.filter(pk=item.pk, author=None), request.user)
             indexnow.submit([item.get_absolute_url()])
             _settle_request(item, "published")
             messages.success(request, f"Imechapishwa: {item.title}")
@@ -761,6 +788,14 @@ def review_action(request):
     if request.POST.get("next") in ("commission", "promo"):
         return redirect(f"news:{request.POST['next']}")
     return redirect("news:review")
+
+
+def _sign(articles, user):
+    """Habari zilizochapishwa zipate jina la mhariri aliyezihakiki (kama ana ukurasa wa Author)."""
+    from news.models import Author
+    author = Author.objects.filter(user=user, active=True).first() if getattr(user, "is_authenticated", False) else None
+    if author:
+        articles.update(author=author)
 
 
 def _settle_request(article, status, error=""):

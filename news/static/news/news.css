@@ -1170,3 +1170,8 @@ a.fx:hover { background: var(--brand-soft); }
 .fxd-form ul { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; }
 .fxd-form li { display: flex; align-items: center; gap: 8px; font-size: .92rem; }
 .fxd-form li a { color: var(--ink); }
+.au-head { display: flex; align-items: center; gap: 18px; margin: 10px 0 18px; }
+.au-head img { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; flex: none; }
+.art-fix { border: 1px solid var(--line); border-left: 4px solid var(--brand); border-radius: 10px; padding: 10px 14px; margin: 0 0 18px; font-size: .95rem; background: var(--surface); }
+.who .au-mini { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex: none; }
+.who strong a { color: inherit; }

@@ -96,6 +96,36 @@ class PublishedManager(models.Manager):
         return super().get_queryset().filter(status="published", published_at__lte=timezone.now())
 
 
+class Author(models.Model):
+    """
+    Mhariri/mwandishi halisi (E-E-A-T): ukurasa wake /mwandishi/<slug>/ na jina lake kwenye habari alizozihakiki.
+    Akiunganishwa na akaunti (user), habari anazochapisha kwenye /habari-admin/rasimu/ zinapata jina lake.
+    Taarifa zote ziwe za kweli — hakuna majina wala vyeo vya kubuni.
+    """
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+                                related_name="news_author")
+    name = models.CharField(max_length=120)
+    slug = models.SlugField(max_length=120, unique=True)
+    role = models.CharField(max_length=120, blank=True, help_text="Mf. 'Mhariri Mkuu' au 'Mhariri wa Michezo'")
+    bio = models.TextField(blank=True, help_text="Uzoefu wake halisi: elimu, miaka kazini, maeneo anayoyafuatilia")
+    photo = models.URLField(max_length=400, blank=True)
+    links = models.TextField(blank=True, help_text="Link zake rasmi (LinkedIn, X…), moja kwa mstari")
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+    def get_absolute_url(self):
+        return reverse("news:author", args=[self.slug])
+
+    @property
+    def link_list(self):
+        return [u.strip() for u in self.links.splitlines() if u.strip().startswith("https://")]
+
+
 class Article(models.Model):
     STATUS = [("draft", "Draft"), ("published", "Published"), ("rejected", "Rejected")]
 
@@ -106,6 +136,9 @@ class Article(models.Model):
     body = models.TextField(help_text="Paragraphs separated by a blank line; '## ' starts a subheading")
     keywords = models.CharField(max_length=300, blank=True)
     sources = models.JSONField(default=list, blank=True, help_text='[{"title": "", "url": "", "publisher": ""}]')
+    author = models.ForeignKey("Author", null=True, blank=True, on_delete=models.SET_NULL, related_name="articles",
+                               help_text="Mhariri aliyehakiki na kuchapisha (tupu = Dawati la Habari)")
+    correction = models.TextField(blank=True, help_text="Sahihisho: kosa lililorekebishwa na lini — linaonyeshwa juu ya habari")
     source_url = models.URLField(max_length=500, null=True, blank=True, unique=True,
                                  help_text="Main source item — prevents writing the same story twice")
     service = models.ForeignKey(JamiiTekService, null=True, blank=True, on_delete=models.SET_NULL)
