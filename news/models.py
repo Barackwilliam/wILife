@@ -763,3 +763,21 @@ class VideoChannel(models.Model):
     def uploads(self):
         """Orodha ya video zote za chaneli: UC... -> UU..."""
         return "UU" + self.channel_id[2:] if self.channel_id and self.channel_id.startswith("UC") else ""
+
+
+class ChannelPost(models.Model):
+    """Posti moja kwenye WhatsApp Channel ya Soka360 (news/soka360.py): highlight rasmi au video ya matokeo."""
+    KINDS = [("highlight", "Highlights (YouTube rasmi)"), ("result", "Video ya matokeo (yetu)")]
+    key = models.CharField(max_length=120, unique=True)
+    kind = models.CharField(max_length=10, choices=KINDS)
+    title = models.CharField(max_length=200, blank=True)
+    posted_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    tries = models.PositiveSmallIntegerField(default=0)
+    error = models.CharField(max_length=300, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.get_kind_display()}: {self.title}"

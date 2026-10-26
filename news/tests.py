@@ -1,5 +1,6 @@
 import json
 import requests
+import time
 from datetime import date, datetime, timedelta, timezone as dt_tz
 from unittest import mock
 
@@ -3499,3 +3500,116 @@ class YouTubeMatchSearchTest(TestCase):
 
 def _iso_z(dt):
     return dt.astimezone(dt_tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+@override_settings(WHATSAPP_CHANNEL="120363000000000000@newsletter", AGENT_ENABLED=True, WHATSAPP_ENABLED=True,
+                   SITE_URL="https://www.wilife.online", SOKA360_POSTS=True, SOKA360_GAP_MINUTES=10,
+                   SOKA360_RESULTS_PER_DAY=15, SOKA360_HIGHLIGHTS_PER_DAY=20, SOKA360_WINDOW_HOURS=48)
+class Soka360ChannelTest(TestCase):
+    """Channel ya Soka360: video yetu ya matokeo (MP4) + link za highlights rasmi zinazochezwa ndani ya WhatsApp."""
+
+    def setUp(self):
+        from news.models import Fixture, Highlight
+        self.now = timezone.now()
+        self.match = Fixture.objects.create(
+            fixture_id=7701, day=timezone.localdate(), kickoff=self.now - timedelta(hours=26), status="FT",
+            home="Simba SC", away="Young Africans", home_goals=2, away_goals=1, competition="NBC Premier League",
+            rank=0, extra={"events": [{"label": "23'", "kind": "goal",
+                                       "text": "⚽ GOLI! Jean Ahoua ameifungia Simba SC. (Simba SC 1-0 Young Africans)"}]})
+        self.hl = Highlight.objects.create(
+            provider="youtube", key="yt:CCCCCCCCCC1", slug="simba-vs-yanga", title="HIGHLIGHTS | Simba SC 2-1 Yanga",
+            competition="NBC Premier League", home="Simba SC", away="Young Africans", home_key="simba",
+            away_key="young africans", date=self.now - timedelta(hours=20), channel="Simba SC Tanzania",
+            thumbnail="https://i.ytimg.com/vi/CCCCCCCCCC1/hqdefault.jpg",
+            source_url="https://www.youtube.com/watch?v=CCCCCCCCCC1",
+            videos=[{"title": "Video", "src": "https://www.youtube-nocookie.com/embed/CCCCCCCCCC1"}])
+
+    def _run(self, at, **kw):
+        from news import soka360
+        with mock.patch("core.agent.whatsapp.send_channel_video", return_value="v1") as video, \
+                mock.patch("core.agent.whatsapp.send_channel", return_value="t1") as text, \
+                mock.patch("news.football._image", return_value=None), \
+                mock.patch("news.match_video.render", return_value=b"mp4") as render:
+            out = soka360.run(now=at, **kw)
+        return out, video, text, render
+
+    def test_posts_oldest_first_one_per_gap(self):
+        from news.models import ChannelPost
+        out, video, text, render = self._run(self.now)
+        self.assertEqual((out["sent"], out["detail"]), (1, "result: Simba SC vs Young Africans"), out)
+        channel, data, caption = video.call_args.args
+        self.assertEqual((channel, data), ("120363000000000000@newsletter", b"mp4"))
+        self.assertIn("⚽ *MATOKEO* | Simba SC 2-1 Young Africans", caption)
+        self.assertIn("23' Jean Ahoua ameifungia Simba SC.", caption)
+        self.assertIn("https://www.wilife.online/", caption)
+        self.assertEqual(render.call_args.kwargs["site"], "www.wilife.online")
+
+        out, video, text, _ = self._run(self.now + timedelta(minutes=5))     # nafasi kati ya posti
+        self.assertEqual((out["sent"], video.called, text.called), (0, False, False))
+
+        out, video, text, _ = self._run(self.now + timedelta(minutes=11))
+        self.assertEqual(out["sent"], 1, out)
+        body = text.call_args.args[1]
+        self.assertIn("🎬 *HIGHLIGHTS* | Simba SC vs Young Africans", body)
+        self.assertIn("▶️ https://www.youtube.com/watch?v=CCCCCCCCCC1", body)
+        self.assertIn("Video rasmi ya Simba SC Tanzania", body)
+        preview = text.call_args.kwargs["preview"]
+        self.assertEqual((preview["url"], preview["thumbnail"]),
+                         ("https://www.youtube.com/watch?v=CCCCCCCCCC1", "https://i.ytimg.com/vi/CCCCCCCCCC1/hqdefault.jpg"))
+
+        out, video, text, _ = self._run(self.now + timedelta(minutes=30))    # zote zimetumwa: hakuna kurudia
+        self.assertEqual(out["detail"], "hakuna jipya")
+        self.assertEqual(ChannelPost.objects.exclude(posted_at=None).count(), 2)
+
+    def test_failure_retries_then_gives_up(self):
+        from news import soka360
+        from news.models import ChannelPost, Highlight
+        Highlight.objects.all().delete()
+        with mock.patch("news.match_video.render", side_effect=RuntimeError("ffmpeg haipo")), \
+                mock.patch("news.football._image", return_value=None):
+            for i in range(5):
+                out = soka360.run(now=self.now + timedelta(minutes=i))
+        post = ChannelPost.objects.get()
+        self.assertEqual((post.tries, post.posted_at), (3, None))
+        self.assertIn("ffmpeg", post.error)
+        self.assertEqual(out["detail"], "hakuna jipya")
+
+    def test_limits_window_and_switches(self):
+        from news.models import Fixture
+        Fixture.objects.filter(pk=self.match.pk).update(kickoff=self.now - timedelta(minutes=60))   # bado inachezwa/ni mapema
+        with self.settings(SOKA360_HIGHLIGHTS_PER_DAY=0):
+            out, video, text, _ = self._run(self.now)
+        self.assertEqual(out["detail"], "hakuna jipya")
+        with self.settings(WHATSAPP_CHANNEL=""):
+            self.assertIn("WHATSAPP_CHANNEL", self._run(self.now)[0]["detail"])
+        with self.settings(WHATSAPP_ENABLED=False):
+            out, video, text, _ = self._run(self.now)
+        self.assertEqual((out["sent"], video.called, text.called), (0, False, False))
+        out, video, text, _ = self._run(self.now, deadline=time.monotonic() + 3)   # muda wa tick hautoshi video
+        self.assertTrue(text.called)
+        self.assertFalse(video.called)
+
+    def test_render_real_video(self):
+        import shutil
+        from news import match_video
+        if not shutil.which("ffmpeg"):
+            self.skipTest("ffmpeg haipo")
+        data = match_video.render(self.match, site="www.wilife.online")
+        self.assertGreater(len(data), 10_000)
+        self.assertEqual(data[4:8], b"ftyp")
+        self.assertEqual(match_video.goals_of(self.match), [("23'", "Jean Ahoua ameifungia Simba SC.")])
+
+    def test_bridge_payloads(self):
+        from core.agent import whatsapp
+        with self.settings(WHATSAPP_PROVIDER="baileys", WHATSAPP_BRIDGE_URL="http://bridge", WHATSAPP_BRIDGE_KEY="k"), \
+                mock.patch("core.agent.whatsapp.requests.post") as post:
+            post.return_value.status_code = 200
+            post.return_value.json.return_value = {"id": "x"}
+            whatsapp.send_channel_video("120363000000000000@newsletter", b"abc", "Maelezo")
+            whatsapp.send_channel("120363000000000000@newsletter", "Habari https://y.t/v", preview={"url": "https://y.t/v"})
+        (url1,), kw1 = post.call_args_list[0]
+        (url2,), kw2 = post.call_args_list[1]
+        self.assertEqual(url1, "http://bridge/send-video")
+        self.assertEqual((kw1["json"]["video"], kw1["json"]["text"]), ("YWJj", "Maelezo"))
+        self.assertEqual(url2, "http://bridge/send")
+        self.assertEqual(kw2["json"]["preview"], {"url": "https://y.t/v"})

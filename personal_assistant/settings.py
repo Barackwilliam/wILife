@@ -350,6 +350,12 @@ FOOTBALL_BACKFILL_DAYS = int(env("FOOTBALL_BACKFILL_DAYS", "3"))     # siku zili
 NEWS_EMAIL_FROM = env("NEWS_EMAIL_FROM", "")                          # mf. "wILife Michezo <michezo@wlife.online>"; tupu = AGENT_EMAIL_FROM
 WHATSAPP_CHANNEL_NAME = env("WHATSAPP_CHANNEL_NAME", "Soka360")
 WHATSAPP_CHANNEL = env("WHATSAPP_CHANNEL", "")                        # link ya WhatsApp Channel (whatsapp.com/channel/...) au JID @newsletter
+# Soka360 (news/soka360.py): video za matokeo + highlights rasmi kwenye WhatsApp Channel
+SOKA360_POSTS = env_bool("SOKA360_POSTS", True)
+SOKA360_GAP_MINUTES = int(env("SOKA360_GAP_MINUTES", "10"))
+SOKA360_RESULTS_PER_DAY = int(env("SOKA360_RESULTS_PER_DAY", "15"))
+SOKA360_HIGHLIGHTS_PER_DAY = int(env("SOKA360_HIGHLIGHTS_PER_DAY", "20"))
+SOKA360_WINDOW_HOURS = int(env("SOKA360_WINDOW_HOURS", "48"))
 NEWS_ENABLED = env_bool("NEWS_ENABLED", False)      # turn the daily drafting on
 NEWS_DRAFT_HOUR = int(env("NEWS_DRAFT_HOUR", "5"))  # local hour drafting starts
 NEWS_GIVE_UP_HOUR = int(env("NEWS_GIVE_UP_HOUR", "10"))

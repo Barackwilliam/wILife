@@ -2,7 +2,7 @@ from django import forms
 from django.contrib import admin
 from django.utils.html import format_html
 
-from news.models import (Article, EditorSettings, Fixture, FootballState, Highlight, JamiiTekService, Team, VideoChannel, LiveMatch, LiveUpdate,
+from news.models import (Article, ChannelPost, EditorSettings, Fixture, FootballState, Highlight, JamiiTekService, Team, VideoChannel, LiveMatch, LiveUpdate,
                          NewsBatch, NewsRequest, Subscriber, EmailSubscriber, DailyCount)
 
 
@@ -229,3 +229,12 @@ class VideoChannelAdmin(admin.ModelAdmin):
     list_display = ("__str__", "team", "highlights_only", "active", "checked_at", "error")
     list_editable = ("active",)
     readonly_fields = ("name", "channel_id", "checked_at", "error")
+
+
+@admin.register(ChannelPost)
+class ChannelPostAdmin(admin.ModelAdmin):
+    """Posti za WhatsApp Channel ya Soka360 (zinatumwa zenyewe — news/soka360.py)."""
+    list_display = ("title", "kind", "posted_at", "tries", "error")
+    list_filter = ("kind",)
+    search_fields = ("title", "key")
+    readonly_fields = ("key", "kind", "title", "posted_at", "tries", "error", "created_at")

@@ -80,7 +80,7 @@ def bridge_status(timeout=8):
     return response.json()
 
 
-def _send_via_bridge(number, text, retries=2, timeout=20):
+def _send_via_bridge(number, text, retries=2, timeout=20, path="/send", extra=None):
     """
     POST the message to the Baileys bridge. The bridge may be waking from sleep
     on a free Render instance, hence the longer timeout and the retries.
@@ -90,8 +90,8 @@ def _send_via_bridge(number, text, retries=2, timeout=20):
     if not base or not key:
         raise WhatsAppError("WHATSAPP_BRIDGE_URL or WHATSAPP_BRIDGE_KEY not configured")
 
-    url = base.rstrip("/") + "/send"
-    payload = {"to": number, "text": text[:4000]}
+    url = base.rstrip("/") + path
+    payload = {"to": number, "text": text[:4000], **(extra or {})}
     headers = {"X-Bridge-Key": key, "Content-Type": "application/json"}
     timeout = max(timeout, 20)
 
@@ -235,10 +235,25 @@ def channel_jid(value, timeout=15):
     return jid
 
 
-def send_channel(channel, text):
-    """Chapisha ujumbe kwenye WhatsApp Channel (namba ya bridge lazima iwe mmiliki/admin wa channel)."""
+def send_channel(channel, text, preview=None):
+    """
+    Chapisha ujumbe kwenye WhatsApp Channel (namba ya bridge lazima iwe mmiliki/admin wa channel).
+    preview={url, title, description, thumbnail}: kadi ya link (link ya YouTube inachezwa ndani ya WhatsApp).
+    """
     if not settings.AGENT_ENABLED or not settings.WHATSAPP_ENABLED:
         return "disabled"
     if provider() != "baileys":
         raise WhatsAppError("WhatsApp Channel inahitaji bridge ya Baileys")
-    return _send_via_bridge(channel_jid(channel), text, retries=1)
+    return _send_via_bridge(channel_jid(channel), text, retries=1,
+                            extra={"preview": preview} if preview else None)
+
+
+def send_channel_video(channel, data, caption=""):
+    """Video (MP4 bytes) kwenye WhatsApp Channel — inachezwa ndani ya WhatsApp."""
+    import base64
+    if not settings.AGENT_ENABLED or not settings.WHATSAPP_ENABLED:
+        return "disabled"
+    if provider() != "baileys":
+        raise WhatsAppError("WhatsApp Channel inahitaji bridge ya Baileys")
+    return _send_via_bridge(channel_jid(channel), caption or " ", retries=0, timeout=90, path="/send-video",
+                            extra={"video": base64.b64encode(data).decode()})
