@@ -217,7 +217,7 @@ def _close(a, b):
 
 def match_page(h):
     """
-    Ukurasa wetu wa mechi ya video hii: {'url', 'score', 'goals'} kutoka LIVE au ratiba, au None.
+    Ukurasa wetu wa mechi ya video hii: {'url', 'score', 'goals', 'competition'} kutoka LIVE au ratiba, au None.
     goals = ["23' B. Saka (Arsenal)", ...] — maandishi ya kipekee kwa ukurasa wa video (SEO).
     """
     from news.models import Fixture, LiveMatch
@@ -236,7 +236,7 @@ def match_page(h):
                              for e in (m.extra or {}).get("events") or [] if e.get("kind") == "goal"]
                 score = f"{m.home_goals}-{m.away_goals}" if m.has_score and m.is_finished else ""
                 return {"url": url, "score": score, "score_text": f"{m.home} {score} {m.away}" if score else "",
-                        "goals": goals[:12]}
+                        "goals": goals[:12], "competition": m.competition}
     return None
 
 

@@ -32,6 +32,7 @@ const {
     default: makeWASocket,
     DisconnectReason,
     useMultiFileAuthState,
+    prepareWAMessageMedia,
 } = require('@whiskeysockets/baileys');
 
 const { useSupabaseAuthState } = require('./supabaseAuth');
@@ -130,18 +131,31 @@ app.post('/send', requireKey, async (req, res) => {
     }
 });
 
-// Kadi ya link {url, title, description, thumbnail}: Django inatoa maelezo, bridge inapakua picha ndogo.
-// Link ya YouTube yenye kadi hii inachezwa ndani ya WhatsApp (picture-in-picture).
+// Kadi ya link {url, title, description, thumbnail}: Django inatoa maelezo, bridge inapakua picha.
+// Picha inapakiwa kwenye WhatsApp (highQualityThumbnail) ili kadi iwe KUBWA kama ya YouTube kwenye simu;
+// ikishindikana, kadi ndogo (jpegThumbnail) inatumika.
 async function buildPreview(preview, text) {
     const url = String(preview?.url || '');
     if (!/^https:\/\//.test(url) || !text.includes(url)) return undefined;
     let jpegThumbnail;
+    let highQualityThumbnail;
     const thumb = String(preview?.thumbnail || '');
     if (/^https:\/\/(i\.ytimg\.com|img\.youtube\.com)\//.test(thumb)) {
         try {
-            const r = await axios.get(thumb, { responseType: 'arraybuffer', timeout: 8000, maxContentLength: 2_000_000 });
+            const r = await axios.get(thumb, { responseType: 'arraybuffer', timeout: 8000, maxContentLength: 3_000_000 });
+            const full = Buffer.from(r.data);
             const sharp = require('sharp');
-            jpegThumbnail = await sharp(Buffer.from(r.data)).resize(320).jpeg({ quality: 70 }).toBuffer();
+            jpegThumbnail = await sharp(full).resize(320).jpeg({ quality: 70 }).toBuffer();
+            try {
+                const image = await sharp(full).resize({ width: 1280, withoutEnlargement: true }).jpeg({ quality: 82 }).toBuffer();
+                const { imageMessage } = await prepareWAMessageMedia({ image }, {
+                    upload: sock.waUploadToServer,
+                    mediaTypeOverride: 'thumbnail-link',
+                });
+                if (imageMessage?.directPath) highQualityThumbnail = imageMessage;
+            } catch (e) {
+                console.error('preview upload failed (small card instead):', e.message);
+            }
         } catch (e) {
             console.error('preview thumbnail failed:', e.message);
         }
@@ -152,6 +166,7 @@ async function buildPreview(preview, text) {
         title: String(preview?.title || '').slice(0, 200),
         description: String(preview?.description || '').slice(0, 300),
         ...(jpegThumbnail ? { jpegThumbnail } : {}),
+        ...(highQualityThumbnail ? { highQualityThumbnail } : {}),
     };
 }
 

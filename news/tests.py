@@ -3373,6 +3373,8 @@ class YouTubeSeededChannelsTest(TestCase):
                          ("Simba", "Mashujaa"))
         self.assertEqual(youtube.teams_from_title("JKT Tanzania 2-1 Namungo | Magoli | NBC Premier League - 29/08/2026"),
                          ("JKT Tanzania", "Namungo"))
+        self.assertEqual(youtube.teams_from_title("Magoli | Namungo FC 2-1 Coastal Union | NBC Premier League | 24/10/2026"),
+                         ("Namungo FC", "Coastal Union"))
 
 
 @override_settings(YOUTUBE_API_KEY="yt-key", SITE_URL="https://www.wlife.online", YOUTUBE_SEARCHES_PER_DAY=80,
@@ -3554,7 +3556,9 @@ class Soka360ChannelTest(TestCase):
         self.assertEqual(out["sent"], 1, out)
         body = text.call_args.args[1]
         self.assertIn("🎬 *HIGHLIGHTS* | Simba SC vs Young Africans", body)
-        self.assertIn("▶️ https://www.youtube.com/watch?v=CCCCCCCCCC1", body)
+        self.assertIn("▶️ Tazama video: https://www.youtube.com/watch?v=CCCCCCCCCC1", body)
+        self.assertIn("🏆 NBC Premier League", body)
+        self.assertIn("https://whatsapp.com/channel/0029VbEUHxl3GJOvK9RLS93F", body)
         self.assertIn("Video rasmi ya Simba SC Tanzania", body)
         preview = text.call_args.kwargs["preview"]
         self.assertEqual((preview["url"], preview["thumbnail"]),
@@ -3563,6 +3567,29 @@ class Soka360ChannelTest(TestCase):
         out, video, text, _ = self._run(self.now + timedelta(minutes=30))    # zote zimetumwa: hakuna kurudia
         self.assertEqual(out["detail"], "hakuna jipya")
         self.assertEqual(ChannelPost.objects.exclude(posted_at=None).count(), 2)
+
+    def test_one_highlight_per_match(self):
+        from news.models import ChannelPost, Fixture, Highlight
+        Fixture.objects.all().delete()
+        Highlight.objects.create(
+            provider="youtube", key="yt:CCCCCCCCCC2", slug="simba-vs-yanga-2", title="Magoli | Simba SC 2-1 Yanga",
+            competition="Azam TV", home="Simba SC", away="Young Africans", home_key="simba",
+            away_key="young africans", date=self.now - timedelta(hours=19), channel="Azam TV",
+            source_url="https://www.youtube.com/watch?v=CCCCCCCCCC2",
+            videos=[{"title": "Video", "src": "https://www.youtube-nocookie.com/embed/CCCCCCCCCC2"}])
+        sent = []
+        for i in range(3):
+            out, video, text, _ = self._run(self.now + timedelta(minutes=15 * i))
+            sent += [c.args[1] for c in text.call_args_list]
+        self.assertEqual(len(sent), 1, sent)
+        self.assertIn("CCCCCCCCCC1", sent[0])
+        self.assertNotIn("🏆 Azam TV", sent[0])
+        # posti za zamani (key ya video) hazirudiwi kwa mpangilio mpya
+        ChannelPost.objects.all().delete()
+        ChannelPost.objects.create(key="highlight:yt:CCCCCCCCCC1", kind="highlight", posted_at=self.now)
+        ChannelPost.objects.create(key="highlight:yt:CCCCCCCCCC2", kind="highlight", posted_at=self.now)
+        out, video, text, _ = self._run(self.now + timedelta(hours=1))
+        self.assertEqual(out["detail"], "hakuna jipya")
 
     def test_failure_retries_then_gives_up(self):
         from news import soka360

@@ -4,8 +4,8 @@ WhatsApp Channel ya Soka360: video zinazochezwa NDANI ya WhatsApp, zenyewe, kila
     1. Video ya matokeo (yetu wenyewe, news/match_video.py): kila mechi iliyokwisha kwenye mfumo —
        MP4 inapakiwa kwenye channel, kwa hiyo inachezwa bila kutoka WhatsApp.
     2. Highlights RASMI (Highlight za YouTube, news/youtube.py): link ya YouTube yenye kadi (picha + kichwa).
-       Video ya mmiliki haipakuliwi wala haipakiwi upya. ZIMEZIMWA kwa default (SOKA360_HIGHLIGHTS_PER_DAY=0):
-       kwenye channel WhatsApp hufungua YouTube, kwa hiyo msomaji hutoka kwenye channel.
+       Video ya mmiliki haipakuliwi wala haipakiwi upya. Kwenye channel WhatsApp hufungua YouTube (si ndani ya
+       WhatsApp), kwa hiyo kadi ya link ni KUBWA (picha ya video iliyopakiwa — bridge) ili ivutie kubonyeza.
 
 Kila video ya matokeo inamhimiza msomaji kufuata channel (SOKA360_FOLLOW_URL).
 
@@ -17,7 +17,7 @@ kati ya posti, na kikomo cha siku kwa kila aina. Mechi/video za saa SOKA360_WIND
     SOKA360_POSTS                   true/false (default true)
     SOKA360_GAP_MINUTES             default 10
     SOKA360_RESULTS_PER_DAY         video za matokeo kwa siku (default 15)
-    SOKA360_HIGHLIGHTS_PER_DAY      highlights kwa siku (default 0 = zimezimwa)
+    SOKA360_HIGHLIGHTS_PER_DAY      highlights kwa siku (default 20; 0 = zimezimwa)
     SOKA360_FOLLOW_URL              link ya kufuata channel (kwenye maelezo ya kila video)
     SOKA360_WINDOW_HOURS            default 48
 """
@@ -123,13 +123,20 @@ def _post_result(channel, m):
 # ── Highlights rasmi (YouTube) ─────────────────────────────────────────────────
 
 def _highlights(now):
-    from news.models import Highlight
+    """Video moja kwa kila mechi (chaneli moja inaweza kupakia 'Magoli' na 'Highlights' za mechi ileile)."""
+    from news.models import ChannelPost, Highlight
+    from news.scorebat import team_key
     window = now - timedelta(hours=_cfg("SOKA360_WINDOW_HOURS", 48))
-    out = []
+    out, seen = [], set()
     for h in Highlight.objects.filter(provider="youtube", date__gte=window).exclude(home="").exclude(away="") \
             .order_by("date"):
-        key = f"highlight:{h.key}"
-        if h.main and _usable(key):
+        key = f"highlight:{team_key(h.home)[:40]}:{team_key(h.away)[:40]}:{timezone.localtime(h.date):%Y-%m-%d}"
+        if key in seen or not h.main:
+            continue
+        seen.add(key)
+        if ChannelPost.objects.filter(key=f"highlight:{h.key}").exists():   # posti za kabla ya mpangilio huu
+            continue
+        if _usable(key):
             out.append((h.date, key, h))
     return out
 
@@ -139,12 +146,15 @@ def highlight_text(h):
     match = scorebat.match_page(h)
     score = f" {match['score']}" if match and match.get("score") else ""
     lines = [f"🎬 *HIGHLIGHTS* | {h.home} vs {h.away}{score}"]
-    if h.competition:
-        lines.append(f"🏆 {h.competition}")
-    lines += ["", f"▶️ {h.source_url}", ""]
+    competition = (match or {}).get("competition") or (h.competition if h.competition != h.channel else "")
+    if competition:
+        lines.append(f"🏆 {competition}")
+    lines += ["", f"▶️ Tazama video: {h.source_url}", ""]
     if h.channel:
         lines.append(f"📺 Video rasmi ya {h.channel}")
     lines.append(f"📊 Matokeo na takwimu: {_site()}{match['url'] if match and match.get('url') else h.get_absolute_url()}")
+    if follow_url():
+        lines += ["", f"📲 *Fuata Soka360* upate highlights za kila mechi 👇", follow_url()]
     return "\n".join(lines)
 
 
@@ -176,7 +186,7 @@ def run(now=None, deadline=None, dry_run=False):
     if _posted_today("result", now) < _cfg("SOKA360_RESULTS_PER_DAY", 15) \
             and not (deadline and deadline - time.monotonic() < VIDEO_SECONDS):
         queue += [(r[0], 1, "result", r[1], r[2]) for r in _results(now)[:1]]
-    if _posted_today("highlight", now) < _cfg("SOKA360_HIGHLIGHTS_PER_DAY", 0):
+    if _posted_today("highlight", now) < _cfg("SOKA360_HIGHLIGHTS_PER_DAY", 20):
         queue += [(r[0], 0, "highlight", r[1], r[2]) for r in _highlights(now)[:1]]
     if not queue:
         out["detail"] = "hakuna jipya"
