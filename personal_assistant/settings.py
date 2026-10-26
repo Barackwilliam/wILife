@@ -326,6 +326,8 @@ SCOREBAT_FEED = env("SCOREBAT_FEED", "https://www.scorebat.com/video-api/v3/free
 # YouTube Data API v3 (Google Cloud, bure): video za chaneli RASMI zilizoongezwa kwenye Admin -> Video channels.
 YOUTUBE_API_KEY = env("YOUTUBE_API_KEY", "")
 YOUTUBE_EVERY_MINUTES = int(env("YOUTUBE_EVERY_MINUTES", "60"))
+YOUTUBE_SEARCHES_PER_DAY = int(env("YOUTUBE_SEARCHES_PER_DAY", "80"))     # unit 100 kila mmoja (bure: 10,000/siku)
+YOUTUBE_MIN_SUBSCRIBERS = int(env("YOUTUBE_MIN_SUBSCRIBERS", "100000"))
 SCOREBAT_EVERY_MINUTES = int(env("SCOREBAT_EVERY_MINUTES", "120"))   # ombi 1 = credits 5 kwa masharti ya ScoreBat
 HIGHLIGHTLY_DAILY_LIMIT = int(env("HIGHLIGHTLY_DAILY_LIMIT", "100"))      # mpango wa bure: 100
 HIGHLIGHTLY_SCHEDULE_HOURS = int(env("HIGHLIGHTLY_SCHEDULE_HOURS", "24"))   # ratiba: mara moja kwa siku
