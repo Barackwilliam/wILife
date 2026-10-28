@@ -14,7 +14,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
-from django.views.decorators.cache import cache_control, cache_page, never_cache
+from django.views.decorators.cache import cache_control, never_cache
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.gzip import gzip_page
 from django.views.decorators.http import require_POST
@@ -30,16 +30,41 @@ def _published():
     return Article.published.defer(*LIGHT)
 
 
-def public_page(view):
-    """gzip always; cache the rendered page for anonymous visitors (who are almost all traffic)."""
-    cached = cache_page(getattr(settings, "NEWS_CACHE_SECONDS", 300))(view)
+def _page_cache(view, seconds):
+    """
+    Nakala ya ukurasa kwa wageni wasioingia (karibu wasomaji wote), moja kwa kila URL na mwanga/giza.
+    cache_page ya Django ilitenganisha nakala kwa kila cookie (Vary: Cookie) — kila mgeni mwenye cookie
+    yoyote (theme, takwimu za tovuti…) alikosa nakala na kusubiri ukurasa kutengenezwa upya (~sekunde 3).
+    """
+    import hashlib
+    from django.core.cache import cache
+    from django.utils.cache import patch_response_headers, patch_vary_headers
 
     @wraps(view)
     def wrapper(request, *args, **kwargs):
-        if request.user.is_authenticated or request.GET.get("preview"):
+        if (request.method not in ("GET", "HEAD") or request.GET.get("preview")
+                or settings.SESSION_COOKIE_NAME in request.COOKIES):         # aliyeingia (mhariri) anaona ukurasa mpya
             return view(request, *args, **kwargs)
-        return cached(request, *args, **kwargs)
-    return gzip_page(wrapper)
+        dark = request.COOKIES.get("theme") == "dark"                         # <html data-bs-theme> inategemea cookie hii
+        key = "page:" + hashlib.sha1(f"{request.get_host()}|{request.get_full_path()}|{dark}".encode()).hexdigest()
+        hit = cache.get(key)
+        if hit is not None:
+            response = HttpResponse(hit[0], content_type=hit[1])
+        else:
+            response = view(request, *args, **kwargs)
+            if hasattr(response, "render") and not getattr(response, "is_rendered", True):
+                response.render()
+            if response.status_code == 200 and not response.streaming and not response.cookies:
+                cache.set(key, (response.content, response.get("Content-Type", "text/html")), seconds)
+        patch_response_headers(response, seconds)
+        patch_vary_headers(response, ("Cookie",))          # kivinjari: mwanga/giza ukibadilika, kiombe upya
+        return response
+    return wrapper
+
+
+def public_page(view):
+    """gzip always; cache the rendered page for anonymous visitors (who are almost all traffic)."""
+    return gzip_page(_page_cache(view, getattr(settings, "NEWS_CACHE_SECONDS", 300)))
 
 
 RIVER_PAGE = 16
@@ -219,14 +244,7 @@ def article(request, category, slug):
 
 def _live_page(view):
     """Ukurasa wa LIVE: gzip, na nakala ya sekunde 30 kwa wageni (matokeo yanabadilika haraka)."""
-    cached = cache_page(30)(view)
-
-    @wraps(view)
-    def wrapper(request, *args, **kwargs):
-        if request.user.is_authenticated:
-            return view(request, *args, **kwargs)
-        return cached(request, *args, **kwargs)
-    return gzip_page(wrapper)
+    return gzip_page(_page_cache(view, 30))
 
 
 def _live_sets(now=None):

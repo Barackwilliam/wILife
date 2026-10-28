@@ -17,6 +17,7 @@
       <div>
         <h1 id="tm-title">{{ team.name }}</h1>
         <p class="lh-sub">Habari, matokeo, ratiba na video za magoli — zinasasishwa kila mechi.</p>
+        {% if leagues %}<p class="tm-links">{% for lg in leagues %}<a href="{{ lg.get_absolute_url }}">{% icon "trophy-fill" %} Msimamo wa {{ lg.name }}</a>{% endfor %}</p>{% endif %}
       </div>
     </div>
     {% if stats or form %}
