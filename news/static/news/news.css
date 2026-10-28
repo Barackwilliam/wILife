@@ -16,7 +16,7 @@
   --surface-3: #ebe4d8;
   --ink: #1d1b24;
   --ink-2: #3a3743;
-  --muted: #74707c;
+  --muted: #625e6b;   /* 5.3:1+ juu ya --bg na --surface-2 (WCAG AA) */
   --line: #e8e1d5;
   --line-strong: #d9d0c1;
 
@@ -1175,3 +1175,11 @@ a.fx:hover { background: var(--brand-soft); }
 .art-fix { border: 1px solid var(--line); border-left: 4px solid var(--brand); border-radius: 10px; padding: 10px 14px; margin: 0 0 18px; font-size: .95rem; background: var(--surface); }
 .who .au-mini { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex: none; }
 .who strong a { color: inherit; }
+
+/* Usomekaji (WCAG AA) kwenye mwanga: rangi za kategoria zikiwa maandishi madogo zinakolezwa */
+[data-bs-theme="light"] .kick, [data-bs-theme="light"] .sh h2, [data-bs-theme="light"] .sh a {
+  color: color-mix(in srgb, var(--cat, var(--brand-ink)) 65%, #000); }
+[data-bs-theme="light"] .ovl .kick { color: #fff; }
+.tick .lbl { background: #b8324f; }
+[data-bs-theme="light"] .ls-head > span:last-child { color: #b5121f; }
+[data-bs-theme="light"] .waj-btn.alt { color: #0b6b37 !important; }

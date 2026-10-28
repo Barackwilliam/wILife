@@ -368,6 +368,13 @@ JAMIITEK_EMAIL = env("JAMIITEK_EMAIL", "")
 JAMIITEK_SITE = (env("JAMIITEK_SITE", "") or JAMIITEK_URL or "https://www.jamiitek.com").rstrip("/")
 INDEXNOW_KEY = env("INDEXNOW_KEY", "")              # any 8–128 hex chars; served at /<key>.txt
 NEWS_CACHE_SECONDS = int(env("NEWS_CACHE_SECONDS", "300"))
+# Cache moja kwa worker zote za gunicorn (kurasa za wageni, vizuizi vya kazi): faili kwenye diski ya seva.
+# Kila worker ikiwa na cache yake (LocMem — chaguo la Django), nakala ya ukurasa ilitengenezwa mara mbili.
+CACHES = {"default": {
+    "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
+    "LOCATION": env("CACHE_DIR", "/tmp/wilife-cache"),
+    "OPTIONS": {"MAX_ENTRIES": 5000},
+}}
 # Comma-separated official profiles (Facebook, X, Instagram, YouTube, LinkedIn) — used as schema.org sameAs
 SOCIAL_LINKS = [u.strip() for u in env("SOCIAL_LINKS", "").split(",") if u.strip()]
 try:

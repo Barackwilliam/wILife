@@ -3951,3 +3951,74 @@ class TrustPagesTest(TestCase):
         sm = self.client.get("/sitemap.xml").content.decode()
         for path in ("/sera-ya-uhariri/", "/masahihisho/", "/mwandishi/asha-mohamed/"):
             self.assertIn("https://www.wlife.online" + path, sm)
+
+
+@override_settings(SITE_URL="https://www.wlife.online")
+class PageCacheTest(TestCase):
+    """Nakala moja ya ukurasa kwa wageni wote (si moja kwa kila cookie), tofauti kwa giza, na hakuna kwa mhariri."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+    def test_one_copy_for_all_cookies_but_not_for_editors(self):
+        with mock.patch("news.views.render", wraps=render_shortcut) as r:
+            self.client.cookies["_ga"] = "GA1.1.1"
+            first = self.client.get("/kuhusu/")
+            self.client.cookies["_ga"] = "GA1.1.2"                      # mgeni mwingine, cookie nyingine
+            again = self.client.get("/kuhusu/")
+            self.assertEqual(r.call_count, 1)
+            self.assertEqual(first.content, again.content)
+            self.assertIn("max-age=", again["Cache-Control"])
+            self.client.cookies["theme"] = "dark"
+            dark = self.client.get("/kuhusu/")
+            self.assertEqual(r.call_count, 2)
+            self.assertIn('data-bs-theme="dark"', dark.content.decode())
+            self.client.force_login(User.objects.create_user("mhariri2", password="x", is_staff=True))
+            self.client.get("/kuhusu/")
+            self.assertEqual(r.call_count, 3)
+
+
+def render_shortcut(*args, **kwargs):
+    from django.shortcuts import render as _render
+    return _render(*args, **kwargs)
+
+
+@override_settings(SITE_URL="https://www.wlife.online")
+class InternalLinksTest(TestCase):
+    """Viungo vya ndani: habari -> timu/ligi, timu -> msimamo wa ligi zake."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from news.models import Fixture, League
+        cache.clear()
+        self.addCleanup(cache.clear)
+        Fixture.objects.create(fixture_id=6601, day=timezone.localdate(), kickoff=timezone.now(), status="NS",
+                               home="Simba SC", away="KMC", competition="Premier League", competition_id=77,
+                               country="Tanzania", rank=0)
+        League.objects.create(competition_id=77, competition="Premier League", country="Tanzania",
+                              name="Ligi Kuu Tanzania", slug="ligi-kuu-tanzania")
+
+    def _article(self, title, keywords):
+        return Article.objects.create(title=title, category="tanzania", excerpt="x", body="Aya.", keywords=keywords,
+                                      status="published", published_at=timezone.now())
+
+    def test_football_article_links_team_but_wildlife_story_does_not(self):
+        sport = self._article("Kocha wa Simba azungumzia usajili", "Simba, usajili, Ligi Kuu")
+        lion = self._article("Simba wa Serengeti waonekana tena", "Simba, Serengeti, utalii")
+        self.assertIn('href="/timu/simba/"', self.client.get(sport.get_absolute_url()).content.decode())
+        self.assertNotIn('href="/timu/simba/"', self.client.get(lion.get_absolute_url()).content.decode())
+
+    def test_match_article_links_teams_and_league(self):
+        from news.models import LiveMatch
+        a = self._article("Simba SC dhidi ya KMC LIVE", "")
+        LiveMatch.objects.create(article=a, fixture_id=6601, provider="highlightly", home="Simba SC", away="KMC",
+                                 competition="Premier League", status="NS", kickoff=timezone.now())
+        page = self.client.get(a.get_absolute_url()).content.decode()
+        self.assertIn('href="/timu/simba/"', page)
+        self.assertIn('href="/ligi/ligi-kuu-tanzania/"', page)
+
+    def test_team_page_links_its_leagues(self):
+        page = self.client.get("/timu/simba/").content.decode()
+        self.assertIn('href="/ligi/ligi-kuu-tanzania/"', page)

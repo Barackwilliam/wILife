@@ -132,7 +132,7 @@
       <div class="g">
         <div>
           <a href="{% url 'news:home' %}" class="logo">{% include 'partials/brand_mark.html' %}<b>w<em>I</em>Life</b></a>
-          <p>Habari za Tanzania, Afrika na Dunia kwa Kiswahili — kwa ufupi, kwa uhakika. Inaendeshwa na <a href="{% url 'news:services' %}" style="display:inline;color:#f4b25a">JamiiTek Digital Agency</a>.</p>
+          <p>Habari za Tanzania, Afrika na Dunia kwa Kiswahili — kwa ufupi, kwa uhakika. Inaendeshwa na <a href="{% url 'news:services' %}" style="display:inline;color:#f4b25a;text-decoration:underline">JamiiTek Digital Agency</a>.</p>
           {% if social_links %}<div class="soc-row">{% for s in social_links %}<a href="{{ s.url }}" target="_blank" rel="noopener me" aria-label="{{ s.icon }}">{% icon s.icon %}</a>{% endfor %}</div>{% endif %}
         </div>
         <div><h2>Habari</h2><a href="{% url 'news:category' 'tanzania' %}">Tanzania</a><a href="{% url 'news:category' 'afrika' %}">Afrika</a><a href="{% url 'news:category' 'dunia' %}">Dunia</a><a href="{% url 'news:category' 'jamiitek' %}">Teknolojia &amp; Biashara</a><a href="{% url 'news:latest' %}">Habari mpya zote</a><a href="{% url 'news:live_hub' %}">Matokeo ya mechi mubashara</a><a href="{% url 'news:matches_today' %}">Mechi za leo</a><a href="{% url 'news:results_yesterday' %}">Matokeo ya jana</a><a href="{% url 'news:predictions' %}">Utabiri wa mechi</a></div>

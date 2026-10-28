@@ -20,7 +20,7 @@
 {% if lead %}
 <section class="top" aria-label="Habari kuu">
   <article class="lead c-{{ lead.category }}">
-    <a href="{{ lead.get_absolute_url }}" tabindex="-1">{% include 'news/_img.html' with a=lead big=True %}</a>
+    <a href="{{ lead.get_absolute_url }}" tabindex="-1" aria-hidden="true">{% include 'news/_img.html' with a=lead big=True %}</a>
     <span class="kick box">{% if lead.is_live %}<span class="live-pill">LIVE</span>{% endif %}{{ lead.get_category_display }}</span>
     <h2 class="ttl"><a href="{{ lead.get_absolute_url }}">{{ lead.title }}</a></h2>
     <p>{{ lead.excerpt }}</p>
@@ -30,7 +30,7 @@
   <div class="stack">
     {% for a in stack %}
     <article class="row-s c-{{ a.category }}{% if forloop.first %} first{% endif %}">
-      {% if forloop.first %}<a href="{{ a.get_absolute_url }}" tabindex="-1">{% include 'news/_img.html' %}</a>{% endif %}
+      {% if forloop.first %}<a href="{{ a.get_absolute_url }}" tabindex="-1" aria-hidden="true">{% include 'news/_img.html' %}</a>{% endif %}
       <div>
         <span class="kick box">{% if a.is_live %}<span class="live-pill">LIVE</span>{% endif %}{{ a.get_category_display }}</span>
         <h3 class="ttl"><a href="{{ a.get_absolute_url }}">{{ a.title }}</a></h3>
