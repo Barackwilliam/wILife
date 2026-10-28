@@ -92,7 +92,18 @@ def summary(team, now=None):
     return {"team": team, "logo": logo, "next": upcoming[0][0] if upcoming else None,
             "upcoming": [r for r, _ in upcoming[1:4]], "results": results,
             "form": [x["res"] for x in results[:5]], "stats": stats if stats["P"] else None,
-            "videos": videos(team), "news": news(team)}
+            "videos": videos(team), "news": news(team), "leagues": leagues(team)}
+
+
+def leagues(team):
+    """Ligi/mashindano ambayo timu imecheza (kwa ratiba tuliyohifadhi) — viungo vya msimamo."""
+    from news.models import Fixture, League
+    from news.scorebat import team_key
+    keys = team.keys
+    ids = {cid for home, away, cid in Fixture.objects.exclude(competition_id=None)
+           .values_list("home", "away", "competition_id")[:5000]
+           if team_key(home) in keys or team_key(away) in keys}
+    return list(League.objects.filter(competition_id__in=ids, active=True)) if ids else []
 
 
 def news(team, limit=NEWS):

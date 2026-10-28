@@ -554,6 +554,47 @@ def leagues_jsonld(context, leagues):
                                         for i, lg in enumerate(leagues, 1)]})
 
 
+FOOTBALL_WORDS = ("ligi", "mechi", "goli", "bao", "mabao", "kocha", "mchezaji", "wachezaji", "soka", "mpira",
+                  "klabu", "uwanja", "michuano", "kombe", "usajili", "derby", "fc", "sc")
+
+
+@register.simple_tag
+def hub_links(article):
+    """
+    Viungo vya ndani kutoka habari kwenda kurasa za timu na ligi (SEO: Google inafuata viungo hivi).
+    Habari ya mechi: timu zake na ligi yake. Habari nyingine: timu zilizotajwa kwenye maneno muhimu
+    (keywords) — na habari iwe ya mpira kweli ("Simba" pia ni mnyama).
+    """
+    from news import teams
+    from news.models import Fixture, League, Team
+    from news.scorebat import team_key
+    out = []
+    try:
+        m = getattr(article, "match", None)
+    except Exception:
+        m = None
+    try:
+        if m is not None:
+            for t in teams.for_names(m.home, m.away):
+                out.append((t.get_absolute_url(), f"{t.name}: habari na matokeo", "shield-fill"))
+            f = Fixture.objects.filter(provider=m.provider, fixture_id=m.fixture_id).exclude(
+                competition_id=None).first() if m.fixture_id else None
+            lg = League.objects.filter(competition_id=f.competition_id, active=True).first() if f else None
+            if lg:
+                out.append((lg.get_absolute_url(), f"Msimamo wa {lg.name}", "trophy-fill"))
+            return out
+        words = f" {team_key(article.title + ' ' + article.keywords)} "
+        if not any(f" {w} " in words for w in FOOTBALL_WORDS):
+            return out
+        keys = {team_key(k) for k in article.keywords.split(",") if k.strip()}
+        for t in Team.objects.filter(active=True):
+            if keys & (t.keys | {team_key(t.name)}):
+                out.append((t.get_absolute_url(), f"{t.name}: habari na matokeo", "shield-fill"))
+    except Exception:                        # ukurasa wa habari usivunjike kwa sababu ya viungo
+        return []
+    return out
+
+
 @register.simple_tag
 def league_for(row_or_fixture):
     """Ukurasa wa ligi wa mechi hii (kwa namba ya ligi), au None."""
