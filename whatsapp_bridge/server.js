@@ -5,6 +5,7 @@
  * two things:
  *
  *   POST /send            Django -> WhatsApp   { to, text, preview? }   (X-Bridge-Key)
+ *                         channel + preview.thumbnail: picha (image) yenye maelezo
  *   POST /send-video      Django -> Channel    { to, video (base64 MP4), text }
  *   inbound messages      WhatsApp -> Django   /agent/whatsapp/baileys/
  *
@@ -32,7 +33,6 @@ const {
     default: makeWASocket,
     DisconnectReason,
     useMultiFileAuthState,
-    prepareWAMessageMedia,
 } = require('@whiskeysockets/baileys');
 
 const { useSupabaseAuthState } = require('./supabaseAuth');
@@ -113,8 +113,17 @@ app.post('/send', requireKey, async (req, res) => {
 
     try {
         if (jid.endsWith('@newsletter')) {
+            const image = req.body?.preview ? await fetchThumb(req.body.preview) : null;
+            if (image) {                  // picha kubwa inayoonekana kwa wafuasi wote + maelezo yenye link
+                try {
+                    const sent = await sock.sendMessage(jid, { image, caption: text, mimetype: 'image/jpeg' });
+                    return res.json({ success: true, id: sent?.key?.id || 'sent', kind: 'image' });
+                } catch (e) {
+                    console.error('channel image failed, sending text:', e.message);
+                }
+            }
             const content = { text };
-            const linkPreview = await buildPreview(req.body?.preview, text);
+            const linkPreview = await buildPreview(req.body?.preview, text, image);
             if (linkPreview) content.linkPreview = linkPreview;
             const sent = await sock.sendMessage(jid, content);
             return res.json({ success: true, id: sent?.key?.id || 'sent' });
@@ -131,33 +140,32 @@ app.post('/send', requireKey, async (req, res) => {
     }
 });
 
-// Kadi ya link {url, title, description, thumbnail}: Django inatoa maelezo, bridge inapakua picha.
-// Picha inapakiwa kwenye WhatsApp (highQualityThumbnail) ili kadi iwe KUBWA kama ya YouTube kwenye simu;
-// ikishindikana, kadi ndogo (jpegThumbnail) inatumika.
-async function buildPreview(preview, text) {
+// Picha ya video (YouTube) kwa posti ya channel: {thumbnail} -> JPEG kubwa, au null.
+async function fetchThumb(preview) {
+    const thumb = String(preview?.thumbnail || '');
+    if (!/^https:\/\/(i\.ytimg\.com|img\.youtube\.com)\//.test(thumb)) return null;
+    try {
+        const r = await axios.get(thumb, { responseType: 'arraybuffer', timeout: 8000, maxContentLength: 3_000_000 });
+        const sharp = require('sharp');
+        return await sharp(Buffer.from(r.data)).resize({ width: 1280, withoutEnlargement: true }).jpeg({ quality: 82 }).toBuffer();
+    } catch (e) {
+        console.error('preview thumbnail failed:', e.message);
+        return null;
+    }
+}
+
+// Kadi ndogo ya link (picha ndogo ndani ya ujumbe) — akiba picha kubwa ikishindwa kutumwa.
+// Kadi KUBWA ya link haifanyi kazi kwenye channel: picha yake hupakiwa ikiwa imefungwa (encrypted), na
+// wafuasi wa channel huona kisanduku cheusi. Kwa hiyo channel inapata picha halisi (image) + maelezo.
+async function buildPreview(preview, text, image) {
     const url = String(preview?.url || '');
     if (!/^https:\/\//.test(url) || !text.includes(url)) return undefined;
     let jpegThumbnail;
-    let highQualityThumbnail;
-    const thumb = String(preview?.thumbnail || '');
-    if (/^https:\/\/(i\.ytimg\.com|img\.youtube\.com)\//.test(thumb)) {
+    if (image) {
         try {
-            const r = await axios.get(thumb, { responseType: 'arraybuffer', timeout: 8000, maxContentLength: 3_000_000 });
-            const full = Buffer.from(r.data);
-            const sharp = require('sharp');
-            jpegThumbnail = await sharp(full).resize(320).jpeg({ quality: 70 }).toBuffer();
-            try {
-                const image = await sharp(full).resize({ width: 1280, withoutEnlargement: true }).jpeg({ quality: 82 }).toBuffer();
-                const { imageMessage } = await prepareWAMessageMedia({ image }, {
-                    upload: sock.waUploadToServer,
-                    mediaTypeOverride: 'thumbnail-link',
-                });
-                if (imageMessage?.directPath) highQualityThumbnail = imageMessage;
-            } catch (e) {
-                console.error('preview upload failed (small card instead):', e.message);
-            }
+            jpegThumbnail = await require('sharp')(image).resize(320).jpeg({ quality: 70 }).toBuffer();
         } catch (e) {
-            console.error('preview thumbnail failed:', e.message);
+            console.error('small preview failed:', e.message);
         }
     }
     return {
@@ -166,7 +174,6 @@ async function buildPreview(preview, text) {
         title: String(preview?.title || '').slice(0, 200),
         description: String(preview?.description || '').slice(0, 300),
         ...(jpegThumbnail ? { jpegThumbnail } : {}),
-        ...(highQualityThumbnail ? { highQualityThumbnail } : {}),
     };
 }
 
