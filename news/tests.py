@@ -3608,6 +3608,20 @@ class Soka360ChannelTest(TestCase):
         self.assertEqual(soka360.derby("Inter Miami", "AC Milan"), "")          # jina lote, si sehemu yake
         self.assertEqual(soka360.derby("Simba Queens", "Yanga Princess"), "")
 
+    def test_headline_from_official_title_when_match_unknown(self):
+        from news import soka360
+        from news.models import Fixture, Highlight
+        Fixture.objects.all().delete()
+        h = Highlight.objects.create(
+            provider="youtube", key="yt:DDDDDDDDDD1", slug="dodoma-jiji-vs-jkt", channel="Azam TV",
+            title="Highlights | Dodoma Jiji 0-0 JKT Tanzania | NBC Premier League 27/10/2026", competition="Azam TV",
+            home="Dodoma Jiji", away="JKT Tanzania", home_key="dodoma jiji", away_key="jkt tanzania",
+            date=self.now - timedelta(hours=10), source_url="https://www.youtube.com/watch?v=DDDDDDDDDD1",
+            videos=[{"title": "Video", "src": "https://www.youtube-nocookie.com/embed/DDDDDDDDDD1"}])
+        body = soka360.highlight_text(h)
+        self.assertTrue(body.startswith("🔥 NBC PREMIER LEAGUE | FULL-TIME 🔥\n\nDodoma Jiji 0–0 JKT Tanzania\n"), body)
+        self.assertIn("🏆 Competition: NBC Premier League", body)
+
     def test_failure_retries_then_gives_up(self):
         from news import soka360
         from news.models import ChannelPost, Highlight

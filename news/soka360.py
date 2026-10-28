@@ -22,6 +22,7 @@ kati ya posti, na kikomo cha siku kwa kila aina. Mechi/video za saa SOKA360_WIND
     SOKA360_WINDOW_HOURS            default 48
 """
 import logging
+import re
 import time
 from datetime import timedelta, timezone as dt_timezone
 
@@ -196,6 +197,27 @@ def _highlights(now):
     return out
 
 
+_TITLE_SCORE = re.compile(r"\s(\d{1,2})\s*[-–]\s*(\d{1,2})\s")
+_COMP_WORDS = ("league", "ligi", "cup", "kombe", "premier", "championship", "liga", "serie", "bundesliga",
+               "ligue", "confederation", "caf", "uefa", "fifa", "shield", "ngao")
+
+
+def from_title(title):
+    """
+    ('0', '0'), 'NBC Premier League' kutoka kichwa rasmi kama
+    'Highlights | Dodoma Jiji 0-0 JKT Tanzania | NBC Premier League 27/10/2026' — (None, '') kama havipo.
+    """
+    m = _TITLE_SCORE.search(f" {title or ''} ")
+    score = (m.group(1), m.group(2)) if m else None
+    comp = ""
+    for part in (title or "").split("|"):
+        p = re.sub(r"\s*[-–]?\s*\d{1,2}/\d{1,2}/\d{2,4}\s*$", "", part).strip(" -–:")
+        if p and not _TITLE_SCORE.search(f" {p} ") and any(w in p.lower() for w in _COMP_WORDS):
+            comp = p[:80]
+            break
+    return score, comp
+
+
 def highlight_text(h):
     from news import scorebat
     match = scorebat.match_page(h)
@@ -203,6 +225,9 @@ def highlight_text(h):
     if match and match.get("score") and "-" in match["score"]:
         score = tuple(match["score"].split("-", 1))
     competition = (match or {}).get("competition") or (h.competition if h.competition != h.channel else "")
+    if not score or not competition:            # mechi isiyo kwenye ratiba yetu: kichwa rasmi cha video kina vyote
+        t_score, t_comp = from_title(h.title)
+        score, competition = score or t_score, competition or t_comp
     top, teams = headline(h.home, h.away, competition, score)
     lines = [top, "", teams, ""]
     if competition:
