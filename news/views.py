@@ -30,11 +30,48 @@ def _published():
     return Article.published.defer(*LIGHT)
 
 
+STALE_FACTOR = 12          # nakala ya zamani inahifadhiwa hadi mara 12 ya muda wake (ukurasa wa 5 dk: saa 1)
+
+
+def _render_and_store(view, request, args, kwargs, key, seconds):
+    response = view(request, *args, **kwargs)
+    if hasattr(response, "render") and not getattr(response, "is_rendered", True):
+        response.render()
+    if response.status_code == 200 and not response.streaming and not response.cookies:
+        from django.core.cache import cache
+        cache.set(key, (response.content, response.get("Content-Type", "text/html"), timezone.now().timestamp()),
+                  seconds * STALE_FACTOR)
+    return response
+
+
+def _refresh_later(view, request, args, kwargs, key, seconds):
+    """Tengeneza nakala mpya baada ya kumjibu mgeni (thread) — mgeni hasubiri ukurasa kutengenezwa."""
+    import threading
+    from django.db import close_old_connections
+
+    def run():
+        try:
+            _render_and_store(view, request, args, kwargs, key, seconds)
+        except Exception as exc:                       # nakala ya zamani inabaki; jaribio lijalo litafanya kazi
+            import logging
+            logging.getLogger("news.cache").warning("page refresh %s failed: %s", request.path, exc)
+        finally:
+            close_old_connections()
+    if getattr(settings, "PAGE_CACHE_BACKGROUND", True):
+        threading.Thread(target=run, daemon=True).start()
+    else:                                              # majaribio: papo hapo
+        run()
+
+
 def _page_cache(view, seconds):
     """
     Nakala ya ukurasa kwa wageni wasioingia (karibu wasomaji wote), moja kwa kila URL na mwanga/giza.
     cache_page ya Django ilitenganisha nakala kwa kila cookie (Vary: Cookie) — kila mgeni mwenye cookie
     yoyote (theme, takwimu za tovuti…) alikosa nakala na kusubiri ukurasa kutengenezwa upya (~sekunde 3).
+
+    Nakala ikipitwa na muda, mgeni anapewa nakala iliyopo papo hapo, na mpya inatengenezwa nyuma
+    (stale-while-revalidate): hakuna mgeni anayesubiri sekunde 3–7 za ukurasa wa mwanzo kutengenezwa,
+    isipokuwa ukurasa usiofunguliwa kabisa kwa muda mrefu (STALE_FACTOR).
     """
     import hashlib
     from django.core.cache import cache
@@ -49,13 +86,13 @@ def _page_cache(view, seconds):
         key = "page:" + hashlib.sha1(f"{request.get_host()}|{request.get_full_path()}|{dark}".encode()).hexdigest()
         hit = cache.get(key)
         if hit is not None:
-            response = HttpResponse(hit[0], content_type=hit[1])
+            content, ctype = hit[0], hit[1]
+            stored = hit[2] if len(hit) > 2 else 0
+            if timezone.now().timestamp() - stored > seconds and cache.add(key + ":refresh", 1, 60):
+                _refresh_later(view, request, args, kwargs, key, seconds)   # mmoja tu anaanzisha kutengeneza upya
+            response = HttpResponse(content, content_type=ctype)
         else:
-            response = view(request, *args, **kwargs)
-            if hasattr(response, "render") and not getattr(response, "is_rendered", True):
-                response.render()
-            if response.status_code == 200 and not response.streaming and not response.cookies:
-                cache.set(key, (response.content, response.get("Content-Type", "text/html")), seconds)
+            response = _render_and_store(view, request, args, kwargs, key, seconds)
         patch_response_headers(response, seconds)
         patch_vary_headers(response, ("Cookie",))          # kivinjari: mwanga/giza ukibadilika, kiombe upya
         return response

@@ -4015,6 +4015,32 @@ class PageCacheTest(TestCase):
             self.assertEqual(r.call_count, 3)
 
 
+@override_settings(SITE_URL="https://www.wlife.online", PAGE_CACHE_BACKGROUND=False, NEWS_CACHE_SECONDS=300)
+class StaleWhileRevalidateTest(TestCase):
+    """Nakala iliyopitwa na muda inatolewa papo hapo; mpya inatengenezwa nyuma, mara moja tu."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+    def test_stale_copy_served_then_refreshed_once(self):
+        start = timezone.now()
+        with mock.patch("news.views.render", wraps=render_shortcut) as r:
+            with mock.patch("news.views.timezone.now", return_value=start):
+                self.client.get("/kuhusu/")
+            self.assertEqual(r.call_count, 1)
+            with mock.patch("news.views.timezone.now", return_value=start + timedelta(seconds=200)):
+                self.client.get("/kuhusu/")                       # bado mpya: hakuna kutengeneza
+            self.assertEqual(r.call_count, 1)
+            with mock.patch("news.views.timezone.now", return_value=start + timedelta(seconds=400)):
+                stale = self.client.get("/kuhusu/")               # imepitwa: inatolewa, na mpya inatengenezwa
+                self.assertEqual(stale.status_code, 200)
+                self.assertEqual(r.call_count, 2)
+                self.client.get("/kuhusu/")                       # mpya tayari: hakuna kutengeneza tena
+            self.assertEqual(r.call_count, 2)
+
+
 def render_shortcut(*args, **kwargs):
     from django.shortcuts import render as _render
     return _render(*args, **kwargs)
