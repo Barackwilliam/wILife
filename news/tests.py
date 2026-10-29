@@ -4041,6 +4041,29 @@ class StaleWhileRevalidateTest(TestCase):
             self.assertEqual(r.call_count, 2)
 
 
+    def test_background_refresh_closes_its_database_connection(self):
+        """Thread ya nyuma isiache muunganisho wazi — vinginevyo database inajaa na tovuti nzima inaanguka."""
+        from django.http import HttpResponse
+        from django.test import RequestFactory
+        from news import views
+        with mock.patch("threading.Thread") as thread, mock.patch("django.db.connections.close_all") as close:
+            with self.settings(PAGE_CACHE_BACKGROUND=True):
+                views._refresh_later(lambda request: HttpResponse("x"), RequestFactory().get("/kuhusu/"), (), {}, "page:k", 300)
+            run = thread.call_args.kwargs["target"]
+            run()
+        close.assert_called_once()
+
+    def test_broken_cache_does_not_break_the_page(self):
+        """Cache (diski) ikishindwa, mgeni bado anapata ukurasa — si Server Error (500)."""
+        from django.core.cache.backends.filebased import FileBasedCache
+        full = OSError(28, "No space left on device")
+        with mock.patch.object(FileBasedCache, "set", side_effect=full), \
+                mock.patch.object(FileBasedCache, "add", side_effect=full):
+            self.assertEqual(self.client.get("/kuhusu/").status_code, 200)
+            self.assertEqual(self.client.get("/habari/").status_code, 200)
+        with mock.patch.object(FileBasedCache, "get", side_effect=full):
+            self.assertEqual(self.client.get("/kuhusu/").status_code, 200)
+
 class SpeedDetailsTest(TestCase):
     """Picha ndogo za kadi za video, na Server-Timing ya kuona kinachochelewesha ukurasa."""
 

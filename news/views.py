@@ -63,7 +63,9 @@ def _render_and_store(view, request, args, kwargs, key, seconds):
 def _refresh_later(view, request, args, kwargs, key, seconds):
     """Tengeneza nakala mpya baada ya kumjibu mgeni (thread) — mgeni hasubiri ukurasa kutengenezwa."""
     import threading
-    from django.db import close_old_connections
+    from django.db import connections
+
+    background = getattr(settings, "PAGE_CACHE_BACKGROUND", True)
 
     def run():
         try:
@@ -72,8 +74,11 @@ def _refresh_later(view, request, args, kwargs, key, seconds):
             import logging
             logging.getLogger("news.cache").warning("page refresh %s failed: %s", request.path, exc)
         finally:
-            close_old_connections()
-    if getattr(settings, "PAGE_CACHE_BACKGROUND", True):
+            # Funga muunganisho wa thread hii SASA: close_old_connections() inafunga tu uliozeeka (CONN_MAX_AGE),
+            # hivyo kila thread ingeacha muunganisho wazi hadi database ikatae mipya.
+            if background:
+                connections.close_all()
+    if background:
         threading.Thread(target=run, daemon=True).start()
     else:                                              # majaribio: papo hapo
         run()

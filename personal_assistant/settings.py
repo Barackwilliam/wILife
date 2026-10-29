@@ -370,10 +370,12 @@ INDEXNOW_KEY = env("INDEXNOW_KEY", "")              # any 8–128 hex chars; ser
 NEWS_CACHE_SECONDS = int(env("NEWS_CACHE_SECONDS", "300"))
 # Cache moja kwa worker zote za gunicorn (kurasa za wageni, vizuizi vya kazi): faili kwenye diski ya seva.
 # Kila worker ikiwa na cache yake (LocMem — chaguo la Django), nakala ya ukurasa ilitengenezwa mara mbili.
+# SafeFileBasedCache: diski ikijaa, tovuti inaendelea bila cache badala ya kila ukurasa kuwa 500.
+# MAX_ENTRIES: nakala za kurasa ni ~100-300 KB kila moja; 1500 ≈ chini ya 0.5 GB ya diski.
 CACHES = {"default": {
-    "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
+    "BACKEND": "news.cache.SafeFileBasedCache",
     "LOCATION": env("CACHE_DIR", "/tmp/wilife-cache"),
-    "OPTIONS": {"MAX_ENTRIES": 5000},
+    "OPTIONS": {"MAX_ENTRIES": int(env("CACHE_MAX_ENTRIES", "1500"))},
 }}
 # Comma-separated official profiles (Facebook, X, Instagram, YouTube, LinkedIn) — used as schema.org sameAs
 SOCIAL_LINKS = [u.strip() for u in env("SOCIAL_LINKS", "").split(",") if u.strip()]
