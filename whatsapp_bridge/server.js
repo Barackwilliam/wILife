@@ -33,8 +33,9 @@ const {
     default: makeWASocket,
     DisconnectReason,
     useMultiFileAuthState,
-    generateWAMessage,
     generateMessageIDV2,
+    encodeNewsletterMessage,
+    proto,
 } = require('@whiskeysockets/baileys');
 
 const { useSupabaseAuthState } = require('./supabaseAuth');
@@ -188,20 +189,66 @@ async function sendToChannel(jid, content) {
     return { sent, ack, info };
 }
 
-// Picha/video kwenye WhatsApp Channel. Baileys 7.0.0-rc14 haiweki `mediatype` kwenye ujumbe wa channel
-// (relayMessage: extraAttrs haziingii kwenye stanza ya newsletter). WhatsApp inapokea picha/video bila
-// `mediatype`, inaitupa kimya kimya — bridge inasema "imetumwa" lakini wafuasi hawaoni chochote.
-// Hapa ujumbe unatengenezwa na kutumwa kwa mkono, `mediatype` ikiwa ndani.
+// Picha/video kwenye WhatsApp Channel, kwa njia ileile ya WhatsApp Web (na whatsmeow):
+//   1. faili ghafi (bila usimbaji) linapakiwa kwenye /newsletter/newsletter-<image|video> — seva inarudisha `handle`
+//   2. ujumbe unatumwa ukiwa na media_id=<handle>, na <plaintext mediatype="image|video">
+// Baileys 7.0.0-rc14 inapakia kwenye /mms/<aina>, inatupa `handle`, na haiweki mediatype kwenye <plaintext>,
+// kwa hiyo WhatsApp ilikataa picha za channel (bridge iliishia kutuma maandishi tu).
+function uploadToken(sha) {
+    return sha.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+async function uploadNewsletterMedia(buffer, kind) {
+    const conn = await sock.refreshMediaConn(false);
+    const sha = crypto.createHash('sha256').update(buffer).digest();
+    const token = uploadToken(sha);
+    let lastError = new Error('hakuna media host');
+    for (const { hostname } of conn.hosts || []) {
+        const url = `https://${hostname}/newsletter/newsletter-${kind}/${token}?auth=${encodeURIComponent(conn.auth)}&token=${token}`;
+        try {
+            const r = await axios.post(url, buffer, {
+                headers: { 'Content-Type': 'application/octet-stream', Origin: 'https://web.whatsapp.com' },
+                timeout: 60000, maxBodyLength: Infinity, maxContentLength: Infinity,
+            });
+            if (r.data?.direct_path || r.data?.url) {
+                return { url: r.data.url, directPath: r.data.direct_path, handle: r.data.handle || '', sha, length: buffer.length };
+            }
+            lastError = new Error(`upload ${hostname}: ${JSON.stringify(r.data).slice(0, 200)}`);
+        } catch (e) {
+            lastError = new Error(`upload ${hostname}: ${e.response ? e.response.status + ' ' + JSON.stringify(e.response.data).slice(0, 200) : e.message}`);
+        }
+    }
+    throw lastError;
+}
+
 async function sendChannelMedia(jid, content) {
-    const mediatype = content.image ? 'image' : content.video ? 'video' : null;
-    if (!mediatype) return sock.sendMessage(jid, content);
-    const msg = await generateWAMessage(jid, content, {
-        userJid: sock.user?.id,
-        upload: sock.waUploadToServer,
-        messageId: generateMessageIDV2(sock.user?.id),
+    const kind = content.image ? 'image' : content.video ? 'video' : null;
+    if (!kind) return sock.sendMessage(jid, content);
+    const buffer = content.image || content.video;
+    const up = await uploadNewsletterMedia(buffer, kind);
+    const media = { url: up.url, directPath: up.directPath, fileSha256: up.sha, fileLength: up.length,
+                    mimetype: content.mimetype || (kind === 'image' ? 'image/jpeg' : 'video/mp4'),
+                    caption: content.caption || '' };
+    if (kind === 'image') {
+        try {
+            const sharp = require('sharp');
+            const meta = await sharp(buffer).metadata();
+            media.width = meta.width;
+            media.height = meta.height;
+            media.jpegThumbnail = await sharp(buffer).resize(72).jpeg({ quality: 50 }).toBuffer();
+        } catch (e) {
+            console.error('channel thumbnail failed:', e.message);
+        }
+    }
+    const message = proto.Message.fromObject({ [`${kind}Message`]: media });
+    const id = generateMessageIDV2(sock.user?.id);
+    await sock.sendNode({
+        tag: 'message',
+        attrs: { to: jid, id, type: 'media', ...(up.handle ? { media_id: up.handle } : {}) },
+        content: [{ tag: 'plaintext', attrs: { mediatype: kind }, content: encodeNewsletterMessage(message) }],
     });
-    await sock.relayMessage(jid, msg.message, { messageId: msg.key.id, additionalAttributes: { mediatype } });
-    return msg;
+    console.log('channel media uploaded', kind, up.directPath, up.handle ? 'handle ok' : 'no handle');
+    return { key: { id } };
 }
 
 // Picha ya video (YouTube) kwa posti ya channel: {thumbnail} -> JPEG kubwa, au null.
