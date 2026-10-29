@@ -33,6 +33,8 @@ const {
     default: makeWASocket,
     DisconnectReason,
     useMultiFileAuthState,
+    generateWAMessage,
+    generateMessageIDV2,
 } = require('@whiskeysockets/baileys');
 
 const { useSupabaseAuthState } = require('./supabaseAuth');
@@ -116,7 +118,7 @@ app.post('/send', requireKey, async (req, res) => {
             const image = req.body?.preview ? await fetchThumb(req.body.preview) : null;
             if (image) {                  // picha kubwa inayoonekana kwa wafuasi wote + maelezo yenye link
                 try {
-                    const sent = await sock.sendMessage(jid, { image, caption: text, mimetype: 'image/jpeg' });
+                    const sent = await sendChannelMedia(jid, { image, caption: text, mimetype: 'image/jpeg' });
                     return res.json({ success: true, id: sent?.key?.id || 'sent', kind: 'image' });
                 } catch (e) {
                     console.error('channel image failed, sending text:', e.message);
@@ -139,6 +141,22 @@ app.post('/send', requireKey, async (req, res) => {
         res.status(502).json({ success: false, error: e.message });
     }
 });
+
+// Picha/video kwenye WhatsApp Channel. Baileys 7.0.0-rc14 haiweki `mediatype` kwenye ujumbe wa channel
+// (relayMessage: extraAttrs haziingii kwenye stanza ya newsletter). WhatsApp inapokea picha/video bila
+// `mediatype`, inaitupa kimya kimya — bridge inasema "imetumwa" lakini wafuasi hawaoni chochote.
+// Hapa ujumbe unatengenezwa na kutumwa kwa mkono, `mediatype` ikiwa ndani.
+async function sendChannelMedia(jid, content) {
+    const mediatype = content.image ? 'image' : content.video ? 'video' : null;
+    if (!mediatype) return sock.sendMessage(jid, content);
+    const msg = await generateWAMessage(jid, content, {
+        userJid: sock.user?.id,
+        upload: sock.waUploadToServer,
+        messageId: generateMessageIDV2(sock.user?.id),
+    });
+    await sock.relayMessage(jid, msg.message, { messageId: msg.key.id, additionalAttributes: { mediatype } });
+    return msg;
+}
 
 // Picha ya video (YouTube) kwa posti ya channel: {thumbnail} -> JPEG kubwa, au null.
 async function fetchThumb(preview) {
@@ -194,7 +212,7 @@ app.post('/send-video', requireKey, async (req, res) => {
         return res.status(503).json({ success: false, error: `not connected (${connectionStatus})` });
     }
     try {
-        const sent = await sock.sendMessage(jid, { video, caption, mimetype: 'video/mp4' });
+        const sent = await sendChannelMedia(jid, { video, caption, mimetype: 'video/mp4' });
         res.json({ success: true, id: sent?.key?.id || 'sent' });
     } catch (e) {
         console.error('send-video failed:', e.message);
