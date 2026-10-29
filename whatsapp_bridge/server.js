@@ -118,17 +118,20 @@ app.post('/send', requireKey, async (req, res) => {
             const image = req.body?.preview ? await fetchThumb(req.body.preview) : null;
             if (image) {                  // picha kubwa inayoonekana kwa wafuasi wote + maelezo yenye link
                 try {
-                    const sent = await sendChannelMedia(jid, { image, caption: text, mimetype: 'image/jpeg' });
-                    return res.json({ success: true, id: sent?.key?.id || 'sent', kind: 'image' });
+                    const r = await sendToChannel(jid, { image, caption: text, mimetype: 'image/jpeg' });
+                    return res.json({ success: true, id: r.sent?.key?.id || 'sent', kind: 'image',
+                                      acked: !!r.ack, role: r.info?.role || '' });
                 } catch (e) {
                     console.error('channel image failed, sending text:', e.message);
+                    if (/si admin/.test(e.message)) throw e;          // maandishi nayo yangekataliwa
                 }
             }
             const content = { text };
             const linkPreview = await buildPreview(req.body?.preview, text, image);
             if (linkPreview) content.linkPreview = linkPreview;
-            const sent = await sock.sendMessage(jid, content);
-            return res.json({ success: true, id: sent?.key?.id || 'sent' });
+            const r = await sendToChannel(jid, content);
+            return res.json({ success: true, id: r.sent?.key?.id || 'sent', kind: 'text',
+                              acked: !!r.ack, role: r.info?.role || '' });
         }
         const [found] = await sock.onWhatsApp(jid);
         if (!found?.exists) {
@@ -141,6 +144,49 @@ app.post('/send', requireKey, async (req, res) => {
         res.status(502).json({ success: false, error: e.message });
     }
 });
+
+// Jibu la seva ya WhatsApp (ack) kwa ujumbe tuliotuma: {error} ikikataliwa, {} ikikubaliwa, null kimya.
+// Bila hili, channel ikikataa ujumbe bridge ingesema "imetumwa" na hakuna anayejua kwa nini haukufika.
+function waitAck(id, ms = 8000) {
+    return new Promise(resolve => {
+        const done = (value) => { clearTimeout(timer); sock.ws.off('CB:ack,class:message', onAck); resolve(value); };
+        const onAck = (node) => { if (node?.attrs?.id === id) done({ ...node.attrs }); };
+        const timer = setTimeout(() => done(null), ms);
+        sock.ws.on('CB:ack,class:message', onAck);
+    });
+}
+
+// Nafasi ya namba ya bridge kwenye channel (OWNER / ADMIN / SUBSCRIBER…) — inakaguliwa mara moja kwa saa.
+const channelRoles = new Map();
+async function channelRole(jid) {
+    const hit = channelRoles.get(jid);
+    if (hit && Date.now() - hit.at < 3600_000) return hit;
+    const meta = await sock.newsletterMetadata('jid', jid);
+    const info = { at: Date.now(), role: String(meta?.viewer_metadata?.role || '').toUpperCase(),
+                   name: meta?.thread_metadata?.name?.text || '' };
+    channelRoles.set(jid, info);
+    return info;
+}
+
+// Tuma kwenye channel na uthibitishe: namba ni admin, na seva imekubali. Inatupa kosa lenye maelezo.
+async function sendToChannel(jid, content) {
+    let info = null;
+    try {
+        info = await channelRole(jid);
+    } catch (e) {
+        console.error('channel metadata failed:', e.message);
+    }
+    if (info && info.role && !['OWNER', 'ADMIN'].includes(info.role)) {
+        throw new Error(`namba +${connectedNumber} si admin wa channel "${info.name}" (nafasi: ${info.role}) — iongeze kama admin`);
+    }
+    const sent = await sendChannelMedia(jid, content);
+    const ack = await waitAck(sent?.key?.id);
+    console.log('channel ack', jid, info?.name || '', info?.role || '', sent?.key?.id, JSON.stringify(ack));
+    if (ack && ack.error) {
+        throw new Error(`WhatsApp imekataa ujumbe wa channel (kosa ${ack.error})`);
+    }
+    return { sent, ack, info };
+}
 
 // Picha/video kwenye WhatsApp Channel. Baileys 7.0.0-rc14 haiweki `mediatype` kwenye ujumbe wa channel
 // (relayMessage: extraAttrs haziingii kwenye stanza ya newsletter). WhatsApp inapokea picha/video bila
@@ -212,8 +258,8 @@ app.post('/send-video', requireKey, async (req, res) => {
         return res.status(503).json({ success: false, error: `not connected (${connectionStatus})` });
     }
     try {
-        const sent = await sendChannelMedia(jid, { video, caption, mimetype: 'video/mp4' });
-        res.json({ success: true, id: sent?.key?.id || 'sent' });
+        const r = await sendToChannel(jid, { video, caption, mimetype: 'video/mp4' });
+        res.json({ success: true, id: r.sent?.key?.id || 'sent', acked: !!r.ack, role: r.info?.role || '' });
     } catch (e) {
         console.error('send-video failed:', e.message);
         res.status(502).json({ success: false, error: e.message });
