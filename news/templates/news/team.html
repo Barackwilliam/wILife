@@ -58,7 +58,7 @@
     <div class="sh"><h2>Video za magoli za {{ team.name }}</h2><a href="{% url 'news:videos' %}">Zote {% icon "arrow-right" %}</a></div>
     <div class="vh-grid">{% for h in videos %}
       <a class="vh-card" href="{{ h.get_absolute_url }}">
-        <span class="vh-thumb">{% if h.thumbnail %}<img src="{{ h.thumbnail }}" alt="{{ h.name }}: video za magoli" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}<i aria-hidden="true">▶</i></span>
+        <span class="vh-thumb">{% if h.thumbnail %}<img src="{{ h.card_thumb }}" alt="{{ h.name }}: video za magoli" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}<i aria-hidden="true">▶</i></span>
         <span class="vh-meta"><small>{{ h.league }}</small><b>{{ h.name }}</b><time datetime="{{ h.date|date:'c' }}">{{ h.date|sw_ago }}</time></span>
       </a>{% endfor %}
     </div>

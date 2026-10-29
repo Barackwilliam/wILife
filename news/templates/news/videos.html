@@ -34,7 +34,7 @@
   <h2 class="vh-h2">Video zaidi</h2>
   <div class="vh-grid">{% for h in rest %}
     <a class="vh-card" href="{{ h.get_absolute_url }}">
-      <span class="vh-thumb">{% if h.thumbnail %}<img src="{{ h.thumbnail }}" alt="{{ h.name }}: video za magoli" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}<i aria-hidden="true">▶</i>{% if h.videos|length > 1 %}<em>{{ h.videos|length }} video</em>{% endif %}</span>
+      <span class="vh-thumb">{% if h.thumbnail %}<img src="{{ h.card_thumb }}" alt="{{ h.name }}: video za magoli" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}<i aria-hidden="true">▶</i>{% if h.videos|length > 1 %}<em>{{ h.videos|length }} video</em>{% endif %}</span>
       <span class="vh-meta"><small>{{ h.league }}</small><b>{{ h.name }}</b><time datetime="{{ h.date|date:'c' }}">{{ h.date|sw_ago }}</time></span>
     </a>{% endfor %}
   </div>

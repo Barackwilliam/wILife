@@ -698,6 +698,14 @@ class Highlight(models.Model):
         return reverse("news:video", args=[self.slug])
 
     @property
+    def card_thumb(self):
+        """Picha ya kadi: ya YouTube 480x360 (~30 KB) badala ya 1280x720 (~150 KB) — kadi ni ndogo."""
+        t = self.thumbnail or ""
+        if t.startswith("https://i.ytimg.com/vi/"):
+            return t.rsplit("/", 1)[0] + "/hqdefault.jpg"
+        return t
+
+    @property
     def main(self):
         """Video ya kwanza (kwa kawaida highlights kamili)."""
         return self.videos[0] if self.videos else None
