@@ -68,6 +68,17 @@ def _match_url(m):
 
 # ── Video za matokeo ───────────────────────────────────────────────────────────
 
+def result_key(m):
+    from news.scorebat import team_key
+    day = m.kickoff.astimezone(dt_timezone.utc).date()
+    return f"result:{team_key(m.home)[:40]}:{team_key(m.away)[:40]}:{day}"
+
+
+def highlight_key(h):
+    from news.scorebat import team_key
+    return f"highlight:{team_key(h.home)[:40]}:{team_key(h.away)[:40]}:{timezone.localtime(h.date):%Y-%m-%d}"
+
+
 def _results(now):
     """[(tayari_saa, key, mechi)] za mechi zilizokwisha zenye matokeo: LiveMatch (zina wafungaji) kwanza."""
     from news.models import Fixture, LiveMatch
@@ -86,7 +97,7 @@ def _results(now):
             continue
         seen.add(ident)
         ready = m.kickoff + timedelta(minutes=110) + RESULT_DELAY
-        key = f"result:{ident[0]}:{ident[1]}:{day}"
+        key = result_key(m)
         if ready <= now and _usable(key):
             out.append((ready, key, m))
     return out
@@ -186,7 +197,7 @@ def _highlights(now):
     out, seen = [], set()
     for h in Highlight.objects.filter(provider="youtube", date__gte=window).exclude(home="").exclude(away="") \
             .order_by("date"):
-        key = f"highlight:{team_key(h.home)[:40]}:{team_key(h.away)[:40]}:{timezone.localtime(h.date):%Y-%m-%d}"
+        key = highlight_key(h)
         if key in seen or not h.main:
             continue
         seen.add(key)
@@ -245,6 +256,36 @@ def _post_highlight(channel, h):
     whatsapp.send_channel(channel, highlight_text(h), preview={
         "url": h.source_url, "title": h.title[:200], "description": f"Video rasmi: {h.channel}" if h.channel else "",
         "thumbnail": h.thumbnail})
+
+
+# ── Kutuma sasa hivi (Admin: kujaribu channel) ─────────────────────────────────
+
+def send_now(obj, kind):
+    """
+    Tuma posti moja sasa hivi, bila kusubiri tick wala nafasi/kikomo cha siku (vitufe vya Admin).
+    Inarekodiwa kama ChannelPost ileile ambayo kazi ya automatic ingetumia, ili isitumwe tena.
+    Inarudisha (imefaulu, ujumbe wa kuonyesha).
+    """
+    from news.models import ChannelPost
+    channel = getattr(settings, "WHATSAPP_CHANNEL", "").strip()
+    if not channel:
+        return False, "WHATSAPP_CHANNEL haijawekwa kwenye Render"
+    if not (settings.AGENT_ENABLED and settings.WHATSAPP_ENABLED):
+        return False, "WhatsApp imezimwa (AGENT_ENABLED / WHATSAPP_ENABLED)"
+    if kind == "result" and (obj.home_goals is None or obj.away_goals is None or not obj.kickoff):
+        return False, f"{obj.home} vs {obj.away}: mechi haina matokeo bado"
+    key = result_key(obj) if kind == "result" else highlight_key(obj)
+    title = f"{obj.home} vs {obj.away}"[:200]
+    post, _ = ChannelPost.objects.get_or_create(key=key, defaults={"kind": kind, "title": title})
+    ChannelPost.objects.filter(pk=post.pk).update(tries=post.tries + 1)
+    try:
+        (_post_result if kind == "result" else _post_highlight)(channel, obj)
+    except Exception as exc:
+        log.warning("soka360 send_now %s failed: %s", key, exc)
+        ChannelPost.objects.filter(pk=post.pk).update(error=str(exc)[:300])
+        return False, f"{title}: imeshindwa — {str(exc)[:200]}"
+    ChannelPost.objects.filter(pk=post.pk).update(posted_at=timezone.now(), error="")
+    return True, f"{title}: imetumwa kwenye channel"
 
 
 # ── Kazi ya tick ───────────────────────────────────────────────────────────────

@@ -3622,6 +3622,27 @@ class Soka360ChannelTest(TestCase):
         self.assertTrue(body.startswith("🔥 NBC PREMIER LEAGUE | FULL-TIME 🔥\n\nDodoma Jiji 0–0 JKT Tanzania\n"), body)
         self.assertIn("🏆 Competition: NBC Premier League", body)
 
+    def test_admin_send_now_buttons(self):
+        from news import soka360
+        from news.models import ChannelPost
+        admin_user = User.objects.create_superuser("mmiliki", "m@example.tz", "x")
+        self.client.force_login(admin_user)
+        with mock.patch("core.agent.whatsapp.send_channel", return_value="t1") as text, \
+                mock.patch("core.agent.whatsapp.send_channel_video", side_effect=RuntimeError("bridge HTTP 503: not connected")), \
+                mock.patch("news.football._image", return_value=None), \
+                mock.patch("news.match_video.render", return_value=b"mp4"):
+            r = self.client.post("/admin/news/highlight/", {"action": "send_to_soka360",
+                                                             "_selected_action": [self.hl.pk]}, follow=True)
+            self.assertContains(r, "Simba SC vs Young Africans: imetumwa kwenye channel")
+            self.assertTrue(text.called)
+            r = self.client.post("/admin/news/fixture/", {"action": "send_to_soka360",
+                                                           "_selected_action": [self.match.pk]}, follow=True)
+            self.assertContains(r, "imeshindwa — bridge HTTP 503: not connected")
+        self.assertIsNotNone(ChannelPost.objects.get(key=soka360.highlight_key(self.hl)).posted_at)
+        self.assertIn("503", ChannelPost.objects.get(key=soka360.result_key(self.match)).error)
+        with self.settings(WHATSAPP_CHANNEL=""):
+            self.assertEqual(soka360.send_now(self.hl, "highlight")[1], "WHATSAPP_CHANNEL haijawekwa kwenye Render")
+
     def test_failure_retries_then_gives_up(self):
         from news import soka360
         from news.models import ChannelPost, Highlight

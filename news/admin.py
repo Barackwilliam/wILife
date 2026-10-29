@@ -145,12 +145,30 @@ class FootballStateAdmin(admin.ModelAdmin):
     readonly_fields = ("day", "requests", "remaining", "schedule_at", "live_at", "live_mode", "error", "sample")
 
 
+def _send_now(model_admin, request, queryset, kind):
+    """Kitufe cha kujaribu channel: inatuma papo hapo na kuonyesha matokeo au kosa halisi."""
+    from django.contrib import messages
+    from news import soka360
+    items = list(queryset[:4])
+    if len(items) > 3:
+        model_admin.message_user(request, "Chagua hadi 3 kwa mara moja — channel isijae.", messages.WARNING)
+        return
+    for obj in items:
+        ok, text = soka360.send_now(obj, kind)
+        model_admin.message_user(request, text, messages.SUCCESS if ok else messages.ERROR)
+
+
 @admin.register(Fixture)
 class FixtureAdmin(admin.ModelAdmin):
     """Ratiba ya siku (kurasa za Mechi za leo / Matokeo ya jana)."""
     list_display = ("day", "kickoff", "competition", "home", "away", "home_goals", "away_goals", "status")
     list_filter = ("day", "competition")
     search_fields = ("home", "away", "competition")
+    actions = ["send_to_soka360"]
+
+    @admin.action(description="Tuma video ya matokeo kwenye Soka360 sasa (mechi 1–3)")
+    def send_to_soka360(self, request, queryset):
+        _send_now(self, request, queryset, "result")
 
 
 @admin.register(Subscriber)
@@ -183,6 +201,11 @@ class HighlightAdmin(admin.ModelAdmin):
     list_filter = ("competition",)
     search_fields = ("title", "home", "away")
     readonly_fields = ("key", "videos", "created_at", "updated_at")
+    actions = ["send_to_soka360"]
+
+    @admin.action(description="Tuma kwenye Soka360 sasa (video 1–3)")
+    def send_to_soka360(self, request, queryset):
+        _send_now(self, request, queryset, "highlight")
 
 
 @admin.register(Team)
