@@ -2930,8 +2930,8 @@ class FavouriteTeamsAndBudgetTest(TestCase):
                                    home_goals=1, away_goals=0, kickoff=timezone.now() - timedelta(days=1),
                                    extra={"final": True, "fetched_at": timezone.now().isoformat()})
         page = self.client.get(f.get_absolute_url()).content.decode()
-        self.assertIn('class="i sb-crest"', page)
-        self.assertNotIn('<span class="sb-logo">1</span>', page)
+        self.assertIn('<i aria-hidden="true">A</i>', page)             # "15 de Agosto" -> herufi, si tarakimu
+        self.assertNotIn('aria-hidden="true">1', page)
 
 
 class OverdueFixtureTest(TestCase):

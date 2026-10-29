@@ -288,6 +288,9 @@ def _fill(m, item):
     m.competition = (lg.get("name") or "")[:80]
     m.competition_logo = (lg.get("logo") or "")[:300]
     m.round = (lg.get("round") or "")[:80]
+    country = lg.get("country")
+    if isinstance(country, str) and country.strip() and (m.extra or {}).get("country") != country.strip()[:60]:
+        m.extra = {**(m.extra or {}), "country": country.strip()[:60]}      # LiveMatch.comp_label
     m.home = (tm.get("home", {}).get("name") or "Wenyeji")[:80]
     m.away = (tm.get("away", {}).get("name") or "Wageni")[:80]
     m.home_logo = (tm.get("home", {}).get("logo") or "")[:300]

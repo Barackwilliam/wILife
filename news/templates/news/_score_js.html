@@ -20,11 +20,14 @@
       d.matches.forEach(function (m) {
         document.querySelectorAll('[data-match="' + m.id + '"]').forEach(function (el) {
           var s = el.querySelector('[data-score]'), c = el.querySelector('[data-clock]');
+          var hg = el.querySelector('[data-hg]'), ag = el.querySelector('[data-ag]');
           var txt = (m.hg === null || m.ag === null) ? null : m.hg + '-' + m.ag;
-          if (s && txt && s.textContent.replace(/\s/g, '') !== txt) {
-            s.innerHTML = m.hg + '<i>-</i>' + m.ag;
-            el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+          var changed = false;
+          if (s && txt && s.textContent.replace(/\s/g, '') !== txt) { s.innerHTML = m.hg + '<i>-</i>' + m.ag; changed = true; }
+          if (hg && ag && txt && hg.textContent + '-' + ag.textContent !== txt) {   /* kadi ndogo: magoli kwa kila timu */
+            hg.textContent = m.hg; ag.textContent = m.ag; changed = true;
           }
+          if (changed) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
           if (c && c.textContent !== m.clock) c.textContent = m.clock;
           el.classList.toggle('is-on', m.playing);
           el.classList.toggle('is-ft', m.finished);
