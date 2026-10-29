@@ -4041,6 +4041,24 @@ class StaleWhileRevalidateTest(TestCase):
             self.assertEqual(r.call_count, 2)
 
 
+class SpeedDetailsTest(TestCase):
+    """Picha ndogo za kadi za video, na Server-Timing ya kuona kinachochelewesha ukurasa."""
+
+    def test_card_thumb_uses_small_youtube_image(self):
+        from news.models import Highlight
+        self.assertEqual(Highlight(thumbnail="https://i.ytimg.com/vi/abc/maxresdefault.jpg").card_thumb,
+                         "https://i.ytimg.com/vi/abc/hqdefault.jpg")
+        self.assertEqual(Highlight(thumbnail="https://cdn.example/x.jpg").card_thumb, "https://cdn.example/x.jpg")
+
+    def test_server_timing_on_render_and_hit(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        first = self.client.get("/kuhusu/")
+        self.assertRegex(first["Server-Timing"], r'^db;dur=\d+;desc="\d+ queries", render;dur=\d+$')
+        self.assertEqual(self.client.get("/kuhusu/")["Server-Timing"], 'cache;desc="hit"')
+
+
 def render_shortcut(*args, **kwargs):
     from django.shortcuts import render as _render
     return _render(*args, **kwargs)

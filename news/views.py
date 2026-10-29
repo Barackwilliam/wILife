@@ -34,9 +34,25 @@ STALE_FACTOR = 12          # nakala ya zamani inahifadhiwa hadi mara 12 ya muda 
 
 
 def _render_and_store(view, request, args, kwargs, key, seconds):
-    response = view(request, *args, **kwargs)
-    if hasattr(response, "render") and not getattr(response, "is_rendered", True):
-        response.render()
+    import time
+    from django.db import connection
+    db = {"n": 0, "t": 0.0}
+
+    def timed(execute, sql, params, many, context):           # muda wa database (Server-Timing)
+        start = time.perf_counter()
+        try:
+            return execute(sql, params, many, context)
+        finally:
+            db["n"] += 1
+            db["t"] += time.perf_counter() - start
+    began = time.perf_counter()
+    with connection.execute_wrapper(timed):
+        response = view(request, *args, **kwargs)
+        if hasattr(response, "render") and not getattr(response, "is_rendered", True):
+            response.render()
+    # Inaonekana kwenye DevTools -> Network -> Timing: kinachochelewesha ukurasa (database au kutengeneza)
+    response["Server-Timing"] = (f'db;dur={db["t"] * 1000:.0f};desc="{db["n"]} queries", '
+                                 f'render;dur={(time.perf_counter() - began) * 1000:.0f}')
     if response.status_code == 200 and not response.streaming and not response.cookies:
         from django.core.cache import cache
         cache.set(key, (response.content, response.get("Content-Type", "text/html"), timezone.now().timestamp()),
@@ -91,6 +107,7 @@ def _page_cache(view, seconds):
             if timezone.now().timestamp() - stored > seconds and cache.add(key + ":refresh", 1, 60):
                 _refresh_later(view, request, args, kwargs, key, seconds)   # mmoja tu anaanzisha kutengeneza upya
             response = HttpResponse(content, content_type=ctype)
+            response["Server-Timing"] = 'cache;desc="hit"'
         else:
             response = _render_and_store(view, request, args, kwargs, key, seconds)
         patch_response_headers(response, seconds)
