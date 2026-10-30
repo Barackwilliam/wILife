@@ -235,6 +235,8 @@ class Row:
             setattr(self, k, getattr(src, k, None))
         self.venue = getattr(src, "venue", "")
         self.city = getattr(src, "city", "")
+        from news import crests
+        self.country = crests.country_of(src)
         self.article = article
         self.match = src if isinstance(src, LiveMatch) else None
         self.fixture = src if isinstance(src, Fixture) else None
@@ -248,6 +250,8 @@ class Row:
     is_finished = property(lambda s: s.status in LiveMatch.FINISHED)
     is_off = property(lambda s: s.status in LiveMatch.OFF)
     shows_score = property(lambda s: LiveMatch.shows_score.fget(s))
+    home_crest = LiveMatch.home_crest
+    away_crest = LiveMatch.away_crest
     clock = property(lambda s: LiveMatch.clock.fget(s))
     is_overdue = property(lambda s: LiveMatch.overdue(s))
     url = property(lambda s: s.article.get_absolute_url() if s.article

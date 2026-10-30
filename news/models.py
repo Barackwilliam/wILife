@@ -523,6 +523,17 @@ class LiveMatch(models.Model):
         return name
 
     @property
+    def home_crest(self):
+        """Nembo ya wenyeji: ya API, ya Admin (Teams), au iliyoonekana kwenye mechi nyingine ya klabu hiyo (news/crests.py)."""
+        from news import crests
+        return crests.logo_for(self.home, self.home_logo, crests.country_of(self))
+
+    @property
+    def away_crest(self):
+        from news import crests
+        return crests.logo_for(self.away, self.away_logo, crests.country_of(self))
+
+    @property
     def shows_score(self):
         """Magoli yaonyeshwe? Si kwa mechi ambayo API inasema "inaendelea" lakini saa yake ya kuanza bado (data iliyokosewa)."""
         has = self.home_goals is not None and self.away_goals is not None
@@ -621,6 +632,9 @@ class Fixture(models.Model):
     @property
     def x(self):
         return self.extra or {}
+
+    home_crest = LiveMatch.home_crest
+    away_crest = LiveMatch.away_crest
 
     def get_absolute_url(self):
         slug = slugify(f"{self.home} vs {self.away}")[:80] or "mechi"
@@ -784,8 +798,12 @@ class Team(models.Model):
         help_text="Maneno ya kutambua habari zake, kwa koma (mf. Simba SC, klabu ya Simba). Epuka neno lenye maana "
                   "nyingine (simba = mnyama).")
     intro = models.TextField(blank=True, help_text="Utambulisho mfupi wa timu (mhariri). Tupu = hauonyeshwi.")
-    logo = models.URLField(max_length=300, blank=True, help_text="Tupu = nembo kutoka data ya mechi")
-    active = models.BooleanField(default=True)
+    logo = models.URLField(max_length=300, blank=True,
+                           help_text="URL ya nembo. Inatumika pia kwenye kadi za mechi pale data ya mechi haina nembo.")
+    country = models.CharField(max_length=60, default="Tanzania", blank=True,
+                               help_text="Nchi ya klabu — nembo haiwekwi kwa klabu ya jina hilo hilo ya nchi nyingine "
+                                         "(mf. Simba ya DR Congo).")
+    active = models.BooleanField(default=True, help_text="Ina ukurasa wake (/timu/…). Zima kwa klabu ya kuwekea nembo tu.")
     sort = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
