@@ -4194,3 +4194,53 @@ class LiveHubLogicTest(TestCase):
         self.assertEqual(football._category({"country": "Congo DR", "name": "Ligue 1"}), Category.AFRIKA)
         self.assertEqual(football._category({"country": "DR Congo", "name": "Linafoot"}), Category.AFRIKA)
         self.assertEqual(football._category({"country": "France", "name": "Ligue 1"}), Category.DUNIA)
+
+
+class CrestFallbackTest(TestCase):
+    """Nembo za klabu: API -> Admin (Teams) -> iliyoonekana kwenye mechi nyingine, bila kuchanganya nchi."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        p = mock.patch("news.indexnow.submit")
+        p.start()
+        self.addCleanup(p.stop)
+
+    def test_admin_logo_respects_country(self):
+        from news import crests
+        from news.models import Team
+        Team.objects.create(name="Simba SC", slug="simba-sc-x", match_names="Simba, Simba SC",
+                            logo="https://cdn.example/simba-tz.png", country="Tanzania", active=False)
+        self.assertEqual(crests.logo_for("Simba", "", "Tanzania"), "https://cdn.example/simba-tz.png")
+        self.assertEqual(crests.logo_for("Simba SC", "", "World"), "https://cdn.example/simba-tz.png")   # CAF
+        self.assertEqual(crests.logo_for("Simba", "", "Congo DR"), "")                                  # Simba ya DRC
+        self.assertEqual(crests.logo_for("Simba", "https://api.example/s.png", "Tanzania"), "https://api.example/s.png")
+        from news.models import LiveMatch
+        old_drc = LiveMatch(home="Malole", away="Simba", competition="Ligue 1")                        # kabla ya nchi kuhifadhiwa
+        self.assertEqual(old_drc.away_crest, "")
+        caf = LiveMatch(home="Al Ahly", away="Simba SC", competition="CAF Champions League")
+        self.assertEqual(caf.away_crest, "https://cdn.example/simba-tz.png")
+
+    def test_logo_seen_on_another_match_of_the_same_club(self):
+        from news import crests
+        from news.models import Fixture
+        Fixture.objects.create(provider="highlightly", fixture_id=7001, day=timezone.localdate(), home="Geita Gold",
+                               away="KMC", home_logo="https://hl.example/geita.png", kickoff=timezone.now(),
+                               country="Tanzania", status="FT")
+        self.assertEqual(crests.logo_for("Geita Gold FC", "", "Tanzania"), "https://hl.example/geita.png")
+        self.assertEqual(crests.logo_for("Geita Gold", "", "Kenya"), "")
+
+    def test_card_uses_admin_logo_and_cache_refreshes_on_save(self):
+        from news.models import LiveMatch, Team
+        a = Article.objects.create(title="Kitayosce vs Pamba", category="tanzania", excerpt="x", body="x",
+                                   status="published", published_at=timezone.now(), origin="football",
+                                   live_started_at=timezone.now())
+        m = LiveMatch.objects.create(article=a, home="Kitayosce", away="Pamba Jiji", kickoff=timezone.now(),
+                                     status="1H", minute=10, home_goals=0, away_goals=0, extra={"country": "Tanzania"})
+        self.assertEqual(m.home_crest, "")
+        Team.objects.create(name="Kitayosce", slug="kitayosce", match_names="Kitayosce",
+                            logo="https://cdn.example/kitayosce.png", active=False)
+        self.assertEqual(LiveMatch.objects.get(pk=m.pk).home_crest, "https://cdn.example/kitayosce.png")
+        self.assertIn('src="https://cdn.example/kitayosce.png"', self.client.get("/live/").content.decode())
+        self.assertEqual(self.client.get("/timu/kitayosce/").status_code, 404)        # nembo tu, hakuna ukurasa

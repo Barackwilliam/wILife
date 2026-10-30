@@ -10,12 +10,12 @@
 <div class="sb sb-big{% if f.is_playing %} is-on{% elif f.is_finished %} is-ft{% endif %}">
   <div class="sb-comp">{% if f.competition_logo %}<img src="{{ f.competition_logo }}" alt="" width="18" height="18" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}<span>{{ f.competition }}{% if f.round %} · {{ f.round }}{% endif %}</span></div>
   <div class="sb-row">
-    <div class="sb-team">{% include 'news/_crest.html' with name=f.home logo=f.home_logo %}<b>{{ f.home }}</b></div>
+    <div class="sb-team">{% include 'news/_crest.html' with name=f.home logo=f.home_crest %}<b>{{ f.home }}</b></div>
     <div class="sb-mid">
       <span class="sb-score">{% if f.has_score and f.status != 'NS' %}{{ f.home_goals }}<i>-</i>{{ f.away_goals }}{% else %}<small>vs</small>{% endif %}</span>
       <span class="sb-clock">{{ f.clock }}</span>
     </div>
-    <div class="sb-team">{% include 'news/_crest.html' with name=f.away logo=f.away_logo %}<b>{{ f.away }}</b></div>
+    <div class="sb-team">{% include 'news/_crest.html' with name=f.away logo=f.away_crest %}<b>{{ f.away }}</b></div>
   </div>
   <div class="sb-meta">{% if f.kickoff %}<time datetime="{{ f.kickoff|date:'c' }}">{{ f.kickoff|sw_date }}, {{ f.kickoff|time:"H:i" }}</time>{% endif %}{% if x.venue %} · {{ x.venue }}{% if x.city %}, {{ x.city }}{% endif %}{% endif %}</div>
 </div>

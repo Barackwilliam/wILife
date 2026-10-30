@@ -182,7 +182,7 @@ def _post_result(channel, m):
     from core.agent import whatsapp
     from news import match_video
     from news.football import _image
-    data = match_video.render(m, home_logo=_image(m.home_logo), away_logo=_image(m.away_logo),
+    data = match_video.render(m, home_logo=_image(m.home_crest), away_logo=_image(m.away_crest),
                               comp_logo=_image(m.competition_logo), site=_host())
     whatsapp.send_channel_video(channel, data, result_caption(m))
 

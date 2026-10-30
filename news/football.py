@@ -247,7 +247,7 @@ def _image(url):
 
 def match_cover(m):
     """(png ya kushirikisha, webp ya kadi) zenye nembo halisi za timu, mashindano na saa / matokeo."""
-    home, away, comp = _image(m.home_logo), _image(m.away_logo), _image(m.competition_logo)
+    home, away, comp = _image(m.home_crest), _image(m.away_crest), _image(m.competition_logo)
     score = f"{m.home_goals} - {m.away_goals}" if m.has_score and (m.is_playing or m.is_finished) else None
     when = "" if m.is_finished else (_when(m.kickoff) if m.kickoff else "")
     kw = dict(home=m.home, away=m.away, home_logo=home, away_logo=away, competition=m.competition,

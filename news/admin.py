@@ -210,10 +210,23 @@ class HighlightAdmin(admin.ModelAdmin):
 
 @admin.register(Team)
 class TeamAdmin(admin.ModelAdmin):
-    """Kurasa za timu (/timu/<slug>/). Utambulisho (intro) unaandikwa hapa; data nyingine ni automatic."""
-    list_display = ("name", "slug", "active", "sort")
+    """
+    Kurasa za timu (/timu/<slug>/) na nembo za klabu. Utambulisho (intro) unaandikwa hapa; data nyingine ni automatic.
+    Klabu ambayo data ya mechi haina nembo (mf. Geita Gold): iongeze hapa ikiwa na URL ya nembo, nchi, na
+    "Active" ikiwa imezimwa kama haihitaji ukurasa — nembo itaonekana kwenye kadi zote za mechi zake.
+    """
+    list_display = ("crest", "name", "country", "slug", "active", "sort")
+    list_display_links = ("name",)
     list_editable = ("active", "sort")
+    search_fields = ("name", "match_names")
+    list_filter = ("active", "country")
     prepopulated_fields = {"slug": ("name",)}
+
+    @admin.display(description="Nembo")
+    def crest(self, obj):
+        if not obj.logo:
+            return "—"
+        return format_html('<img src="{}" alt="" width="28" height="28" style="object-fit:contain" referrerpolicy="no-referrer">', obj.logo)
 
 
 class VideoChannelForm(forms.ModelForm):
