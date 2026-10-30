@@ -4244,3 +4244,66 @@ class CrestFallbackTest(TestCase):
         self.assertEqual(LiveMatch.objects.get(pk=m.pk).home_crest, "https://cdn.example/kitayosce.png")
         self.assertIn('src="https://cdn.example/kitayosce.png"', self.client.get("/live/").content.decode())
         self.assertEqual(self.client.get("/timu/kitayosce/").status_code, 404)        # nembo tu, hakuna ukurasa
+
+
+@override_settings(HIGHLIGHTLY_API_KEY="hl-key", HIGHLIGHTLY_LEAGUES=["England:Premier League"], HIGHLIGHTLY_DAILY_LIMIT=100)
+class HeroAndLiveStateTest(TestCase):
+    """Mechi zilizokwisha hazibaki "LIVE", ratiba inajaribiwa tena maombi yakianza upya, na hero za michezo."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        p = mock.patch("news.indexnow.submit")
+        p.start()
+        self.addCleanup(p.stop)
+
+    def _finished_but_open(self):
+        from news.models import LiveMatch
+        a = Article.objects.create(title="Liverpool vs Brighton", category="dunia", excerpt="x", body="x",
+                                   status="published", published_at=timezone.now(), origin="football",
+                                   live_started_at=timezone.now() - timedelta(days=5))
+        LiveMatch.objects.create(article=a, home="Liverpool", away="Brighton", status="FT", home_goals=2, away_goals=0,
+                                 kickoff=timezone.now() - timedelta(days=5))
+        return a
+
+    def test_finished_match_is_not_live_and_gets_closed(self):
+        from news import football
+        from news.context_processors import _live_now
+        a = self._finished_but_open()
+        r = self.client.get("/live/")
+        self.assertEqual(r.context["live_count"], 0)
+        self.assertEqual(_live_now(), 0)
+        self.assertEqual(football.close_finished(timezone.now()), 1)
+        a.refresh_from_db()
+        self.assertIsNotNone(a.live_ended_at)
+
+    def test_schedule_retries_again_after_utc_quota_reset(self):
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        from news import football
+        eat = ZoneInfo("Africa/Dar_es_Salaam")
+        midnight = datetime(2026, 10, 30, 0, 0, tzinfo=eat)
+        state = football._state(midnight)                     # siku ya UTC 29 — maombi yamekwisha
+        state.schedule_at, state.requests = midnight, 100
+        state.save()
+        self.assertFalse(football.schedule_due(state, midnight + timedelta(minutes=40), timedelta(hours=24)))
+        later = datetime(2026, 10, 30, 3, 10, tzinfo=eat)     # saa 03:10 EAT: siku mpya ya UTC, maombi mapya
+        fresh = football._state(later)
+        self.assertEqual(fresh.requests, 0)
+        self.assertTrue(football.schedule_due(fresh, later, timedelta(hours=24)))
+
+    def test_hero_shows_stadium_art_spotlight_and_admin_photos(self):
+        from news.models import Fixture, HeroPhoto
+        Fixture.objects.create(provider="highlightly", fixture_id=8801, day=timezone.localdate(), home="Simba SC",
+                               away="Young Africans", kickoff=timezone.now() + timedelta(hours=2), status="NS",
+                               competition="Ligi Kuu Bara", rank=0)
+        html = self.client.get("/mechi-za-leo/").content.decode()
+        self.assertIn('class="ha"', html)
+        self.assertIn('class="spot"', html)
+        self.assertIn("Simba SC", html.split('class="spot"')[1][:3000])
+        self.assertNotIn("ha-photos", html)
+        HeroPhoto.objects.create(image="https://cdn.example/uwanja.jpg", credit="Picha: wILife")
+        html = self.client.get("/utabiri/").content.decode()
+        self.assertIn('src="https://cdn.example/uwanja.jpg"', html)
+        self.assertIn("Picha: wILife", html)

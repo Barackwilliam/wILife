@@ -33,6 +33,7 @@ def _live_now():
         from news.models import LiveMatch
         stale = Q(match__fixture_id__isnull=False, match__kickoff__lt=timezone.now() - LiveMatch.STALE_AFTER) & \
             ~Q(match__status__in=LiveMatch.FINISHED | LiveMatch.OFF)
-        n = Article.published.filter(live_started_at__isnull=False, live_ended_at__isnull=True).exclude(stale).count()
+        done = Q(match__status__in=LiveMatch.FINISHED | LiveMatch.OFF)     # iliyokwisha, LIVE haijafungwa bado
+        n = Article.published.filter(live_started_at__isnull=False, live_ended_at__isnull=True).exclude(stale).exclude(done).count()
         cache.set("news:live_now", n, 60)
     return n

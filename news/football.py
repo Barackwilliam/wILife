@@ -83,6 +83,24 @@ def _state(now=None):
 
 SCHEDULE_RETRY = timedelta(minutes=30)
 SCHEDULE_RETRIES = 4
+SCHEDULE_MIN_LEFT = 6         # usomaji wa ratiba ni kurasa kadhaa za maombi
+
+
+def close_finished(now):
+    """
+    LIVE ya mechi iliyokwisha (FT/AET/PEN au kuahirishwa) ifungwe hata kama njia iliyoweka matokeo haikuifunga
+    (mf. matokeo yaliyofika kupitia ratiba). Bila hili mechi ya Jumapili ilionekana "inaendelea sasa" siku nyingi.
+    Hakuna ombi la API — ni data iliyopo tu.
+    """
+    from news import live
+    qs = Article.objects.filter(live_started_at__isnull=False, live_ended_at__isnull=True,
+                                match__status__in=LiveMatch.FINISHED | LiveMatch.OFF,
+                                match__kickoff__lt=now - timedelta(hours=2))
+    n = 0
+    for article in qs[:20]:
+        live.end(article)
+        n += 1
+    return n
 
 
 def schedule_due(state, now, every):
@@ -100,7 +118,12 @@ def schedule_due(state, now, every):
         return True
     if now - state.schedule_at < SCHEDULE_RETRY or Fixture.objects.filter(day=today).exists():
         return False
-    key = f"schedule-retry:{today.isoformat()}"
+    if daily_limit() - state.requests < SCHEDULE_MIN_LEFT:
+        return False          # maombi ya siku (UTC) yamekwisha: jaribio lisipotee bure — subiri saa 03:00 EAT
+    # Majaribio yanahesabiwa kwa siku ya UTC (ya maombi), si ya EAT: usomaji wa saa 00:00 EAT ukishindwa kwa
+    # kukosa maombi, majaribio mapya yanapatikana maombi yakianza upya saa 03:00 EAT. Zamani yote 4 yaliisha
+    # kabla ya hapo na "Mechi za leo" ilibaki tupu siku nzima.
+    key = f"schedule-retry:{today.isoformat()}:{state.day.isoformat()}"
     if DailyCount.get(key, day=today) >= SCHEDULE_RETRIES:
         return False
     DailyCount.bump(key, day=today)
@@ -700,6 +723,9 @@ def run(now=None, deadline=None, dry_run=False):
             if provider() == "highlightly":
                 from news import highlightly
                 notes.append(highlightly.last_scan_note())
+        n = close_finished(now)
+        if n:
+            notes.append(f"LIVE zilizoisha zimefungwa: {n}")
         n = promote_favourites(now)
         if n:
             notes.append(f"timu zetu: LIVE mpya {n}")

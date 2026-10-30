@@ -12,6 +12,7 @@
 {% block fullbleed %}
 <div id="lv-zone" data-v="{{ live_v }}">
 <section class="lh-hero" aria-labelledby="lh-title">
+  {% hero_art %}
   <div class="wrap">
     <nav class="crumbs lh-crumbs" aria-label="breadcrumb"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><span>LIVE</span></nav>
     <div class="lh-head">
@@ -20,6 +21,7 @@
       <p class="lh-sub" data-live-count>{% if live_count %}Mechi {{ live_count }} {% if live_count == 1 %}inaendelea{% else %}zinaendelea{% endif %} sasa · Matokeo yanasasishwa moja kwa moja{% else %}Kwa sasa hakuna mechi inayoendelea{% if soon %} · Mechi inayofuata: {{ soon.0.match.home }} dhidi ya {{ soon.0.match.away }}, {{ soon.0.match.kickoff|match_day }} saa {{ soon.0.match.kickoff|time:"H:i" }}{% endif %}{% endif %}</p>
     </div>
 
+    {% if not on_matches %}{% spotlight %}{% endif %}
     {% if on_matches %}
     <div class="sc-grid sc-grid-hero">{% for a in on_matches %}{% include 'news/_score.html' %}{% endfor %}</div>
     {% elif not on_other %}

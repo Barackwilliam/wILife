@@ -3,7 +3,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 
 from news.models import (Article, Author, ChannelPost, League, EditorSettings, Fixture, FootballState, Highlight, JamiiTekService, Team, VideoChannel, LiveMatch, LiveUpdate,
-                         NewsBatch, NewsRequest, Subscriber, EmailSubscriber, DailyCount)
+                         NewsBatch, NewsRequest, Subscriber, EmailSubscriber, DailyCount, HeroPhoto)
 
 
 class LiveUpdateInline(admin.TabularInline):
@@ -291,3 +291,16 @@ class AuthorAdmin(admin.ModelAdmin):
     list_display = ("name", "role", "user", "active")
     list_editable = ("active",)
     prepopulated_fields = {"slug": ("name",)}
+
+
+@admin.register(HeroPhoto)
+class HeroPhotoAdmin(admin.ModelAdmin):
+    """Picha zinazobadilishana nyuma ya vichwa vya kurasa za michezo. Picha unazomiliki au zenye leseni tu."""
+    list_display = ("thumb", "caption", "credit", "active", "sort")
+    list_display_links = ("caption",)
+    list_editable = ("active", "sort")
+
+    @admin.display(description="Picha")
+    def thumb(self, obj):
+        return format_html('<img src="{}" alt="" width="96" height="54" style="object-fit:cover;border-radius:6px" '
+                           'referrerpolicy="no-referrer">', obj.image)

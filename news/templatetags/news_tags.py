@@ -673,3 +673,36 @@ def match_day(value):
     if day in near:
         return near[day]
     return f"{SWAHILI_DAYS[day.weekday()]}, {day.day} {SWAHILI_MONTHS[day.month - 1][:3]}"
+
+
+
+# ── Vichwa vya kurasa za michezo: mchoro wa uwanja, picha za Admin, na mechi kubwa za siku ────────────
+
+@register.inclusion_tag("news/_hero_art.html")
+def hero_art():
+    """Mandhari ya hero: picha za HeroPhoto (zikiwepo) juu ya mchoro wa uwanja wa usiku (wetu wenyewe)."""
+    from django.core.cache import cache
+    from news.models import HeroPhoto
+    photos = cache.get("hero:photos")
+    if photos is None:
+        photos = list(HeroPhoto.objects.filter(active=True).values("image", "caption", "credit")[:5])
+        cache.set("hero:photos", photos, 300)
+    return {"photos": photos, "n": len(photos)}
+
+
+@register.inclusion_tag("news/_spotlight.html")
+def spotlight(day=None, limit=5):
+    """Mechi kubwa za siku (zinazoendelea, kisha zijazo kwa umuhimu wa ligi, kisha zilizoisha) — kitelezi cha hero."""
+    from django.utils import timezone
+    from news import fixtures
+    day = day or timezone.localdate()
+    try:
+        rows = fixtures.day_rows(day)
+    except Exception:            # kichwa cha ukurasa kisivunjike kwa sababu ya kitelezi
+        rows = []
+    order = lambda r: (0 if r.is_playing else 1 if not (r.is_finished or r.is_off) else 2, r.rank or 99,
+                       r.kickoff or timezone.now())
+    if day < timezone.localdate():   # siku iliyopita: matokeo ya mwisho tu, kama ukurasa wenyewe (views._day_page)
+        rows = [r for r in rows if r.is_finished]
+    rows = sorted([r for r in rows if not r.is_off], key=order)[:limit]
+    return {"rows": rows, "day": day}

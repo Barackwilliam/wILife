@@ -1,0 +1,25 @@
+{% load news_tags %}{% comment %}Kitelezi cha mechi kubwa za siku ndani ya hero (zinazoendelea kwanza). Kinajizungusha kila sekunde 5.{% endcomment %}{% if rows %}
+<div class="spot" data-spot aria-roledescription="kitelezi" aria-label="Mechi kubwa {{ day|match_day|lower }}">
+  <div class="spot-track">{% for r in rows %}
+    <{% if r.url %}a href="{{ r.url }}"{% else %}div{% endif %} class="spot-s{% if forloop.first %} on{% endif %}{% if r.is_playing %} is-on{% elif r.is_finished %} is-ft{% endif %}" aria-roledescription="slaidi">
+      <span class="spot-comp">{% if r.competition_logo %}<img src="{{ r.competition_logo }}" alt="" width="18" height="18" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}{{ r.competition|default:"Mechi" }}</span>
+      <span class="spot-teams">
+        <span class="spot-t">{% include 'news/_crest.html' with name=r.home logo=r.home_crest %}<b>{{ r.home }}</b></span>
+        <span class="spot-mid">{% if r.shows_score %}<strong>{{ r.home_goals }}<i>-</i>{{ r.away_goals }}</strong>{% else %}<strong class="spot-vs">{{ r.kickoff|time:"H:i" }}</strong>{% endif %}<em>{% if r.is_playing %}LIVE · {{ r.clock }}{% elif r.is_finished %}FT{% else %}{{ r.kickoff|match_day }}{% endif %}</em></span>
+        <span class="spot-t">{% include 'news/_crest.html' with name=r.away logo=r.away_crest %}<b>{{ r.away }}</b></span>
+      </span>
+    </{% if r.url %}a{% else %}div{% endif %}>{% endfor %}
+  </div>
+  {% if rows|length > 1 %}<div class="spot-dots" role="tablist">{% for r in rows %}<button type="button" role="tab" aria-label="Slaidi {{ forloop.counter }}"{% if forloop.first %} aria-selected="true"{% endif %}></button>{% endfor %}</div>
+  <script>
+  (function () {
+    var box = document.currentScript.parentNode, slides = box.querySelectorAll('.spot-s'), dots = box.querySelectorAll('.spot-dots button'), i = 0, t;
+    function show(n) { slides[i].classList.remove('on'); dots[i].removeAttribute('aria-selected'); i = (n + slides.length) % slides.length; slides[i].classList.add('on'); dots[i].setAttribute('aria-selected', 'true'); }
+    function play() { clearInterval(t); if (!matchMedia('(prefers-reduced-motion: reduce)').matches) t = setInterval(function () { if (!document.hidden) show(i + 1); }, 5000); }
+    dots.forEach(function (d, n) { d.addEventListener('click', function () { show(n); play(); }); });
+    box.addEventListener('mouseenter', function () { clearInterval(t); });
+    box.addEventListener('mouseleave', play);
+    play();
+  })();
+  </script>{% endif %}
+</div>{% endif %}

@@ -10,6 +10,7 @@
 
 {% block fullbleed %}
 <section class="lh-hero dy-hero" aria-labelledby="pr-title">
+  {% hero_art %}
   <div class="wrap">
     <nav class="crumbs lh-crumbs" aria-label="breadcrumb"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><a href="{% url 'news:live_hub' %}">LIVE</a><span>/</span><span>Utabiri</span></nav>
     <div class="lh-head">
@@ -17,6 +18,7 @@
       <h1 id="pr-title">Utabiri wa Mechi za Leo</h1>
       <p class="lh-sub">Uwezekano wa matokeo unaokokotolewa kwa kutumia takwimu halisi, pamoja na rekodi ya wazi ya utabiri uliofanikiwa na uliokosewa.</p>
     </div>
+    {% spotlight %}
     <div class="pr-rec">
       <div><b>{% if week.total %}{{ week.pct }}%{% else %}—{% endif %}</b><span>Siku 7: {{ week.hits }}/{{ week.total }} zilitabiriwa kwa usahihi</span></div>
       <div><b>{% if record.total %}{{ record.pct }}%{% else %}—{% endif %}</b><span>Siku 30: {{ record.hits }}/{{ record.total }} zilitabiriwa kwa usahihi</span></div>
