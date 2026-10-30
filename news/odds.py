@@ -192,19 +192,43 @@ def _store(found, now):
     return n
 
 
+def _note(rep, prog, now, why):
+    """Sababu ya kutosoma odds sasa — inaonekana Admin -> Model reports -> odds-progress (inaandikwa ikibadilika tu)."""
+    if (prog.get("_hali") or {}).get("sababu") == why:
+        return
+    prog["_hali"] = {"at": now.isoformat(), "sababu": why}
+    rep.data = prog
+    rep.save(update_fields=["data", "updated_at"])
+
+
+def waiting(now):
+    rep = _report(PROGRESS_KEY)
+    _note(rep, dict(rep.data or {}), now, "kuna mechi LIVE sasa: odds zinasomwa zikiisha (maombi yanabaki kwa LIVE)")
+
+
+def save_sample(data, rows, now, day):
+    sample = _report(SAMPLE_KEY)
+    sample.data = {"at": now.isoformat(), "date": day, "rows": len(rows),
+                   "parsed": len(parse(rows)),
+                   "raw": json.dumps(rows[0] if rows else data, ensure_ascii=False, default=str)[:6000]}
+    sample.save(update_fields=["data", "updated_at"])
+
+
 def fetch(state, now, left):
     """Kurasa za odds za leo/kesho zilizopitwa na muda. Inarudisha maombi yaliyotumika."""
     from django.conf import settings
     from news import football, highlightly
     from news.models import DailyCount
-    if (football.provider() != "highlightly" or left < MIN_LEFT
-            or not getattr(settings, "ODDS_ENABLED", True)):
-        return 0
-    used = DailyCount.get("odds:requests")
-    if used >= PER_DAY:
+    if football.provider() != "highlightly" or not getattr(settings, "ODDS_ENABLED", True):
         return 0
     rep = _report(PROGRESS_KEY)
     prog = dict(rep.data or {})
+    used = DailyCount.get("odds:requests")
+    if left < MIN_LEFT or used >= PER_DAY:
+        why = (f"maombi ya siku yaliyobaki {left} (yanahitajika {MIN_LEFT}+)" if left < MIN_LEFT
+               else f"kikomo cha odds cha siku kimefikiwa ({used}/{PER_DAY})")
+        _note(rep, prog, now, why)
+        return 0
     today = timezone.localtime(now).date()
     spent = 0
     for day in (today, today + timedelta(days=1)):
@@ -230,10 +254,8 @@ def fetch(state, now, left):
             spent += 1
             pages += 1
             rows = (data.get("data") if isinstance(data, dict) else data) or []
-            if page == 0 and rows:            # mfano wa jibu halisi — kuhakiki majina ya sehemu
-                sample = _report(SAMPLE_KEY)
-                sample.data = {"at": now.isoformat(), "raw": json.dumps(rows[0], ensure_ascii=False, default=str)[:6000]}
-                sample.save(update_fields=["data", "updated_at"])
+            if page == 0:                     # mfano wa jibu halisi (hata likiwa tupu) — kuhakiki majina ya sehemu
+                save_sample(data, rows, now, key)
             found.update(parse(rows))
             total = ((data.get("pagination") or {}).get("totalCount") if isinstance(data, dict) else None) or 0
             if len(rows) < PAGE or (total and (page + 1) * PAGE >= total):
@@ -244,10 +266,13 @@ def fetch(state, now, left):
             prog[key].update(error=error, error_at=now.isoformat())
         if used + spent >= PER_DAY:
             break
+    if not spent:
+        _note(rep, prog, now, "odds za leo na kesho zimesomwa karibuni (kila saa 6) au zinasubiri baada ya kosa")
     if spent:
+        prog["_hali"] = {"at": now.isoformat(), "sababu": f"maombi {spent} yametumika"}
         DailyCount.bump("odds:requests", by=spent)
         state.save(update_fields=["requests", "remaining"])
-        keep = {k: v for k, v in prog.items() if k >= (today - timedelta(days=3)).isoformat()}
+        keep = {k: v for k, v in prog.items() if k == "_hali" or k >= (today - timedelta(days=3)).isoformat()}
         rep.data = keep
         rep.save(update_fields=["data", "updated_at"])
     return spent

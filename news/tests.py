@@ -4603,3 +4603,37 @@ class OddsTest(TestCase):
         rec = predict.record()
         self.assertEqual((rec["value"]["total"], rec["value"]["profit"]), (1, 1.55))
         self.assertEqual(rec["market"], {"total": 1, "pct": 100, "ours": 100})
+
+
+class OddsDiagnosticsTest(TestCase):
+    """Admin inaonyesha kwa nini odds hazijasomwa, na amri ya odds_check inajaribu ombi moja."""
+
+    def test_skip_reason_is_recorded(self):
+        from news import odds
+        from news.models import FootballState, ModelReport
+        state = FootballState.objects.create(day=timezone.now().date())
+        with mock.patch("news.football.provider", return_value="highlightly"):
+            self.assertEqual(odds.fetch(state, timezone.now(), 10), 0)
+        hali = ModelReport.objects.get(key=odds.PROGRESS_KEY).data["_hali"]
+        self.assertIn("yaliyobaki 10", hali["sababu"])
+        odds.waiting(timezone.now())
+        self.assertIn("LIVE", ModelReport.objects.get(key=odds.PROGRESS_KEY).data["_hali"]["sababu"])
+
+    def test_odds_check_command_saves_sample_even_when_empty(self):
+        from io import StringIO
+        from django.core.management import call_command
+        from news import odds
+        from news.models import ModelReport
+        out = StringIO()
+        with mock.patch("news.highlightly._get", return_value={"data": [], "pagination": {"totalCount": 0}}):
+            call_command("odds_check", "--date", "2026-10-30", stdout=out)
+        self.assertIn("mechi 0 kwenye jibu", out.getvalue())
+        sample = ModelReport.objects.get(key=odds.SAMPLE_KEY).data
+        self.assertEqual((sample["rows"], sample["date"]), (0, "2026-10-30"))
+        out = StringIO()
+        with mock.patch("news.highlightly._get", return_value={"data": [_odds_item(10)]}):
+            call_command("odds_check", stdout=out)
+        self.assertIn("zilizoeleweka 1", out.getvalue())
+        with mock.patch("news.highlightly._get", side_effect=RuntimeError("Highlightly 403: plan")):
+            call_command("odds_check", stdout=out)
+        self.assertIn("Kosa: Highlightly 403", out.getvalue())
