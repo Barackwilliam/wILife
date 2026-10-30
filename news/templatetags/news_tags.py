@@ -19,7 +19,7 @@ def _abs(request, path):
 @register.filter
 def render_body(text, links=""):
     """
-    Paragraphs / '## ' subheadings / '- ' lists → safe HTML. Everything is escaped first.
+    Paragraphs / '## ' subheadings / '- ' lists / '> ' quotes → safe HTML. Everything is escaped first.
 
     With `|render_body:"jamiitek"`, the first mention of each JamiiTek product
     (JamiiBot, web builder, templates, domain, JamiiTek) links to its page on
@@ -43,7 +43,9 @@ def render_body(text, links=""):
             bullets.append(link(line[2:].strip()))
             continue
         flush()
-        if line.startswith("## "):
+        if line.startswith("> "):                      # nukuu: "> maneno ya mtu"
+            out.append(f"<blockquote><p>{link(line[2:].strip())}</p></blockquote>")
+        elif line.startswith("## "):
             out.append(f"<h2>{escape(line[3:].strip())}</h2>")
         elif line.startswith("# "):
             out.append(f"<h2>{escape(line[2:].strip())}</h2>")

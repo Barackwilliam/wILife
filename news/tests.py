@@ -1736,7 +1736,7 @@ class LiveHubTest(TestCase):
         self.assertIn("Matokeo ya Mpira Leo", hub)
         self.assertIn('data-match="%d"' % a.pk, hub)
         home = self.client.get("/").content.decode()
-        self.assertIn('class="ls"', home)
+        self.assertIn('class="ls ls-band"', home)
         self.assertIn('href="/live/"', home)
         self.assertIn("/live/</loc>", self.client.get("/sitemap.xml").content.decode())
         with mock.patch("news.indexnow.submit"):
@@ -4307,3 +4307,41 @@ class HeroAndLiveStateTest(TestCase):
         html = self.client.get("/utabiri/").content.decode()
         self.assertIn('src="https://cdn.example/uwanja.jpg"', html)
         self.assertIn("Picha: wILife", html)
+
+
+
+class HomeAndArticleDesignTest(TestCase):
+    """Ukurasa wa mwanzo: ukanda wa LIVE na jalada la habari kuu; habari: kibandiko cha aina na nukuu."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        p = mock.patch("news.indexnow.submit")
+        p.start()
+        self.addCleanup(p.stop)
+
+    def test_quote_and_category_chip(self):
+        from news.templatetags.news_tags import render_body
+        html = str(render_body("Utangulizi.\n\n> Tutaajiri vijana 200,000 <b>mwaka huu</b>."))
+        self.assertIn("<blockquote><p>Tutaajiri vijana 200,000 &lt;b&gt;mwaka huu&lt;/b&gt;.</p></blockquote>", html)
+        a = Article.objects.create(title="Mpango wa ajira", category="tanzania", excerpt="x", body="x",
+                                   status="published", published_at=timezone.now())
+        page = self.client.get(a.get_absolute_url()).content.decode()
+        self.assertIn('class="art-cat" href="/habari/tanzania/"', page)
+
+    def test_home_live_band_and_photo_lead(self):
+        from news.models import LiveMatch
+        story = Article.objects.create(title="Habari kuu yenye picha", category="tanzania", excerpt="x", body="x",
+                                       status="published", published_at=timezone.now())
+        m = Article.objects.create(title="Simba vs Yanga LIVE", category="tanzania", excerpt="x", body="x",
+                                   status="published", published_at=timezone.now() - timedelta(hours=1),
+                                   live_started_at=timezone.now(), origin="football")
+        LiveMatch.objects.create(article=m, home="Simba", away="Yanga", status="1H", minute=12, home_goals=0,
+                                 away_goals=0, kickoff=timezone.now() - timedelta(minutes=12))
+        html = self.client.get("/").content.decode()
+        self.assertIn('class="ls ls-band"', html)
+        self.assertIn('class="ha"', html)
+        lead = html.split('<article class="lead ')[1][:200]
+        self.assertIn("lead-ovl", lead)                       # habari kuu isiyo ya mechi: jalada (kichwa juu ya picha)
+        self.assertIn(story.get_absolute_url(), lead)
