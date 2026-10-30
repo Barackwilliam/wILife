@@ -3,7 +3,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 
 from news.models import (Article, Author, ChannelPost, League, EditorSettings, Fixture, FootballState, Highlight, JamiiTekService, Team, VideoChannel, LiveMatch, LiveUpdate,
-                         NewsBatch, NewsRequest, Subscriber, EmailSubscriber, DailyCount, HeroPhoto)
+                         NewsBatch, NewsRequest, Subscriber, EmailSubscriber, DailyCount, HeroPhoto, MatchResult, ModelReport)
 
 
 class LiveUpdateInline(admin.TabularInline):
@@ -283,6 +283,22 @@ class LeagueAdmin(admin.ModelAdmin):
     list_editable = ("rank", "active")
     search_fields = ("name", "competition", "country")
     readonly_fields = ("competition_id", "competition", "country", "season", "standings_at", "standings_note")
+
+
+@admin.register(MatchResult)
+class MatchResultAdmin(admin.ModelAdmin):
+    """Hifadhi ya matokeo inayofundisha utabiri (news/results.py) — inajazwa yenyewe."""
+    list_display = ("played_at", "competition", "home", "home_goals", "away_goals", "away", "season")
+    list_filter = ("competition", "season")
+    search_fields = ("home", "away", "competition")
+    date_hierarchy = "played_at"
+
+
+@admin.register(ModelReport)
+class ModelReportAdmin(admin.ModelAdmin):
+    """Ripoti za utabiri: backtest (uaminifu na uzito wa modeli) na maendeleo ya kupakua historia."""
+    list_display = ("key", "updated_at")
+    readonly_fields = ("key", "data", "updated_at")
 
 
 @admin.register(Author)

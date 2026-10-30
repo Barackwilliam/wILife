@@ -261,8 +261,14 @@ class Row:
         return dict(LiveMatch.STATUS).get(self.status, self.status)
 
     @property
+    def x(self):
+        src = self.match or self.fixture
+        return (src.extra or {}) if src else {}
+
+    @property
     def prediction(self):
-        return (self.match.extra or {}).get("prediction") if self.match else None
+        """Utabiri wa LIVE, au wa ratiba (news/predict.refresh_fixtures) mechi isipokuwa na LIVE."""
+        return self.x.get("prediction")
 
 
 def _bounds(day):

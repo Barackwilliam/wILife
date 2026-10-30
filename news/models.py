@@ -922,3 +922,41 @@ class HeroPhoto(models.Model):
 
     def __str__(self):
         return self.caption or self.image[:60]
+
+
+class MatchResult(models.Model):
+    """
+    Matokeo ya mwisho ya mechi — data ya kufundishia utabiri (news/ratings.py). Inajazwa bure kutoka mechi
+    za ratiba na LIVE zilizokwisha, na historia ya msimu mzima wa kila ligi inapakuliwa taratibu kwa maombi
+    yanayobaki ya siku (news/results.py). Haionekani kwa wasomaji moja kwa moja.
+    """
+    provider = models.CharField(max_length=12, default="highlightly")
+    fixture_id = models.BigIntegerField()
+    competition_id = models.BigIntegerField(null=True, blank=True, db_index=True)
+    competition = models.CharField(max_length=80, blank=True)
+    country = models.CharField(max_length=60, blank=True)
+    season = models.PositiveIntegerField(null=True, blank=True)
+    played_at = models.DateTimeField(db_index=True)
+    home = models.CharField(max_length=80)
+    away = models.CharField(max_length=80)
+    home_goals = models.PositiveSmallIntegerField()
+    away_goals = models.PositiveSmallIntegerField()
+
+    class Meta:
+        ordering = ["played_at"]
+        constraints = [models.UniqueConstraint(fields=["provider", "fixture_id"], name="uniq_match_result")]
+        verbose_name = "Matokeo (data ya utabiri)"
+        verbose_name_plural = "Matokeo (data ya utabiri)"
+
+    def __str__(self):
+        return f"{self.played_at:%Y-%m-%d} {self.home} {self.home_goals}-{self.away_goals} {self.away}"
+
+
+class ModelReport(models.Model):
+    """Ripoti ya kupima utabiri (backtest/calibration) — inaonyeshwa wazi kwenye /utabiri/."""
+    key = models.CharField(max_length=40, unique=True)
+    data = models.JSONField(default=dict)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.key

@@ -28,6 +28,7 @@
     <nav class="crumbs" aria-label="breadcrumb"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span>{% if article.live_started_at or article.match %}<a href="{% url 'news:live_hub' %}">LIVE</a>{% else %}<a href="{% url 'news:category' article.category %}">{{ article.get_category_display }}</a>{% endif %}</nav>
     {% if article.match %}<div id="mz-board" data-zone>{% include 'news/_score.html' with a=article big=True %}</div>{% endif %}
     <header class="art-head">
+      {% if not article.match %}<a class="art-cat" href="{% url 'news:category' article.category %}">{% if article.is_live %}<span class="live-pill">LIVE</span>{% endif %}{{ article.get_category_display }}</a>{% endif %}
       <h1 id="mz-title" data-zone>{{ article.title }}</h1>
       <p class="dek" id="mz-dek" data-zone>{{ article.excerpt }}</p>
       <div class="byline">

@@ -1736,7 +1736,7 @@ class LiveHubTest(TestCase):
         self.assertIn("Matokeo ya Mpira Leo", hub)
         self.assertIn('data-match="%d"' % a.pk, hub)
         home = self.client.get("/").content.decode()
-        self.assertIn('class="ls"', home)
+        self.assertIn('class="ls ls-band"', home)
         self.assertIn('href="/live/"', home)
         self.assertIn("/live/</loc>", self.client.get("/sitemap.xml").content.decode())
         with mock.patch("news.indexnow.submit"):
@@ -2412,7 +2412,7 @@ class PredictionTest(TestCase):
         predict.ensure(self.m)
         page = self.client.get("/utabiri/").content.decode()
         self.assertEqual(self.client.get("/makadirio/").status_code, 301)
-        for text in ("Utabiri wa Mechi za Leo", "Arsenal", "18+", '"@type": "SportsEvent"', "Poisson"):
+        for text in ("Utabiri wa Mechi za Leo", "Arsenal", "18+", '"@type": "SportsEvent"', "Dixon–Coles"):
             self.assertIn(text, page)
         match_page = self.client.get(self.a.get_absolute_url()).content.decode()
         self.assertIn("Utabiri wa wILife", match_page)
@@ -3714,7 +3714,8 @@ class ScheduleRecoveryTest(TestCase):
             self.addCleanup(p.stop)
         for target in ("news.enrich.run", "news.fixtures.rescan_day", "news.fixtures.refresh_results",
                        "news.fixtures.backfill", "news.football.promote_favourites", "news.football.finalize",
-                       "news.football.sync_live", "news.fixtures.read_ahead", "news.leagues.refresh_standings"):
+                       "news.football.sync_live", "news.fixtures.read_ahead", "news.leagues.refresh_standings",
+                       "news.results.backfill"):
             p = mock.patch(target, return_value=0)
             p.start()
             self.addCleanup(p.stop)
@@ -4307,3 +4308,203 @@ class HeroAndLiveStateTest(TestCase):
         html = self.client.get("/utabiri/").content.decode()
         self.assertIn('src="https://cdn.example/uwanja.jpg"', html)
         self.assertIn("Picha: wILife", html)
+
+
+
+class HomeAndArticleDesignTest(TestCase):
+    """Ukurasa wa mwanzo: ukanda wa LIVE na jalada la habari kuu; habari: kibandiko cha aina na nukuu."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        p = mock.patch("news.indexnow.submit")
+        p.start()
+        self.addCleanup(p.stop)
+
+    def test_quote_and_category_chip(self):
+        from news.templatetags.news_tags import render_body
+        html = str(render_body("Utangulizi.\n\n> Tutaajiri vijana 200,000 <b>mwaka huu</b>."))
+        self.assertIn("<blockquote><p>Tutaajiri vijana 200,000 &lt;b&gt;mwaka huu&lt;/b&gt;.</p></blockquote>", html)
+        a = Article.objects.create(title="Mpango wa ajira", category="tanzania", excerpt="x", body="x",
+                                   status="published", published_at=timezone.now())
+        page = self.client.get(a.get_absolute_url()).content.decode()
+        self.assertIn('class="art-cat" href="/habari/tanzania/"', page)
+
+    def test_home_live_band_and_photo_lead(self):
+        from news.models import LiveMatch
+        story = Article.objects.create(title="Habari kuu yenye picha", category="tanzania", excerpt="x", body="x",
+                                       status="published", published_at=timezone.now())
+        m = Article.objects.create(title="Simba vs Yanga LIVE", category="tanzania", excerpt="x", body="x",
+                                   status="published", published_at=timezone.now() - timedelta(hours=1),
+                                   live_started_at=timezone.now(), origin="football")
+        LiveMatch.objects.create(article=m, home="Simba", away="Yanga", status="1H", minute=12, home_goals=0,
+                                 away_goals=0, kickoff=timezone.now() - timedelta(minutes=12))
+        html = self.client.get("/").content.decode()
+        self.assertIn('class="ls ls-band"', html)
+        self.assertIn('class="ha"', html)
+        lead = html.split('<article class="lead ')[1][:200]
+        self.assertIn("lead-ovl", lead)                       # habari kuu isiyo ya mechi: jalada (kichwa juu ya picha)
+        self.assertIn(story.get_absolute_url(), lead)
+
+
+def _season(n_rounds=4, start=None, comp=39, country="England", seed=7):
+    """Ligi ya kubuni yenye nguvu zinazojulikana: Lions ni bora, Snails ni dhaifu (MatchResult)."""
+    import math
+    import random
+    from news.models import MatchResult
+    rnd = random.Random(seed)
+    power = {"Lions": 1.6, "Tigers": 1.3, "Bears": 1.1, "Wolves": 1.0, "Foxes": 0.95, "Owls": 0.85, "Crows": 0.75,
+             "Snails": 0.5}
+    teams = list(power)
+    start = start or timezone.now() - timedelta(days=420)
+
+    def goals(lam):
+        k, p, limit = 0, 1.0, math.exp(-lam)
+        while True:
+            p *= rnd.random()
+            if p < limit:
+                return k
+            k += 1
+    rows, when, fid = [], start, comp * 100000
+    for _ in range(n_rounds):
+        for h in teams:
+            for a in teams:
+                if h == a:
+                    continue
+                when += timedelta(hours=34)
+                fid += 1
+                rows.append(MatchResult(fixture_id=fid, competition_id=comp, competition="Premier League",
+                                        country=country, played_at=when, home=h, away=a,
+                                        home_goals=goals(1.35 * 1.15 * power[h] / power[a] ** 0.5),
+                                        away_goals=goals(1.35 * power[a] / power[h] ** 0.5)))
+    MatchResult.objects.bulk_create(rows)
+    return rows
+
+
+class PredictionEngineTest(TestCase):
+    """Hifadhi ya matokeo, Dixon–Coles + Elo, utabiri wa ratiba nzima, upimaji na backtest."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+
+    def test_collect_stores_finished_fixtures_and_live_matches_once(self):
+        from news import results
+        from news.models import Fixture, LiveMatch, MatchResult
+        now = timezone.now()
+        Fixture.objects.create(fixture_id=1, day=now.date(), kickoff=now - timedelta(hours=3), competition="Ligi Kuu",
+                               competition_id=5, country="Tanzania", home="Simba SC", away="Azam FC", home_goals=2,
+                               away_goals=1, status="FT", extra={"season": 2026})
+        Fixture.objects.create(fixture_id=2, day=now.date(), kickoff=now + timedelta(hours=3), home="A", away="B")
+        a = Article.objects.create(title="x", category="dunia", excerpt="x", body="b", status="published",
+                                   published_at=now, origin="football")
+        with mock.patch("news.models.Article.render_cover"):
+            LiveMatch.objects.create(article=a, fixture_id=1, provider="api-football", home="Simba SC", away="Azam FC",
+                                     kickoff=now - timedelta(hours=3), status="FT", home_goals=2, away_goals=1)
+        self.assertEqual(results.collect(days=3), 1)
+        self.assertEqual(results.collect(days=3), 0)
+        r = MatchResult.objects.get()
+        self.assertEqual((r.home, r.home_goals, r.away_goals, r.competition_id, r.season), ("Simba SC", 2, 1, 5, 2026))
+
+    def test_ratings_find_the_strong_and_weak_teams(self):
+        from news import ratings
+        _season()
+        model = ratings.build()
+        lg = model.leagues[39]
+        self.assertGreater(lg.attack["lions"], lg.attack["snails"])
+        self.assertLess(lg.defence["lions"], lg.defence["snails"])           # chini = ulinzi bora
+        self.assertGreater(lg.home, 1.0)
+        self.assertGreater(model.elo["england|lions"], model.elo["england|snails"])
+
+    def test_fixture_prediction_has_markets_confidence_and_reasons(self):
+        from news import predict
+        from news.models import Fixture
+        _season()
+        now = timezone.now()
+        f = Fixture.objects.create(fixture_id=900, day=now.date(), kickoff=now + timedelta(hours=6), competition_id=39,
+                                   competition="Premier League", country="England", home="Lions", away="Snails")
+        made, settled = predict.refresh_fixtures(now)
+        f.refresh_from_db()
+        p = f.extra["prediction"]
+        self.assertEqual((made, settled), (1, 0))
+        self.assertEqual(p["home"] + p["draw"] + p["away"], 100)
+        self.assertEqual(p["pick"], "1")
+        self.assertGreater(p["markets"]["1x"], p["home"])
+        self.assertGreaterEqual(p["markets"]["over15"], p["markets"]["over25"])
+        self.assertGreaterEqual(p["markets"]["over25"], p["markets"]["over35"])
+        self.assertEqual(len(p["scores"]), 3)
+        self.assertIn(p["confidence"], ("juu", "wastani", "chini"))
+        self.assertEqual(p["models"], ["goals", "elo"])
+        self.assertTrue(any("Elo" in x for x in p["factors"]))
+        self.assertEqual(predict.refresh_fixtures(now), (0, 0))       # hakuna matokeo mapya: haihesabiwi tena
+        f.status, f.home_goals, f.away_goals = "FT", 3, 0
+        f.save()
+        self.assertEqual(predict.refresh_fixtures(now + timedelta(days=1)), (0, 1))
+        f.refresh_from_db()
+        self.assertTrue(f.extra["prediction_hit"])
+        self.assertIn("over25", f.extra["prediction_markets"])
+        rec = predict.record()
+        self.assertEqual((rec["total"], rec["hits"]), (1, 1))
+        self.assertEqual(rec["tiers"][p["confidence"]]["total"], 1)
+
+    def test_unknown_teams_and_elo_only_matches(self):
+        from news import predict
+        from news.models import Fixture
+        _season()
+        now = timezone.now()
+        f = Fixture(fixture_id=901, day=now.date(), kickoff=now + timedelta(hours=6), competition_id=777,
+                    country="World", home="Lions", away="Owls")
+        p = predict.compute(f)
+        self.assertEqual(p["models"], ["elo"])                          # kombe: hakuna Dixon–Coles ya mashindano haya
+        self.assertEqual(p["pick"], "1")
+        f.home = "Nobody FC"
+        self.assertIsNone(predict.compute(f))
+
+    def test_backtest_reports_accuracy_calibration_and_weights(self):
+        from news import backtest, predict
+        _season(n_rounds=6)
+        data = backtest.run(days=120)
+        self.assertGreater(data["tested"], 50)
+        ens = data["models"]["ensemble"]
+        self.assertLess(ens["brier"], 0.667)                            # bora kuliko kubahatisha 33/33/33
+        self.assertTrue(data["calibration"])
+        self.assertAlmostEqual(sum(data["weights"].values()), 1.0, places=2)
+        self.assertEqual(predict.weights(), data["weights"])
+        self.assertFalse(backtest.due(timezone.now()))
+        page = self.client.get("/utabiri/").content.decode()
+        self.assertIn("Majaribio ya mechi", page)
+        self.assertIn("Tukisema 60%", page)
+
+    def test_backtest_waits_for_enough_data(self):
+        from news import backtest
+        _season(n_rounds=1)
+        self.assertIn("note", backtest.run())
+
+    def test_backfill_reads_league_seasons_with_spare_quota_only(self):
+        from news import results
+        from news.models import FootballState, League, MatchResult, ModelReport
+        League.objects.create(competition_id=39, competition="Premier League", country="England", name="EPL",
+                              slug="epl", season=2026, rank=1)
+        state = FootballState.objects.create(day=timezone.now().date())
+        when = (timezone.now() - timedelta(days=20)).isoformat()
+        page = {"data": [{"id": 5000 + i, "date": when, "state": {"description": "Finished", "score": {"current": "2 - 1"}},
+                          "league": {"id": 39, "name": "Premier League", "season": 2026},
+                          "homeTeam": {"id": 1, "name": f"H{i}"}, "awayTeam": {"id": 2, "name": f"A{i}"}}
+                         for i in range(3)], "pagination": {"totalCount": 3}}
+        calls = []
+
+        def fake(path, params, st):
+            calls.append(params)
+            if params["season"] == 2025:
+                raise RuntimeError("Highlightly 400: season")
+            return page
+        with mock.patch("news.football.provider", return_value="highlightly"), \
+                mock.patch("news.highlightly._get", side_effect=fake):
+            self.assertEqual(results.backfill(state, timezone.now(), 10), 0)        # maombi machache: subiri
+            self.assertEqual(results.backfill(state, timezone.now(), 80), 2)
+            self.assertEqual(results.backfill(state, timezone.now(), 80), 0)        # kazi zote zimeisha
+        self.assertEqual([c["season"] for c in calls], [2026, 2025])
+        self.assertEqual(MatchResult.objects.count(), 3)
+        prog = ModelReport.objects.get(key=results.PROGRESS_KEY).data
+        self.assertTrue(prog["39:2026"]["done"] and prog["39:2025"]["error"])

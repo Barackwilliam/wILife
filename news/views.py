@@ -510,10 +510,13 @@ def video_detail(request, slug):
 def predictions(request):
     """Makadirio ya mechi zijazo + rekodi ya wazi ya yalivyopatia."""
     from news import predict
-    upcoming = predict.upcoming()
+    from news.models import ModelReport
+    upcoming = predict.board()
+    report = ModelReport.objects.filter(key=predict.REPORT_KEY).values_list("data", flat=True).first() or {}
     return render(request, "news/predictions.html", {
-        "upcoming": upcoming, "week": predict.record(7), "record": predict.record(30),
-        "page_v": _day_version([]) + str(len(upcoming)),
+        "upcoming": upcoming, "top": predict.top_picks(upcoming), "week": predict.record(7),
+        "record": predict.record(30), "report": report if report.get("models") else None,
+        "page_v": _day_version([]) + str(len(upcoming)) + str(report.get("at", "")),
     })
 
 

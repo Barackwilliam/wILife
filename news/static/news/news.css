@@ -1029,6 +1029,50 @@ a.fx:hover { background: var(--brand-soft); }
 .pr-hist .no i { background: var(--rose); }
 .pr-hist span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .pr-hist small { color: var(--muted); font-size: .82rem; }
+.pr-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 10px; }
+.pr-top h2 { margin: 0; }
+.pr-top:not(:has(h2)) { justify-content: flex-end; }
+.pr-tier { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 99px; font-size: .72rem; font-weight: 800; letter-spacing: .02em; white-space: nowrap; }
+.pr-tier.t-juu { background: var(--leaf-soft); color: #17694f; }
+.pr-tier.t-wastani { background: var(--sun-soft); color: #7a5300; }
+.pr-tier.t-chini { background: var(--line); color: var(--muted); }
+.pr-mk { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 6px; margin: 12px 0 0; }
+.pr-mk div { padding: 7px 8px; border-radius: 10px; background: var(--surface-2, var(--bg)); text-align: center; }
+.pr-mk dt { font-size: .7rem; font-weight: 700; color: var(--muted); }
+.pr-mk dd { margin: 2px 0 0; font-weight: 800; font-variant-numeric: tabular-nums; }
+.pr-more small { margin-left: 2px; color: var(--muted); font-size: .74rem; }
+.pr-why { margin: 10px 0 0; font-size: .86rem; }
+.pr-why summary { cursor: pointer; font-weight: 700; color: var(--plum); min-height: 24px; }
+.pr-why ul { margin: 8px 0 0; padding-left: 18px; color: var(--ink); line-height: 1.5; }
+.pr-why li + li { margin-top: 4px; }
+.pr-top-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 10px; }
+.pr-top-list a { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); min-height: 64px; }
+.pr-tp-m { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.pr-tp-m b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pr-tp-m small { color: var(--muted); font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pr-tp-p { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.pr-tp-p em { font-style: normal; font-size: .76rem; color: var(--muted); max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pr-tp-p b { font-size: 1.2rem; font-variant-numeric: tabular-nums; }
+.pr-trust-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 14px; }
+.pr-box { padding: 16px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); }
+.pr-box h3 { margin: 0 0 10px; font-size: 1rem; }
+.pr-big { display: flex; align-items: baseline; gap: 10px; margin: 0 0 12px; }
+.pr-big b { font-size: 2rem; line-height: 1; }
+.pr-big span, .pr-small { color: var(--muted); font-size: .84rem; line-height: 1.5; }
+.pr-small { margin: 8px 0 10px; }
+.pr-tbl { width: 100%; border-collapse: collapse; font-size: .86rem; font-variant-numeric: tabular-nums; }
+.pr-tbl th { text-align: left; font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 6px 4px; border-bottom: 1px solid var(--line); }
+.pr-tbl td { padding: 8px 4px; border-bottom: 1px solid var(--line); }
+.pr-tbl tr.on td { font-weight: 700; color: var(--plum); }
+.pr-mlist { margin: 10px 0 0; padding-left: 18px; font-size: .86rem; line-height: 1.6; }
+.pr-cal { display: grid; gap: 10px; }
+.pr-cal div { display: grid; grid-template-columns: 64px 1fr; gap: 2px 10px; align-items: center; font-size: .8rem; }
+.pr-cal span { font-weight: 700; font-variant-numeric: tabular-nums; }
+.pr-cal i { position: relative; display: block; height: 10px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.pr-cal s, .pr-cal u { position: absolute; left: 0; top: 0; bottom: 0; }
+.pr-cal s { width: var(--hap); background: var(--leaf); }
+.pr-cal u { left: var(--said); width: 2px; background: var(--ink); }
+.pr-cal small { grid-column: 2; color: var(--muted); }
 @media (max-width: 560px) { .pr-rec b { font-size: 1.25rem; } }
 @media (prefers-reduced-motion: reduce) { .fx.is-on .fx-t::before { animation: none; } }
 
@@ -1313,3 +1357,59 @@ a.fx:hover { background: var(--brand-soft); }
   .ha-ph { animation: none; } .ha-ph:first-child { opacity: 1; }
   .spot-s { transition: none; }
 }
+
+/* ── Ukurasa wa mwanzo: ukanda wa LIVE wa uwanja (upana kamili) + habari kuu kama jalada ── */
+.pg { overflow-x: clip; }
+.ls-band { position: relative; isolation: isolate; overflow: hidden; color: #fff; margin: -26px 0 30px;
+  width: 100vw; margin-left: calc(50% - 50vw); padding: 26px 0 24px;
+  background: radial-gradient(90% 140% at 85% -20%, rgba(225,29,46,.3), transparent 55%), radial-gradient(80% 140% at 0% 0%, var(--pitch-2), var(--pitch) 70%); }
+.ls-band .ls-in { position: relative; z-index: 2; max-width: 1280px; margin: 0 auto; padding: 0 clamp(16px, 3vw, 32px); }
+.ls-band .ls-head { color: #fff; }
+.ls-band .ls-head > span:last-child { color: #ffb3ba; }
+.ls-band .ls-head .lh-badge.off { background: rgba(255,255,255,.16); }
+.ls-band .ls-links a { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.18); color: #fff; }
+.ls-band .ls-links a:hover { background: rgba(255,255,255,.18); border-color: #fff; color: #fff; }
+.ls-band .sc { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.14); color: #fff; box-shadow: 0 18px 40px -24px rgba(0,0,0,.8); backdrop-filter: blur(6px); }
+.ls-band .sc-comp, .ls-band .sc-foot { color: rgba(255,255,255,.66); }
+.ls-band .sc-foot { border-top-color: rgba(255,255,255,.14); }
+.ls-band .sc-foot time { color: #fff; }
+.ls-band .sc.is-on .sc-g { color: #fff; }
+.ls-band .sc .sc-clock { background: rgba(255,255,255,.14); color: #fff; }
+.ls-band .sc.is-on .sc-clock { background: var(--live); }
+.ls-band .sc.is-ft .sc-clock { background: rgba(76,195,155,.25); color: #b8f0d9; }
+.ls-band .sc.won-home .sc-away b, .ls-band .sc.won-home .sc-away .sc-g, .ls-band .sc.won-away .sc-home b, .ls-band .sc.won-away .sc-home .sc-g { color: rgba(255,255,255,.55); }
+.ls-band .ls-blog { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.14); color: #fff; }
+.ls-band .ha-pitch { height: min(70%, 220px); }
+.ls-band .ha-shade { background: linear-gradient(90deg, rgba(11,20,48,.75), rgba(11,20,48,.35) 60%, rgba(11,20,48,.15)), linear-gradient(0deg, rgba(11,20,48,.6), transparent 40%); }
+
+@media (min-width: 900px) {
+  .lead-ovl { position: relative; align-self: start; border-radius: 20px; overflow: hidden; isolation: isolate; box-shadow: var(--shadow-lg); }
+  .top > .lead-ovl { padding: 0; margin-right: 24px; }
+  .lead-ovl > a .img { border-radius: 0; aspect-ratio: 16 / 11; }
+  .lead-ovl > a .img img { transition: transform 1.2s cubic-bezier(.2,.8,.2,1); }
+  .lead-ovl:hover > a .img img { transform: scale(1.04); }
+  .lead-ovl::after { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background: linear-gradient(180deg, rgba(8,10,20,0) 30%, rgba(8,10,20,.55) 55%, rgba(8,10,20,.94) 100%); }
+  .lead-ovl .lead-cap { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 26px 28px 24px; color: #fff; }
+  .lead-ovl .lead-cap .kick.box { margin: 0; background: var(--cat, var(--brand)); color: #fff; }
+  .lead-ovl .lead-cap .ttl { color: #fff; margin: 12px 0 10px; text-shadow: 0 2px 18px rgba(0,0,0,.35); }
+  .lead-ovl .lead-cap .ttl a { color: inherit; }
+  .lead-ovl .lead-cap p { color: rgba(255,255,255,.86); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .lead-ovl .lead-cap .when { color: rgba(255,255,255,.72); }
+}
+
+/* Kadi za habari: kuinuka kidogo na picha kukuza ukielekeza kipanya */
+.card .img, .row-s .img { box-shadow: 0 1px 0 rgba(0,0,0,.02), 0 12px 24px -18px rgba(15,23,42,.45); }
+.card:hover .img img, .row-s:hover .img img, .it:hover .img img, .ovl:hover .img img { transform: scale(1.05); }
+@media (prefers-reduced-motion: reduce) { .lead-ovl > a .img img { transition: none; } }
+
+/* Ukurasa wa habari: kibandiko cha aina, vichwa vidogo na nukuu */
+.art-cat { display: inline-flex; align-items: center; gap: 8px; margin-top: 14px; padding: 5px 12px; border-radius: 99px; font-size: .74rem; font-weight: 800;
+  letter-spacing: .08em; text-transform: uppercase; color: #fff; background: var(--cat, var(--brand)); box-shadow: 0 6px 16px -8px var(--cat, var(--brand)); }
+.art-cat:hover { color: #fff; filter: brightness(1.08); }
+.art-cat + h1 { margin-top: 12px; }
+.prose h2 { position: relative; padding-left: 16px; }
+.prose h2::before { content: ""; position: absolute; left: 0; top: .2em; bottom: .2em; width: 5px; border-radius: 3px; background: var(--cat, var(--brand)); }
+.prose blockquote { margin: 1.6em 0; padding: 18px 22px 18px 26px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line);
+  border-left: 5px solid var(--cat, var(--brand)); font-family: var(--font-display); font-size: 1.28rem; line-height: 1.5; color: var(--ink); }
+.prose blockquote p:last-child { margin: 0; }

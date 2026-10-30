@@ -19,7 +19,7 @@ def _abs(request, path):
 @register.filter
 def render_body(text, links=""):
     """
-    Paragraphs / '## ' subheadings / '- ' lists → safe HTML. Everything is escaped first.
+    Paragraphs / '## ' subheadings / '- ' lists / '> ' quotes → safe HTML. Everything is escaped first.
 
     With `|render_body:"jamiitek"`, the first mention of each JamiiTek product
     (JamiiBot, web builder, templates, domain, JamiiTek) links to its page on
@@ -43,7 +43,9 @@ def render_body(text, links=""):
             bullets.append(link(line[2:].strip()))
             continue
         flush()
-        if line.startswith("## "):
+        if line.startswith("> "):                      # nukuu: "> maneno ya mtu"
+            out.append(f"<blockquote><p>{link(line[2:].strip())}</p></blockquote>")
+        elif line.startswith("## "):
             out.append(f"<h2>{escape(line[3:].strip())}</h2>")
         elif line.startswith("# "):
             out.append(f"<h2>{escape(line[2:].strip())}</h2>")
@@ -210,10 +212,10 @@ def predictions_jsonld(context, matches):
     page = _abs(request, request.path)
     items = []
     for m in matches:
-        link = _abs(request, m.article.get_absolute_url())
+        link = _abs(request, m.url)
         items.append({"@type": "ListItem", "position": len(items) + 1, "url": link, "item": sports_event(m, link)})
     return _script(_collection(request, page, "Utabiri wa Mechi za Leo",
-                               "Uwezekano wa matokeo ya mechi kubwa kutoka fomu na rekodi za timu.",
+                               "Uwezekano wa matokeo ya mechi kutoka nguvu za timu (Dixon–Coles, Elo) na fomu.",
                                items, [("Mwanzo", "/"), ("LIVE", "/live/"), ("Utabiri", request.path)]))
 
 

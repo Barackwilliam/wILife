@@ -1,12 +1,25 @@
-{% comment %}Makadirio ya mechi m (LiveMatch.extra.prediction — news/predict.py). full = maelezo kamili (ukurasa wa mechi).{% endcomment %}{% with p=m.x.prediction %}{% if p %}
+{% comment %}
+  Utabiri wa mechi m (LiveMatch, Fixture au Row — extra.prediction, news/predict.py). full = ukurasa wa mechi.
+  Utabiri wa zamani (v1) hauna masoko/sababu: sehemu hizo hazionyeshwi.
+{% endcomment %}{% with p=m.x.prediction %}{% if p %}
 <section class="pr{% if full %} pr-full{% endif %}" aria-label="Utabiri wa mechi">
-  {% if full %}<h2><span>%</span> Utabiri wa wILife</h2>{% endif %}
+  <div class="pr-top">{% if full %}<h2><span>%</span> Utabiri wa wILife</h2>{% endif %}{% if p.confidence %}<span class="pr-tier t-{{ p.confidence }}" title="Kiwango cha uhakika kinategemea wingi wa data na kama modeli zote zinakubaliana">{% if p.confidence == 'juu' %}Uhakika wa juu{% elif p.confidence == 'wastani' %}Uhakika wa wastani{% else %}Uhakika mdogo{% endif %}</span>{% endif %}</div>
   <div class="pr-bar" role="img" aria-label="{{ m.home }} kushinda {{ p.home }}%, sare {{ p.draw }}%, {{ m.away }} kushinda {{ p.away }}%">
     <i class="h{% if p.pick == '1' %} on{% endif %}" style="width:{{ p.home }}%"></i><i class="d{% if p.pick == 'X' %} on{% endif %}" style="width:{{ p.draw }}%"></i><i class="a{% if p.pick == '2' %} on{% endif %}" style="width:{{ p.away }}%"></i>
   </div>
   <div class="pr-lbl"><span><b>{{ p.home }}%</b> {{ m.home }}</span><span><b>{{ p.draw }}%</b> Sare</span><span><b>{{ p.away }}%</b> {{ m.away }}</span></div>
+  {% if p.markets %}
+  <dl class="pr-mk">
+    <div><dt>1X</dt><dd>{{ p.markets.1x }}%</dd></div><div><dt>X2</dt><dd>{{ p.markets.x2 }}%</dd></div>{% if full %}<div><dt>12</dt><dd>{{ p.markets.12 }}%</dd></div>
+    <div><dt>Magoli 2+</dt><dd>{{ p.markets.over15 }}%</dd></div>{% endif %}<div><dt>Magoli 3+</dt><dd>{{ p.markets.over25 }}%</dd></div>{% if full %}<div><dt>Magoli 4+</dt><dd>{{ p.markets.over35 }}%</dd></div>{% endif %}
+    <div><dt>Zote kufunga</dt><dd>{{ p.markets.btts }}%</dd></div>
+  </dl>
+  <div class="pr-more"><span>Matokeo yanayowezekana zaidi{% for s in p.scores %} <b>{{ s.score }}</b><small>{{ s.pct }}%</small>{% endfor %}</span>{% if p.xg %}<span>Magoli yanayotarajiwa <b>{{ p.xg.0 }} – {{ p.xg.1 }}</b></span>{% endif %}</div>
+  {% if p.factors %}<details class="pr-why"{% if full %} open{% endif %}><summary>Kwa nini? Takwimu zilizotumika</summary><ul>{% for f in p.factors %}<li>{{ f }}</li>{% endfor %}</ul></details>{% endif %}
+  {% else %}
   <div class="pr-more"><span>Matokeo yanayotarajiwa zaidi <b>{{ p.score }}</b></span><span>Magoli 3 au zaidi <b>{{ p.over25 }}%</b></span><span>Timu zote kufunga <b>{{ p.btts }}%</b></span></div>
+  {% endif %}
   {% if m.is_finished and 'prediction_hit' in m.x %}<p class="pr-res {% if m.x.prediction_hit %}ok{% else %}no{% endif %}">{% if m.x.prediction_hit %}✓ Utabiri ulikuwa sahihi{% if m.x.prediction_exact %} — hata idadi ya magoli{% endif %}.{% else %}✗ Utabiri haukuwa sahihi kwa mechi hii.{% endif %}</p>{% endif %}
-  {% if full %}<p class="pr-note">Hesabu kutoka mechi tano zilizopita za kila timu na rekodi za mechi walizokutana (Poisson). Utabiri si uhakika · Kwa watu wenye umri wa miaka 18 na zaidi · Beti kwa uwajibikaji. <a href="{% url 'news:predictions' %}">Rekodi yetu ya utabiri</a></p>{% endif %}
+  {% if full %}<p class="pr-note">Hesabu kutoka nguvu za timu kwenye historia ya matokeo (Dixon–Coles), alama za Elo na fomu ya karibuni. Utabiri si uhakika · Kwa watu wenye umri wa miaka 18 na zaidi · Beti kwa uwajibikaji. <a href="{% url 'news:predictions' %}">Rekodi yetu ya utabiri</a></p>{% endif %}
 </section>
 {% endif %}{% endwith %}
