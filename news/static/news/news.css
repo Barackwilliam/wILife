@@ -1029,6 +1029,50 @@ a.fx:hover { background: var(--brand-soft); }
 .pr-hist .no i { background: var(--rose); }
 .pr-hist span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .pr-hist small { color: var(--muted); font-size: .82rem; }
+.pr-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 10px; }
+.pr-top h2 { margin: 0; }
+.pr-top:not(:has(h2)) { justify-content: flex-end; }
+.pr-tier { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 99px; font-size: .72rem; font-weight: 800; letter-spacing: .02em; white-space: nowrap; }
+.pr-tier.t-juu { background: var(--leaf-soft); color: #17694f; }
+.pr-tier.t-wastani { background: var(--sun-soft); color: #7a5300; }
+.pr-tier.t-chini { background: var(--line); color: var(--muted); }
+.pr-mk { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 6px; margin: 12px 0 0; }
+.pr-mk div { padding: 7px 8px; border-radius: 10px; background: var(--surface-2, var(--bg)); text-align: center; }
+.pr-mk dt { font-size: .7rem; font-weight: 700; color: var(--muted); }
+.pr-mk dd { margin: 2px 0 0; font-weight: 800; font-variant-numeric: tabular-nums; }
+.pr-more small { margin-left: 2px; color: var(--muted); font-size: .74rem; }
+.pr-why { margin: 10px 0 0; font-size: .86rem; }
+.pr-why summary { cursor: pointer; font-weight: 700; color: var(--plum); min-height: 24px; }
+.pr-why ul { margin: 8px 0 0; padding-left: 18px; color: var(--ink); line-height: 1.5; }
+.pr-why li + li { margin-top: 4px; }
+.pr-top-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 10px; }
+.pr-top-list a { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); min-height: 64px; }
+.pr-tp-m { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.pr-tp-m b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pr-tp-m small { color: var(--muted); font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pr-tp-p { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.pr-tp-p em { font-style: normal; font-size: .76rem; color: var(--muted); max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pr-tp-p b { font-size: 1.2rem; font-variant-numeric: tabular-nums; }
+.pr-trust-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 14px; }
+.pr-box { padding: 16px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); }
+.pr-box h3 { margin: 0 0 10px; font-size: 1rem; }
+.pr-big { display: flex; align-items: baseline; gap: 10px; margin: 0 0 12px; }
+.pr-big b { font-size: 2rem; line-height: 1; }
+.pr-big span, .pr-small { color: var(--muted); font-size: .84rem; line-height: 1.5; }
+.pr-small { margin: 8px 0 10px; }
+.pr-tbl { width: 100%; border-collapse: collapse; font-size: .86rem; font-variant-numeric: tabular-nums; }
+.pr-tbl th { text-align: left; font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 6px 4px; border-bottom: 1px solid var(--line); }
+.pr-tbl td { padding: 8px 4px; border-bottom: 1px solid var(--line); }
+.pr-tbl tr.on td { font-weight: 700; color: var(--plum); }
+.pr-mlist { margin: 10px 0 0; padding-left: 18px; font-size: .86rem; line-height: 1.6; }
+.pr-cal { display: grid; gap: 10px; }
+.pr-cal div { display: grid; grid-template-columns: 64px 1fr; gap: 2px 10px; align-items: center; font-size: .8rem; }
+.pr-cal span { font-weight: 700; font-variant-numeric: tabular-nums; }
+.pr-cal i { position: relative; display: block; height: 10px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.pr-cal s, .pr-cal u { position: absolute; left: 0; top: 0; bottom: 0; }
+.pr-cal s { width: var(--hap); background: var(--leaf); }
+.pr-cal u { left: var(--said); width: 2px; background: var(--ink); }
+.pr-cal small { grid-column: 2; color: var(--muted); }
 @media (max-width: 560px) { .pr-rec b { font-size: 1.25rem; } }
 @media (prefers-reduced-motion: reduce) { .fx.is-on .fx-t::before { animation: none; } }
 

@@ -212,10 +212,10 @@ def predictions_jsonld(context, matches):
     page = _abs(request, request.path)
     items = []
     for m in matches:
-        link = _abs(request, m.article.get_absolute_url())
+        link = _abs(request, m.url)
         items.append({"@type": "ListItem", "position": len(items) + 1, "url": link, "item": sports_event(m, link)})
     return _script(_collection(request, page, "Utabiri wa Mechi za Leo",
-                               "Uwezekano wa matokeo ya mechi kubwa kutoka fomu na rekodi za timu.",
+                               "Uwezekano wa matokeo ya mechi kutoka nguvu za timu (Dixon–Coles, Elo) na fomu.",
                                items, [("Mwanzo", "/"), ("LIVE", "/live/"), ("Utabiri", request.path)]))
 
 

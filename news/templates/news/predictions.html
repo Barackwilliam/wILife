@@ -16,7 +16,7 @@
     <div class="lh-head">
       <span class="lh-badge off"><i></i>UTABIRI</span>
       <h1 id="pr-title">Utabiri wa Mechi za Leo</h1>
-      <p class="lh-sub">Uwezekano wa matokeo unaokokotolewa kwa kutumia takwimu halisi, pamoja na rekodi ya wazi ya utabiri uliofanikiwa na uliokosewa.</p>
+      <p class="lh-sub">Uwezekano wa matokeo kwa kila mechi ya ratiba: nguvu za timu kutoka historia ya matokeo, alama za Elo na fomu, pamoja na rekodi ya wazi ya utabiri uliofanikiwa na uliokosewa.</p>
     </div>
     {% spotlight %}
     <div class="pr-rec">
@@ -35,30 +35,80 @@
 <div class="wrap lh-body dy-body">
   <p class="pr-warn"><b>18+</b> Huu ni utabiri unaotokana na hesabu, si uhakika wala ushauri wa kubeti. Ukiamua kubeti, tumia kiasi ambacho uko tayari kupoteza.</p>
 
+  {% if top %}
   <section>
-    <div class="sh"><h2>Mechi zinazofuata</h2><a href="{% url 'news:matches_today' %}">Mechi zote za leo {% icon "arrow-right" %}</a></div>
+    <div class="sh"><h2>Chaguo zenye uhakika mkubwa</h2></div>
+    <ol class="pr-top-list">{% for r in top %}{% with p=r.prediction %}
+      <li><a href="{{ r.url }}">
+        <span class="pr-tp-m"><b>{{ r.home }} vs {{ r.away }}</b><small>{{ r.competition }} · {{ r.kickoff|sw_day }} {{ r.kickoff|time:"H:i" }}</small></span>
+        <span class="pr-tp-p"><em>{% if p.pick == '1' %}{{ r.home }} ishinde{% elif p.pick == '2' %}{{ r.away }} ishinde{% else %}Sare{% endif %}</em><b>{% if p.pick == '1' %}{{ p.home }}{% elif p.pick == '2' %}{{ p.away }}{% else %}{{ p.draw }}{% endif %}%</b></span>
+        <span class="pr-tier t-{{ p.confidence }}">{% if p.confidence == 'juu' %}Juu{% else %}Wastani{% endif %}</span>
+      </a></li>{% endwith %}{% endfor %}
+    </ol>
+  </section>
+  {% endif %}
+
+  <section>
+    <div class="sh"><h2>Mechi zinazofuata ({{ upcoming|length }})</h2><a href="{% url 'news:matches_today' %}">Mechi zote za leo {% icon "arrow-right" %}</a></div>
     {% if upcoming %}
     <div class="pr-grid">{% for m in upcoming %}
       <article class="pr-card">
-        <a class="pr-head" href="{{ m.article.get_absolute_url }}">
+        <a class="pr-head" href="{{ m.url }}">
           <span class="pr-comp">{{ m.competition }} · {{ m.kickoff|sw_day }} {{ m.kickoff|time:"H:i" }}</span>
-          <span class="pr-teams">{% if m.home_logo %}<img src="{{ m.home_logo }}" alt="Nembo ya {{ m.home }}" width="28" height="28" loading="lazy" referrerpolicy="no-referrer">{% endif %}<b>{{ m.home }}</b><small>vs</small><b>{{ m.away }}</b>{% if m.away_logo %}<img src="{{ m.away_logo }}" alt="Nembo ya {{ m.away }}" width="28" height="28" loading="lazy" referrerpolicy="no-referrer">{% endif %}</span>
+          <span class="pr-teams">{% include 'news/_crest.html' with name=m.home logo=m.home_crest small=True %}<b>{{ m.home }}</b><small>vs</small><b>{{ m.away }}</b>{% include 'news/_crest.html' with name=m.away logo=m.away_crest small=True %}</span>
         </a>
         {% include 'news/_pred.html' %}
       </article>{% endfor %}
     </div>
     {% else %}
-    <div class="dy-empty"><b>Utabiri wa mechi zijazo bado haujawa tayari.</b><span>Huandaliwa saa chache kabla ya mechi kubwa kuanza, takwimu za timu zikishapatikana. Angalia <a href="{% url 'news:matches_today' %}">mechi za leo</a>.</span></div>
+    <div class="dy-empty"><b>Utabiri wa mechi zijazo bado haujawa tayari.</b><span>Huandaliwa kwa kila mechi ya ratiba yenye historia ya kutosha ya timu zake. Angalia <a href="{% url 'news:matches_today' %}">mechi za leo</a>.</span></div>
     {% endif %}
+  </section>
+
+  <section class="pr-trust" aria-labelledby="pr-trust-h">
+    <div class="sh"><h2 id="pr-trust-h">Uaminifu wa mfumo: tunajipima wazi</h2></div>
+    <div class="pr-trust-grid">
+      <div class="pr-box">
+        <h3>Rekodi halisi (siku 30)</h3>
+        {% if record.total %}
+        <p class="pr-big"><b>{{ record.pct }}%</b> <span>{{ record.hits }}/{{ record.total }} matokeo (1X2) sahihi</span></p>
+        {% if record.tiers %}<table class="pr-tbl"><thead><tr><th>Kiwango</th><th>Mechi</th><th>Sahihi</th></tr></thead><tbody>{% for k, t in record.tiers.items %}<tr><td><span class="pr-tier t-{{ k }}">{{ t.label }}</span></td><td>{{ t.total }}</td><td><b>{{ t.pct }}%</b></td></tr>{% endfor %}</tbody></table>{% endif %}
+        {% if record.markets %}<ul class="pr-mlist">{% for k, mk in record.markets.items %}<li>{{ mk.label }}: <b>{{ mk.pct }}%</b> ({{ mk.hits }}/{{ mk.total }})</li>{% endfor %}</ul>{% endif %}
+        {% if record.brier is not None %}<p class="pr-small">Alama ya Brier: {{ record.brier }} (chini ni bora; kubahatisha 33/33/33 ni 0.667).</p>{% endif %}
+        {% else %}<p class="pr-small">Rekodi inaanza kujazwa mechi zilizotabiriwa zikiisha.</p>{% endif %}
+      </div>
+      {% if report %}
+      <div class="pr-box">
+        <h3>Majaribio ya mechi {{ report.tested }} zilizopita</h3>
+        <p class="pr-small">Kwa kila wiki ya siku {{ report.days }} zilizopita, mfumo ulijengwa kwa mechi za kabla ya wiki hiyo tu, kisha ukatabiri mechi za wiki hiyo.</p>
+        <table class="pr-tbl"><thead><tr><th>Modeli</th><th>Sahihi (1X2)</th><th>Brier</th></tr></thead><tbody>
+          {% if report.models.ensemble %}<tr class="on"><td>Mfumo wa wILife</td><td><b>{{ report.models.ensemble.accuracy }}%</b></td><td>{{ report.models.ensemble.brier }}</td></tr>{% endif %}
+          {% if report.models.dixon_coles %}<tr><td>Dixon–Coles pekee</td><td>{{ report.models.dixon_coles.accuracy }}%</td><td>{{ report.models.dixon_coles.brier }}</td></tr>{% endif %}
+          {% if report.models.elo %}<tr><td>Elo pekee</td><td>{{ report.models.elo.accuracy }}%</td><td>{{ report.models.elo.brier }}</td></tr>{% endif %}
+          {% if report.models.baseline %}<tr><td>Kipimo cha msingi (asilimia za ligi)</td><td>{{ report.models.baseline.accuracy }}%</td><td>{{ report.models.baseline.brier }}</td></tr>{% endif %}
+        </tbody></table>
+        {% if report.markets.n %}<ul class="pr-mlist"><li>Magoli 3+ / chini ya 3: <b>{{ report.markets.over25 }}%</b></li><li>Timu zote kufunga: <b>{{ report.markets.btts }}%</b></li></ul>{% endif %}
+      </div>
+      {% if report.calibration %}
+      <div class="pr-box">
+        <h3>Tukisema 60%, hutokea mara ngapi?</h3>
+        <p class="pr-small">Utabiri unaoaminika ni ule ambao asilimia zake zinalingana na kinachotokea.</p>
+        <div class="pr-cal">{% for c in report.calibration %}
+          <div><span>{{ c.range }}</span><i style="--said:{{ c.said }}%;--hap:{{ c.happened }}%"><s></s><u></u></i><small>tulisema {{ c.said }}% · ilitokea {{ c.happened }}% · mechi {{ c.n }}</small></div>{% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      {% endif %}
+    </div>
   </section>
 
   {% if record.recent %}
   <section>
     <div class="sh"><h2>Rekodi ya utabiri: utabiri uliopita</h2></div>
     <div class="pr-hist">{% for m in record.recent %}
-      <a href="{{ m.article.get_absolute_url }}" class="{% if m.x.prediction_hit %}ok{% else %}no{% endif %}">
+      <a href="{{ m.url }}" class="{% if m.x.prediction_hit %}ok{% else %}no{% endif %}">
         <i>{% if m.x.prediction_hit %}✓{% else %}✗{% endif %}</i>
-        <span><b>{{ m.home }} {{ m.home_goals }}-{{ m.away_goals }} {{ m.away }}</b><small>{{ m.kickoff|sw_daydate }} · {% if m.x.prediction.pick == '1' %}Tulitabiri {{ m.home }} ishinde{% elif m.x.prediction.pick == '2' %}Tulitabiri {{ m.away }} ishinde{% else %}Tulitabiri sare{% endif %} ({{ m.x.prediction.score }})</small></span>
+        <span><b>{{ m.home }} {{ m.home_goals }}-{{ m.away_goals }} {{ m.away }}</b><small>{{ m.kickoff|sw_daydate }} · {% if m.x.prediction.pick == '1' %}Tulitabiri {{ m.home }} ishinde{% elif m.x.prediction.pick == '2' %}Tulitabiri {{ m.away }} ishinde{% else %}Tulitabiri sare{% endif %} ({{ m.x.prediction.score }}){% if m.x.prediction.confidence %} · {% if m.x.prediction.confidence == 'juu' %}uhakika wa juu{% elif m.x.prediction.confidence == 'wastani' %}uhakika wa wastani{% else %}uhakika mdogo{% endif %}{% endif %}</small></span>
       </a>{% endfor %}
     </div>
   </section>
@@ -68,8 +118,12 @@
 
   <section class="lh-about">
     <h2>Utabiri huu hutengenezwaje?</h2>
-    <p>Kwa kila mechi kubwa, tunachambua magoli ambayo kila timu imefunga na kufungwa katika mechi zake tano zilizopita, pamoja na matokeo ya mechi walizokutana. Kutokana na hayo tunakadiria magoli yanayotarajiwa kwa kila timu (pamoja na faida ndogo ya kucheza nyumbani), kisha tunatumia mfumo wa kihesabu wa Poisson kupata uwezekano wa ushindi wa nyumbani, sare, ushindi wa ugenini, magoli 3 au zaidi na timu zote kufunga.</p>
-    <p>Utabiri hufungwa mechi inapoanza, na baada ya filimbi ya mwisho tunaupima wazi — utabiri uliofanikiwa na uliokosewa wote unaonekana hapa juu. Hakuna "uhakika wa 100%": hata utabiri bora hukosea mara nyingi. Utabiri huu ni kwa burudani na uchambuzi tu.</p>
+    <p><b>1. Historia ya matokeo.</b> Tunahifadhi matokeo ya mechi zote za ligi tunazofuatilia, pamoja na misimu iliyopita. Mechi za karibuni zina uzito mkubwa kuliko za zamani.</p>
+    <p><b>2. Nguvu ya kila timu (Dixon–Coles).</b> Kwa kila ligi tunakadiria uwezo wa kila timu kufunga na kuzuia magoli, faida ya uwanja wa nyumbani ya ligi hiyo, na marekebisho ya matokeo madogo kama 0-0 na 1-1. Timu yenye mechi chache inavutwa kuelekea wastani ili matokeo machache yasiamue kila kitu.</p>
+    <p><b>3. Alama za Elo.</b> Kila timu ina alama ya nguvu inayopanda ikishinda na kushuka ikipoteza, kwa kuzingatia mpinzani na tofauti ya magoli. Hii inaunganisha ligi, makombe na mechi za kimataifa.</p>
+    <p><b>4. Fomu na historia ya kukutana.</b> Kwa mechi zenye taarifa za ziada, mechi tano zilizopita za kila timu na matokeo ya walipokutana huongezwa.</p>
+    <p><b>5. Mchanganyiko na kipimo.</b> Modeli hizi huchanganywa kwa uzito uliopimwa kwenye mechi zilizopita, kisha tunapata uwezekano wa 1X2, nafasi mbili (1X, X2), idadi ya magoli, timu zote kufunga na matokeo kamili. Kiwango cha uhakika kinaonyesha wingi wa data na kama modeli zinakubaliana.</p>
+    <p>Utabiri hufungwa mechi inapoanza, na baada ya filimbi ya mwisho tunaupima wazi, uliopatia na uliokosewa. Hakuna "uhakika wa 100%": hata utabiri bora hukosea mara nyingi, na kampuni za kubeti huweka faida yao kwenye odds. Utabiri huu ni kwa uchambuzi tu, si ushauri wa kifedha.</p>
   </section>
 </div>
 {% endblock %}

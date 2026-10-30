@@ -753,8 +753,15 @@ def run(now=None, deadline=None, dry_run=False):
             n = fixtures.refresh_results(state, now, daily_limit() - state.requests)
             if n:
                 notes.append(f"matokeo ya ratiba: maombi {n}")
-            from news import leagues           # kurasa za ligi: ligi mpya kutoka ratiba (bure)
+            from news import leagues, results  # kurasa za ligi: ligi mpya kutoka ratiba (bure)
             leagues.sync()
+            n = results.collect(days=3)         # hifadhi ya matokeo ya utabiri (bure)
+            if n:
+                notes.append(f"matokeo mapya ya utabiri: {n}")
+            from news import predict            # utabiri wa ratiba nzima na upimaji wake (bure)
+            made, settled = predict.refresh_fixtures(now)
+            if made or settled:
+                notes.append(f"utabiri wa ratiba: mpya {made}, uliopimwa {settled}")
             if not active(now):                 # siku iliyokosa ratiba kabisa si ya haraka: isubiri LIVE ziishe
                 n = fixtures.backfill(state, now, daily_limit() - state.requests)
                 if n:
@@ -766,6 +773,17 @@ def run(now=None, deadline=None, dry_run=False):
                 n = fixtures.read_ahead(state, now, daily_limit() - state.requests)
                 if n:
                     notes.append(f"ratiba ya kesho: maombi {n}")
+                from news import backtest       # kipimo cha uaminifu wa utabiri: mara moja kwa wiki (bure)
+                if backtest.due(now):
+                    try:
+                        rep = backtest.run(days=90, now=now)
+                        notes.append(f"backtest ya utabiri: mechi {rep.get('tested', 0)}")
+                    except Exception as exc:
+                        log.warning("backtest failed: %s", exc)
+                # Historia ya misimu ya ligi (utabiri) — mwisho kabisa, kwa maombi ya ziada tu
+                n = results.backfill(state, now, daily_limit() - state.requests)
+                if n:
+                    notes.append(f"historia ya utabiri: maombi {n}")
         if state.error:
             state.error = ""
             state.save(update_fields=["error"])

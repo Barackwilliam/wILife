@@ -88,7 +88,7 @@ def rules():
 
 def _country(raw):
     c = raw.get("country") or (raw.get("league") or {}).get("country") or {}
-    return (c.get("name") if isinstance(c, dict) else str(c or "")).strip()
+    return str((c.get("name") if isinstance(c, dict) else c) or "").strip()
 
 
 _SUFFIX = re.compile(r"[\s.]+(s\.?\s?c|f\.?\s?c|sports club)\.?$", re.I)
