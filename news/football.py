@@ -773,6 +773,10 @@ def run(now=None, deadline=None, dry_run=False):
                 n = fixtures.read_ahead(state, now, daily_limit() - state.requests)
                 if n:
                     notes.append(f"ratiba ya kesho: maombi {n}")
+                from news import odds           # odds za kampuni za kubeti (kulinganisha na utabiri)
+                n = odds.fetch(state, now, daily_limit() - state.requests)
+                if n:
+                    notes.append(f"odds za kampuni: maombi {n}")
                 from news import backtest       # kipimo cha uaminifu wa utabiri: mara moja kwa wiki (bure)
                 if backtest.due(now):
                     try:

@@ -708,3 +708,10 @@ def spotlight(day=None, limit=5):
         rows = [r for r in rows if r.is_finished]
     rows = sorted([r for r in rows if not r.is_off], key=order)[:limit]
     return {"rows": rows, "day": day}
+
+
+@register.simple_tag
+def odds_view(m):
+    """Odds za kampuni dhidi ya utabiri wetu (news/odds.py) — None kama hakuna odds."""
+    from news import odds
+    return odds.view(m)
