@@ -27,6 +27,8 @@ MIN_LEFT = 35              # maombi ya siku yanayohitajika kabla ya kusoma odds 
 PER_DAY = 8                # kikomo cha maombi ya odds kwa siku
 MAX_PAGES = 3              # kwa siku moja ya mechi, kwa mzunguko mmoja
 EVERY = timedelta(hours=6)  # odds hubadilika: siku hiyo inasomwa tena baada ya muda huu
+PLAN_RETRY = timedelta(days=7)
+PLAN_WORDS = ("not available in", "upgrade your plan", "plan does not")
 SAMPLE_KEY = "odds-sample"
 PROGRESS_KEY = "odds-progress"
 
@@ -229,6 +231,10 @@ def fetch(state, now, left):
                else f"kikomo cha odds cha siku kimefikiwa ({used}/{PER_DAY})")
         _note(rep, prog, now, why)
         return 0
+    blocked = prog.get("_mpango")
+    if blocked and now - datetime.fromisoformat(blocked["at"]) < PLAN_RETRY:
+        _note(rep, prog, now, f"mpango wa Highlightly hauna odds: {blocked['error'][:120]} (inajaribiwa tena kila siku 7)")
+        return 0
     today = timezone.localtime(now).date()
     spent = 0
     for day in (today, today + timedelta(days=1)):
@@ -264,12 +270,18 @@ def fetch(state, now, left):
         prog[key] = {"at": now.isoformat(), "pages": pages, "parsed": len(found), "stored": stored}
         if error:
             prog[key].update(error=error, error_at=now.isoformat())
+            if any(w in error.lower() for w in PLAN_WORDS):      # haitabadilika kesho: usipoteze maombi kila siku
+                prog["_mpango"] = {"at": now.isoformat(), "error": error}
+                break
         if used + spent >= PER_DAY:
             break
     if not spent:
         _note(rep, prog, now, "odds za leo na kesho zimesomwa karibuni (kila saa 6) au zinasubiri baada ya kosa")
     if spent:
-        prog["_hali"] = {"at": now.isoformat(), "sababu": f"maombi {spent} yametumika"}
+        blocked = prog.get("_mpango")
+        prog["_hali"] = {"at": now.isoformat(), "sababu": (
+            f"mpango wa Highlightly hauna odds: {blocked['error'][:120]} (inajaribiwa tena kila siku 7)"
+            if blocked and blocked["at"] == now.isoformat() else f"maombi {spent} yametumika")}
         DailyCount.bump("odds:requests", by=spent)
         state.save(update_fields=["requests", "remaining"])
         keep = {k: v for k, v in prog.items() if k == "_hali" or k >= (today - timedelta(days=3)).isoformat()}
@@ -322,10 +334,15 @@ def compare(p, odds):
     return rows, value
 
 
+def current(x):
+    """Odds zinazotumika: za mhariri (kampuni za hapa, Admin) kwanza, kisha za API."""
+    return (x or {}).get("odds_manual") or (x or {}).get("odds")
+
+
 def view(obj):
-    """Kwa template: {rows, value, books, margin, at} au None."""
+    """Kwa template: {rows, value, books, margin, at, source, manual} au None."""
     x = getattr(obj, "x", None) or getattr(obj, "extra", None) or {}
-    odds, p = x.get("odds"), x.get("prediction")
+    odds, p = current(x), x.get("prediction")
     if not odds or not p:
         return None
     rows, value = compare(p, odds)
@@ -335,7 +352,7 @@ def view(obj):
     return {"rows": rows, "value": value, "books": one.get("books") or max(
         (odds[k]["books"] for k in MARKETS if k in odds), default=0),
         "margin": round((odds.get("margin") or {}).get("1x2", 0) * 100, 1) if one else None,
-        "at": odds.get("at"), "x2": [r for r in rows if r["market"] == "1x2"]}
+        "at": odds.get("at"), "source": odds.get("source") or "Highlightly", "manual": bool(odds.get("manual"))}
 
 
 def settle_value(obj):
@@ -343,7 +360,7 @@ def settle_value(obj):
     x = obj.extra or {}
     if "value_result" in x or not obj.has_score:
         return None
-    _, value = compare(x.get("prediction"), x.get("odds"))
+    _, value = compare(x.get("prediction"), current(x))
     if not value:
         return None
     hg, ag = obj.home_goals, obj.away_goals
@@ -351,6 +368,7 @@ def settle_value(obj):
               "btts": 0 if hg and ag else 1}[value["market"]]
     won = actual == value["i"]
     res = {"market": value["market"], "label": value["label"], "odd": value["odd"], "ev": value["ev"],
+           "source": (current(x) or {}).get("source", ""),
            "won": won, "profit": round(value["odd"] - 1, 2) if won else -1.0}
     obj.extra = {**x, "value_result": res}
     type(obj).objects.filter(pk=obj.pk).update(extra=obj.extra)
@@ -360,9 +378,21 @@ def settle_value(obj):
 def market_hit(obj):
     """Je, kipenzi cha kampuni (1X2) kilishinda? None kama hakuna odds."""
     x = obj.extra or {}
-    fair = ((x.get("odds") or {}).get("fair") or {}).get("1x2")
+    fair = ((current(x) or {}).get("fair") or {}).get("1x2")
     if not fair or not obj.has_score:
         return None
     hg, ag = obj.home_goals, obj.away_goals
     actual = 0 if hg > ag else (1 if hg == ag else 2)
     return max(range(3), key=lambda i: fair[i]) == actual
+
+
+def manual(book, home=None, draw=None, away=None, over=None, under=None, yes=None, no=None, now=None):
+    """Odds zilizowekwa na mhariri (kampuni moja) -> muundo ule ule wa odds za API. None kama hakuna soko kamili."""
+    prices = {}
+    for kind, row in (("1x2", [home, draw, away]), ("ou25", [over, under]), ("btts", [yes, no])):
+        row = [_num(v) for v in row]
+        if all(row):
+            prices[(kind, book)] = row
+    if not prices:
+        return None
+    return {**summarise(prices), "source": book, "manual": True, "at": (now or timezone.now()).isoformat()}

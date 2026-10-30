@@ -158,10 +158,67 @@ def _send_now(model_admin, request, queryset, kind):
         model_admin.message_user(request, text, messages.SUCCESS if ok else messages.ERROR)
 
 
+class FixtureOddsForm(forms.ModelForm):
+    """Odds za kampuni ya hapa (mf. SportPesa, Betway) zinazowekwa na mhariri — zinatangulia odds za API."""
+    odds_book = forms.CharField(label="Kampuni ya kubeti", max_length=40, required=False,
+                                help_text="Mf. SportPesa. Weka odds za decimal kama zinavyoonekana kwenye kampuni hiyo.")
+    odds_home = forms.DecimalField(label="1 (wenyeji)", required=False, min_value=1.01, max_value=100, decimal_places=2)
+    odds_draw = forms.DecimalField(label="X (sare)", required=False, min_value=1.01, max_value=100, decimal_places=2)
+    odds_away = forms.DecimalField(label="2 (wageni)", required=False, min_value=1.01, max_value=100, decimal_places=2)
+    odds_over = forms.DecimalField(label="Magoli 3+ (Over 2.5)", required=False, min_value=1.01, max_value=100,
+                                   decimal_places=2)
+    odds_under = forms.DecimalField(label="Chini ya 3 (Under 2.5)", required=False, min_value=1.01, max_value=100,
+                                    decimal_places=2)
+    odds_yes = forms.DecimalField(label="Timu zote kufunga: Ndiyo", required=False, min_value=1.01, max_value=100,
+                                  decimal_places=2)
+    odds_no = forms.DecimalField(label="Timu zote kufunga: Hapana", required=False, min_value=1.01, max_value=100,
+                                 decimal_places=2)
+    odds_clear = forms.BooleanField(label="Ondoa odds za mhariri", required=False)
+
+    PAIRS = (("odds_home", "odds_draw", "odds_away"), ("odds_over", "odds_under"), ("odds_yes", "odds_no"))
+
+    class Meta:
+        model = Fixture
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        m = ((self.instance.extra or {}).get("odds_manual") if self.instance.pk else None) or {}
+        self.fields["odds_book"].initial = m.get("source", "")
+        for kind, names in zip(("1x2", "ou25", "btts"), self.PAIRS):
+            for name, v in zip(names, (m.get(kind) or {}).get("avg") or []):
+                self.fields[name].initial = v
+
+    def clean(self):
+        data = super().clean()
+        if data.get("odds_clear"):
+            return data
+        filled = False
+        for names in self.PAIRS:
+            got = [data.get(n) for n in names]
+            if any(got) and not all(got):
+                raise forms.ValidationError("Jaza odds zote za soko moja (1, X na 2 pamoja; Over na Under pamoja).")
+            filled = filled or all(got)
+        if filled and not (data.get("odds_book") or "").strip():
+            raise forms.ValidationError("Andika jina la kampuni ya kubeti ya odds hizi.")
+        return data
+
+
 @admin.register(Fixture)
 class FixtureAdmin(admin.ModelAdmin):
-    """Ratiba ya siku (kurasa za Mechi za leo / Matokeo ya jana)."""
-    list_display = ("day", "kickoff", "competition", "home", "away", "home_goals", "away_goals", "status")
+    """Ratiba ya siku (kurasa za Mechi za leo / Matokeo ya jana). Odds za kampuni za hapa zinawekwa hapa."""
+    form = FixtureOddsForm
+    fieldsets = (
+        (None, {"fields": ("provider", "fixture_id", "day", "kickoff", "rank", "competition", "competition_id",
+                           "competition_logo", "country", "round", "home", "away", "home_logo", "away_logo",
+                           "home_goals", "away_goals", "status", "minute", "extra")}),
+        ("Odds za kampuni ya kubeti (hiari)", {
+            "description": "Odds za kampuni wanazotumia wasomaji (mf. SportPesa). Utabiri unalinganishwa nazo na "
+                           "chaguo la thamani linaonyeshwa. Weka kabla mechi haijaanza.",
+            "fields": ("odds_book", ("odds_home", "odds_draw", "odds_away"), ("odds_over", "odds_under"),
+                       ("odds_yes", "odds_no"), "odds_clear")}),
+    )
+    list_display = ("day", "kickoff", "competition", "home", "away", "home_goals", "away_goals", "status", "has_odds")
     list_filter = ("day", "competition")
     search_fields = ("home", "away", "competition")
     actions = ["send_to_soka360"]
@@ -169,6 +226,34 @@ class FixtureAdmin(admin.ModelAdmin):
     @admin.action(description="Tuma video ya matokeo kwenye Soka360 sasa (mechi 1–3)")
     def send_to_soka360(self, request, queryset):
         _send_now(self, request, queryset, "result")
+
+    @admin.display(description="Odds", boolean=True)
+    def has_odds(self, obj):
+        return bool((obj.extra or {}).get("odds_manual") or (obj.extra or {}).get("odds"))
+
+    def save_model(self, request, obj, form, change):
+        from news import odds
+        d = form.cleaned_data
+        extra = dict(obj.extra or {})
+        if d.get("odds_clear"):
+            extra.pop("odds_manual", None)
+        else:
+            m = odds.manual((d.get("odds_book") or "").strip(), d.get("odds_home"), d.get("odds_draw"),
+                            d.get("odds_away"), d.get("odds_over"), d.get("odds_under"), d.get("odds_yes"),
+                            d.get("odds_no"))
+            old = extra.get("odds_manual") or {}
+            if m and any(m.get(k) != old.get(k) for k in ("1x2", "ou25", "btts", "source")):
+                extra["odds_manual"] = m
+        obj.extra = extra
+        super().save_model(request, obj, form, change)
+        live = LiveMatch.objects.filter(fixture_id=obj.fixture_id).first()   # LIVE ya mechi hiyo ionyeshe zile zile
+        if live:
+            lx = dict(live.extra or {})
+            if "odds_manual" in extra:
+                lx["odds_manual"] = extra["odds_manual"]
+            else:
+                lx.pop("odds_manual", None)
+            LiveMatch.objects.filter(pk=live.pk).update(extra=lx)
 
 
 @admin.register(Subscriber)

@@ -758,6 +758,13 @@ def run(now=None, deadline=None, dry_run=False):
             n = results.collect(days=3)         # hifadhi ya matokeo ya utabiri (bure)
             if n:
                 notes.append(f"matokeo mapya ya utabiri: {n}")
+            from news import odds_api           # odds za kimataifa (The Odds API — credits zake, si maombi ya Highlightly)
+            try:
+                n = odds_api.fetch(now)
+                if n:
+                    notes.append(f"odds (The Odds API): maombi {n}")
+            except Exception as exc:
+                log.warning("odds api failed: %s", exc)
             from news import predict            # utabiri wa ratiba nzima na upimaji wake (bure)
             made, settled = predict.refresh_fixtures(now)
             if made or settled:
