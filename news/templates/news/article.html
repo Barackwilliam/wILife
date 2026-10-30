@@ -60,17 +60,18 @@
     {% endif %}
     {% if page_v %}</div>{% endif %}
 
-    {% if other_matches %}
-    <section class="om" aria-label="Mechi nyingine za leo">
-      <div class="sh"><h2>Mechi nyingine za leo</h2><a href="{% url 'news:matches_today' %}">Mechi zote za leo {% icon "arrow-right" %}</a></div>
-      <div class="lh-grid">{% for a in other_matches %}{% include 'news/_score.html' %}{% endfor %}</div>
-    </section>
-    {% endif %}
     {% if article.match %}{% include 'news/_wa_join.html' %}{% endif %}
 
     <div class="prose">{% if jt_links %}{{ article.body|render_body:"jamiitek" }}{% else %}{{ article.body|render_body }}{% endif %}</div>
 
     {% if article.tag_list %}<div class="tagline tags">{% for name, slug in article.tag_list %}<a href="{% url 'news:topic' slug %}">{% icon "hash" %}{{ name }}</a>{% endfor %}</div>{% endif %}
+
+    {% if other_matches %}
+    <section class="om" aria-label="Mechi nyingine za leo">
+      <div class="sh"><h2>Mechi nyingine za leo</h2><a href="{% url 'news:matches_today' %}">Mechi zote za leo {% icon "arrow-right" %}</a></div>
+      <div class="sc-grid">{% for a in other_matches %}{% include 'news/_score.html' %}{% endfor %}</div>
+    </section>
+    {% endif %}
 
     {% if service %}
     <aside class="cta-in">

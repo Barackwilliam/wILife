@@ -175,12 +175,27 @@ def _logo(data, size):
 
 
 def _initials_badge(name, size):
+    """Nembo ya akiba: herufi za mwanzo juu ya rangi ya timu (sawa na _crest.html kwenye tovuti)."""
+    import colorsys
+    from news.templatetags.news_tags import team_hue, team_initials
+    hue = team_hue(name) / 360
+    top = tuple(int(c * 255) for c in colorsys.hls_to_rgb(hue, .46, .62))
+    bottom = tuple(int(c * 255) for c in colorsys.hls_to_rgb((hue + 40 / 360) % 1, .32, .70))
+    grad = Image.new("RGBA", (size, size))
+    gd = ImageDraw.Draw(grad)
+    for y in range(size):
+        t = y / max(size - 1, 1)
+        gd.line([(0, y), (size, y)], fill=tuple(int(top[i] + (bottom[i] - top[i]) * t) for i in range(3)) + (255,))
+    mask = Image.new("L", (size, size), 0)
+    ImageDraw.Draw(mask).ellipse((0, 0, size - 1, size - 1), fill=255)
     tile = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    tile.paste(grad, (0, 0), mask)
     d = ImageDraw.Draw(tile)
-    d.ellipse((0, 0, size - 1, size - 1), fill=(255, 255, 255, 235))
-    letters = "".join(w[0] for w in name.split()[:2]).upper() or "?"
-    f = _font(True, int(size * .36))
-    d.text(((size - d.textlength(letters, font=f)) / 2, size * .3), letters, font=f, fill=PITCH[0])
+    d.ellipse((0, 0, size - 1, size - 1), outline=(255, 255, 255, 90), width=max(2, size // 40))
+    letters = team_initials(name) or "?"
+    f = _font(True, int(size * (.36 if len(letters) > 1 else .44)))
+    box = d.textbbox((0, 0), letters, font=f)
+    d.text(((size - (box[2] - box[0])) / 2 - box[0], (size - (box[3] - box[1])) / 2 - box[1]), letters, font=f, fill=(255, 255, 255))
     return tile
 
 

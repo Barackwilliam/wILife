@@ -636,3 +636,40 @@ def teams_for(*names):
         return teams.for_names(*names)
     except Exception:
         return []
+
+
+# ── Kadi za matokeo (news/_score.html) ────────────────────────────────────────
+
+_CREST_SKIP = {"fc", "sc", "afc", "cf", "ac", "as", "cd", "fk", "sk", "bk", "if", "club", "the", "de", "la"}
+
+
+@register.filter
+def team_initials(name):
+    """'Young Africans' -> 'YA', 'Simba SC' -> 'S', 'Geita Gold' -> 'GG' (nembo ya akiba ya timu isiyo na logo)."""
+    words = [w for w in str(name or "").replace("-", " ").split() if w.lower().strip(".") not in _CREST_SKIP]
+    words = words or str(name or "?").split()
+    letters = "".join(w[0] for w in [w for w in words if w[:1].isalpha()][:2])
+    return (letters or str(name or "?")[:1]).upper()
+
+
+@register.filter
+def team_hue(name):
+    """Rangi ya kudumu (0-359) kwa jina la timu — nembo ya akiba ya kila timu inakuwa na rangi yake."""
+    import hashlib
+    return int(hashlib.md5(str(name or "").lower().encode()).hexdigest()[:4], 16) % 360
+
+
+@register.filter
+def match_day(value):
+    """'Leo', 'Jana', 'Kesho' au 'Jumanne, 27 Okt' — siku ya mechi kwenye kadi ya matokeo."""
+    from datetime import timedelta
+    from django.utils import timezone
+    from news.pipeline import SWAHILI_DAYS, SWAHILI_MONTHS
+    day = _as_date(value)
+    if not day:
+        return ""
+    today = timezone.localdate()
+    near = {today: "Leo", today - timedelta(days=1): "Jana", today + timedelta(days=1): "Kesho"}
+    if day in near:
+        return near[day]
+    return f"{SWAHILI_DAYS[day.weekday()]}, {day.day} {SWAHILI_MONTHS[day.month - 1][:3]}"

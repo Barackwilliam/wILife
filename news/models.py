@@ -507,6 +507,36 @@ class LiveMatch(models.Model):
         """Taarifa za ziada (extra) kwa template: takwimu, vikosi, H2H, fomu, video."""
         return self.extra or {}
 
+    # Majina ya ligi yanayojirudia nchi tofauti: "Ligue 1" ya DR Congo isionekane kama ya Ufaransa.
+    HOME_OF = {"ligue 1": "france", "ligue 2": "france", "premier league": "england", "serie a": "italy",
+               "la liga": "spain", "bundesliga": "germany", "eredivisie": "netherlands", "primeira liga": "portugal",
+               "super lig": "turkey", "championship": "england"}
+
+    @property
+    def comp_label(self):
+        """Jina la mashindano kwa kadi; nchi inaongezwa pale jina linapochanganya (mf. 'Ligue 1 · Congo DR')."""
+        name = self.competition or ""
+        country = str((self.extra or {}).get("country") or "").strip()
+        home = self.HOME_OF.get(name.lower())
+        if home and country and country.lower() != home:
+            return f"{name} · {country}"
+        return name
+
+    @property
+    def shows_score(self):
+        """Magoli yaonyeshwe? Si kwa mechi ambayo API inasema "inaendelea" lakini saa yake ya kuanza bado (data iliyokosewa)."""
+        has = self.home_goals is not None and self.away_goals is not None
+        return has and not (self.status in LiveMatch.PLAYING and self.kickoff and LiveMatch.not_started(self))
+
+    @property
+    def result(self):
+        """'home' / 'away' / 'draw' kwa mechi iliyokwisha (mshindi anaonekana kwa herufi nzito), vinginevyo ''."""
+        if not self.is_finished or not self.has_score:
+            return ""
+        if self.home_goals == self.away_goals:
+            return "draw"
+        return "home" if self.home_goals > self.away_goals else "away"
+
     def as_json(self):
         return {"id": self.article_id, "stats": (self.extra or {}).get("stats") or [], "home": self.home, "away": self.away,
                 "hg": self.home_goals, "ag": self.away_goals, "status": self.status,

@@ -320,14 +320,29 @@ def _live_sets(now=None):
     return on, soon, done
 
 
+def _by_day(items):
+    """[(siku, [makala…])] mpya kwanza — matokeo ya siku 7 yanapangwa kwa siku (Leo, Jana, …), si mchanganyiko."""
+    days = {}
+    for a in items:
+        when = a.match.kickoff or a.live_ended_at
+        days.setdefault(timezone.localtime(when).date() if when else timezone.localdate(), []).append(a)
+    return [(day, sorted(rows, key=lambda a: a.match.kickoff or a.live_ended_at, reverse=True))
+            for day, rows in sorted(days.items(), reverse=True)]
+
+
 @_live_page
 def live_hub(request):
     on, soon, done = _live_sets()
+    # Matokeo ni ya mechi zilizoisha (au kuahirishwa) tu; LIVE iliyofungwa bila matokeo ya mwisho si "matokeo",
+    # na habari za LIVE zisizo za mechi (mf. Bunge) zina sehemu yao — hazichanganywi na ubao wa matokeo.
+    results = [a for a in done if hasattr(a, "match") and (a.match.is_finished or a.match.status in a.match.OFF)]
     return render(request, "news/live_hub.html", {
         "on_matches": [a for a in on if hasattr(a, "match")],
         "on_other": [a for a in on if not hasattr(a, "match")],
         "soon": soon,
         "done": done,
+        "result_days": _by_day(results),
+        "done_other": [a for a in done if not hasattr(a, "match")],
         "live_count": len(on),
         "live_v": _live_version(on, soon, done),
     })
@@ -581,8 +596,11 @@ def _page_active(item):
 
 
 def _other_matches(item):
-    """Mechi nyingine za leo (zinazoendelea, zinazokuja, zilizoisha) — viungo vya ndani na wasomaji wabaki."""
+    """Mechi nyingine za leo (zinazoendelea, zinazokuja, zilizoisha leo) — viungo vya ndani na wasomaji wabaki.
+    Matokeo ya siku zilizopita hayaingii: sehemu inaitwa "Mechi nyingine za leo"."""
     on, soon, done = _live_sets()
+    today = timezone.localdate()
+    done = [a for a in done if hasattr(a, "match") and a.match.kickoff and timezone.localtime(a.match.kickoff).date() == today]
     return [a for a in on + soon + done if a.pk != item.pk and hasattr(a, "match")][:6]
 
 

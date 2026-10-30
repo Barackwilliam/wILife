@@ -15,17 +15,17 @@
   <div class="wrap">
     <nav class="crumbs lh-crumbs" aria-label="breadcrumb"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><span>LIVE</span></nav>
     <div class="lh-head">
-      <span class="lh-badge{% if not live_count %} off{% endif %}"><i></i>LIVE</span>
+      <span class="lh-badge{% if not live_count %} off{% endif %}"><i></i>{% if live_count %}LIVE SASA{% else %}LIVE{% endif %}</span>
       <h1 id="lh-title">Matokeo ya soka leo — mechi zinazoendelea</h1>
-      <p class="lh-sub" data-live-count>{% if live_count %}Mechi {{ live_count }} {% if live_count == 1 %}inaendelea{% else %}zinaendelea{% endif %} sasa · Matokeo yanasasishwa moja kwa moja{% else %}Kwa sasa hakuna mechi inayoendelea{% if soon %} · Mechi inayofuata: {{ soon.0.match.home }} dhidi ya {{ soon.0.match.away }}, saa {{ soon.0.match.kickoff|time:"H:i" }}{% endif %}{% endif %}</p>
+      <p class="lh-sub" data-live-count>{% if live_count %}Mechi {{ live_count }} {% if live_count == 1 %}inaendelea{% else %}zinaendelea{% endif %} sasa · Matokeo yanasasishwa moja kwa moja{% else %}Kwa sasa hakuna mechi inayoendelea{% if soon %} · Mechi inayofuata: {{ soon.0.match.home }} dhidi ya {{ soon.0.match.away }}, {{ soon.0.match.kickoff|match_day }} saa {{ soon.0.match.kickoff|time:"H:i" }}{% endif %}{% endif %}</p>
     </div>
 
     {% if on_matches %}
-    <div class="lh-grid lh-grid-big">{% for a in on_matches %}{% include 'news/_score.html' with big=False %}{% endfor %}</div>
+    <div class="sc-grid sc-grid-hero">{% for a in on_matches %}{% include 'news/_score.html' %}{% endfor %}</div>
     {% elif not on_other %}
     <div class="lh-empty">
       <b>Mechi zikianza, matokeo yake yataonekana hapa papo hapo.</b>
-      <span>Ratiba ya leo iko hapa chini — kila mechi ina ukurasa wake unaosasishwa wenyewe.</span>
+      <span>Ratiba na matokeo ya karibuni yako hapa chini — kila mechi ina ukurasa wake unaosasishwa wenyewe.</span>
     </div>
     {% endif %}
   </div>
@@ -34,7 +34,7 @@
 <div class="wrap lh-body">
   {% if on_other %}
   <section>
-    <div class="sh"><h2><span class="live-pill">LIVE</span> Matukio ya mechi zinazoendelea</h2></div>
+    <div class="sh"><h2><span class="live-pill">LIVE</span> Habari zinazoendelea sasa</h2></div>
     <div class="grid3">{% for a in on_other %}{% include 'news/_card.html' %}{% endfor %}</div>
   </section>
   {% endif %}
@@ -42,14 +42,24 @@
   {% if soon %}
   <section>
     <div class="sh"><h2>Mechi zinazofuata</h2></div>
-    <div class="lh-grid">{% for a in soon %}{% include 'news/_score.html' %}{% endfor %}</div>
+    <div class="sc-grid">{% for a in soon %}{% include 'news/_score.html' %}{% endfor %}</div>
   </section>
   {% endif %}
 
-  {% if done %}
+  {% if result_days %}
   <section>
     <div class="sh"><h2>Matokeo ya hivi karibuni</h2></div>
-    <div class="lh-grid">{% for a in done %}{% if a.match %}{% include 'news/_score.html' %}{% else %}{% include 'news/_card.html' with compact=True %}{% endif %}{% endfor %}</div>
+    {% for day, rows in result_days %}
+    <h3 class="sc-day"><span>{{ day|match_day }}</span>{% if day|match_day == "Leo" or day|match_day == "Jana" %}<small>{{ day|sw_daydate }}</small>{% endif %}<em>{{ rows|length }} {% if rows|length == 1 %}mechi{% else %}mechi{% endif %}</em></h3>
+    <div class="sc-grid">{% for a in rows %}{% include 'news/_score.html' %}{% endfor %}</div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if done_other %}
+  <section>
+    <div class="sh"><h2>Habari za LIVE zilizoisha</h2></div>
+    <div class="grid3">{% for a in done_other %}{% include 'news/_card.html' with compact=True %}{% endfor %}</div>
   </section>
   {% endif %}
 

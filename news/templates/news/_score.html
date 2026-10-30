@@ -1,18 +1,28 @@
 {% load news_tags %}{% comment %}
   Ubao wa matokeo wa mechi (LiveMatch). a = makala yenye a.match; big = ubao mkubwa wa juu ya makala.
+  Kadi ndogo: mstari mmoja kwa kila timu (nembo, jina, magoli) — majina marefu hayavunjwi katikati.
   data-match: JS ya ukurasa inabadilisha magoli na dakika bila kurefresh (/live/matokeo.json).
-{% endcomment %}{% with m=a.match %}
-<div class="sb{% if big %} sb-big{% endif %}{% if m.is_playing %} is-on{% elif m.is_finished %} is-ft{% endif %}" data-match="{{ a.pk }}">
-  <div class="sb-comp">{% if m.competition_logo %}<img src="{{ m.competition_logo }}" alt="{{ m.competition }}" width="18" height="18" loading="lazy" referrerpolicy="no-referrer">{% endif %}<span>{{ m.competition|default:"Mechi" }}{% if big and m.round %} · {{ m.round }}{% endif %}</span></div>
+{% endcomment %}{% with m=a.match %}{% if big %}
+<div class="sb sb-big{% if m.is_playing %} is-on{% elif m.is_finished %} is-ft{% endif %}" data-match="{{ a.pk }}">
+  <div class="sb-comp">{% if m.competition_logo %}<img src="{{ m.competition_logo }}" alt="" width="18" height="18" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}<span>{{ m.comp_label|default:"Mechi" }}{% if m.round %} · {{ m.round }}{% endif %}</span></div>
   <div class="sb-row">
-    <div class="sb-team"><span class="sb-logo">{% if m.home_logo %}<img src="{{ m.home_logo }}" alt="Nembo ya {{ m.home }}" width="48" height="48" loading="lazy" referrerpolicy="no-referrer">{% else %}{% icon "shield-fill" "sb-crest" %}{% endif %}</span><b>{{ m.home }}</b></div>
+    <div class="sb-team">{% include 'news/_crest.html' with name=m.home logo=m.home_logo %}<b>{{ m.home }}</b></div>
     <div class="sb-mid">
-      <span class="sb-score" data-score>{% if m.has_score %}{{ m.home_goals }}<i>-</i>{{ m.away_goals }}{% else %}<small>vs</small>{% endif %}</span>
+      <span class="sb-score" data-score>{% if m.shows_score %}{{ m.home_goals }}<i>-</i>{{ m.away_goals }}{% else %}<small>vs</small>{% endif %}</span>
       <span class="sb-clock" data-clock>{{ m.clock }}</span>
     </div>
-    <div class="sb-team"><span class="sb-logo">{% if m.away_logo %}<img src="{{ m.away_logo }}" alt="Nembo ya {{ m.away }}" width="48" height="48" loading="lazy" referrerpolicy="no-referrer">{% else %}{% icon "shield-fill" "sb-crest" %}{% endif %}</span><b>{{ m.away }}</b></div>
+    <div class="sb-team">{% include 'news/_crest.html' with name=m.away logo=m.away_logo %}<b>{{ m.away }}</b></div>
   </div>
-  {% if big %}{% if m.venue or m.kickoff %}<div class="sb-meta">{% if m.kickoff %}<time datetime="{{ m.kickoff|date:'c' }}">{{ m.kickoff|sw_date }}, {{ m.kickoff|time:"H:i" }}</time>{% endif %}{% if m.venue %} · {{ m.venue }}{% if m.city %}, {{ m.city }}{% endif %}{% endif %}</div>{% endif %}
-  {% else %}<a class="sb-link" href="{{ a.get_absolute_url }}"><span class="sr-only">{{ a.title }}</span></a>
-  {% if user.is_staff %}<form class="sb-del" method="post" action="{% url 'news:live_action' a.pk %}" onsubmit="return confirm('Ondoa {{ a.match.home|escapejs }} vs {{ a.match.away|escapejs }} kwenye tovuti?')">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="next" value="{{ request.path }}"><button title="Ondoa LIVE hii" aria-label="Ondoa LIVE hii">✕</button></form>{% endif %}{% endif %}
-</div>{% endwith %}
+  {% if m.venue or m.kickoff %}<div class="sb-meta">{% if m.kickoff %}<time datetime="{{ m.kickoff|date:'c' }}">{{ m.kickoff|sw_date }}, {{ m.kickoff|time:"H:i" }}</time>{% endif %}{% if m.venue %} · {{ m.venue }}{% if m.city %}, {{ m.city }}{% endif %}{% endif %}</div>{% endif %}
+</div>{% else %}
+<article class="sc{% if m.is_playing %} is-on{% elif m.is_finished %} is-ft{% endif %}{% if m.result %} won-{{ m.result }}{% endif %}" data-match="{{ a.pk }}">
+  <header class="sc-top">
+    <span class="sc-comp">{% if m.competition_logo %}<img src="{{ m.competition_logo }}" alt="" width="16" height="16" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}<span>{{ m.comp_label|default:"Mechi" }}</span></span>
+    <span class="sc-clock" data-clock>{{ m.clock }}</span>
+  </header>
+  <div class="sc-line sc-home">{% include 'news/_crest.html' with name=m.home logo=m.home_logo small=True %}<b>{{ m.home }}</b><span class="sc-g" data-hg>{% if m.shows_score %}{{ m.home_goals }}{% endif %}</span></div>
+  <div class="sc-line sc-away">{% include 'news/_crest.html' with name=m.away logo=m.away_logo small=True %}<b>{{ m.away }}</b><span class="sc-g" data-ag>{% if m.shows_score %}{{ m.away_goals }}{% endif %}</span></div>
+  {% if m.kickoff %}<footer class="sc-foot"><time datetime="{{ m.kickoff|date:'c' }}">{{ m.kickoff|match_day }}{% if m.is_playing %} · ilianza {{ m.kickoff|time:"H:i" }}{% endif %}</time>{% if m.venue %}<span>{{ m.venue }}</span>{% endif %}</footer>{% endif %}
+  <a class="sb-link" href="{{ a.get_absolute_url }}"><span class="sr-only">{{ a.title }}</span></a>
+  {% if user.is_staff %}<form class="sb-del" method="post" action="{% url 'news:live_action' a.pk %}" onsubmit="return confirm('Ondoa {{ m.home|escapejs }} vs {{ m.away|escapejs }} kwenye tovuti?')">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="next" value="{{ request.path }}"><button title="Ondoa LIVE hii" aria-label="Ondoa LIVE hii">✕</button></form>{% endif %}
+</article>{% endif %}{% endwith %}

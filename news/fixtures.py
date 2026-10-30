@@ -247,6 +247,7 @@ class Row:
                           and not (s.kickoff and LiveMatch.not_started(s)))
     is_finished = property(lambda s: s.status in LiveMatch.FINISHED)
     is_off = property(lambda s: s.status in LiveMatch.OFF)
+    shows_score = property(lambda s: LiveMatch.shows_score.fget(s))
     clock = property(lambda s: LiveMatch.clock.fget(s))
     is_overdue = property(lambda s: LiveMatch.overdue(s))
     url = property(lambda s: s.article.get_absolute_url() if s.article

@@ -2930,8 +2930,8 @@ class FavouriteTeamsAndBudgetTest(TestCase):
                                    home_goals=1, away_goals=0, kickoff=timezone.now() - timedelta(days=1),
                                    extra={"final": True, "fetched_at": timezone.now().isoformat()})
         page = self.client.get(f.get_absolute_url()).content.decode()
-        self.assertIn('class="i sb-crest"', page)
-        self.assertNotIn('<span class="sb-logo">1</span>', page)
+        self.assertIn('<i aria-hidden="true">A</i>', page)             # "15 de Agosto" -> herufi, si tarakimu
+        self.assertNotIn('aria-hidden="true">1', page)
 
 
 class OverdueFixtureTest(TestCase):
@@ -4124,3 +4124,73 @@ class InternalLinksTest(TestCase):
     def test_team_page_links_its_leagues(self):
         page = self.client.get("/timu/simba/").content.decode()
         self.assertIn('href="/ligi/ligi-kuu-tanzania/"', page)
+
+
+class LiveHubLogicTest(TestCase):
+    """/live/: matokeo kwa siku, LIVE isiyo ya mechi ina sehemu yake, na majina ya ligi yasiyochanganya."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        p = mock.patch("news.indexnow.submit")
+        p.start()
+        self.addCleanup(p.stop)
+
+    def _match(self, home, away, kickoff, status="FT", hg=1, ag=0, **kw):
+        from news.models import LiveMatch
+        a = Article.objects.create(title=f"{home} vs {away}", category="dunia", excerpt="x", body="x",
+                                   status="published", published_at=timezone.now(), origin="football",
+                                   live_started_at=kickoff, live_ended_at=kickoff + timedelta(hours=2))
+        LiveMatch.objects.create(article=a, home=home, away=away, kickoff=kickoff, status=status,
+                                 home_goals=hg, away_goals=ag, **kw)
+        return a
+
+    def test_results_grouped_by_day_and_news_kept_apart(self):
+        now = timezone.now()
+        self._match("Kitayosce", "Geita Gold", now - timedelta(days=3))
+        self._match("Malole", "Simba", now - timedelta(hours=3), competition="Ligue 1", extra={"country": "Congo DR"})
+        self._match("Old", "Stale", now - timedelta(hours=5), status="NS", hg=None, ag=None)   # LIVE ilifungwa bila matokeo
+        bunge = Article.objects.create(title="LIVE: Bunge la bajeti", category="tanzania", excerpt="x", body="x",
+                                       status="published", published_at=now, live_started_at=now - timedelta(hours=4),
+                                       live_ended_at=now - timedelta(hours=1))
+        r = self.client.get("/live/")
+        days = r.context["result_days"]
+        self.assertEqual([len(rows) for _, rows in days], [1, 1])                  # siku mbili tofauti, mpya kwanza
+        self.assertEqual(days[0][1][0].match.home, "Malole")
+        self.assertNotIn("Old", [a.match.home for _, rows in days for a in rows])
+        self.assertEqual(r.context["done_other"], [bunge])
+        html = r.content.decode()
+        self.assertIn("Ligue 1 · Congo DR", html)
+        self.assertIn('class="sc-day"', html)
+
+    def test_other_matches_on_an_article_are_from_today_only(self):
+        now = timezone.now()
+        old = self._match("PSG", "Lyon", now - timedelta(days=2))
+        today = self._match("Arsenal", "Chelsea", now - timedelta(minutes=10), status="2H", hg=2, ag=1)
+        Article.objects.filter(pk=today.pk).update(live_ended_at=None)
+        page = self._match("Simba", "Yanga", now - timedelta(minutes=5), status="1H", hg=0, ag=0)
+        Article.objects.filter(pk=page.pk).update(live_ended_at=None)
+        from news.views import _other_matches
+        page.refresh_from_db()
+        self.assertEqual([a.pk for a in _other_matches(page)], [today.pk])
+        self.assertNotIn(old.pk, [a.pk for a in _other_matches(page)])
+
+    def test_card_helpers(self):
+        from news.models import LiveMatch
+        from news.templatetags.news_tags import team_initials, team_hue
+        self.assertEqual(team_initials("Young Africans"), "YA")
+        self.assertEqual(team_initials("Simba SC"), "S")
+        self.assertEqual(team_hue("Simba"), team_hue("simba"))
+        m = LiveMatch(home="A", away="B", competition="Ligue 1", extra={"country": "France"}, status="FT",
+                      home_goals=0, away_goals=2)
+        self.assertEqual((m.comp_label, m.result), ("Ligue 1", "away"))
+        m.status, m.kickoff = "1H", timezone.now() + timedelta(hours=3)        # API: "inaendelea" kabla ya muda
+        self.assertFalse(m.shows_score)
+
+    def test_congo_league_is_africa(self):
+        from news import football
+        from news.models import Category
+        self.assertEqual(football._category({"country": "Congo DR", "name": "Ligue 1"}), Category.AFRIKA)
+        self.assertEqual(football._category({"country": "DR Congo", "name": "Linafoot"}), Category.AFRIKA)
+        self.assertEqual(football._category({"country": "France", "name": "Ligue 1"}), Category.DUNIA)
