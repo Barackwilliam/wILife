@@ -312,6 +312,10 @@ HIGHLIGHTLY_LEAGUES = [x.strip() for x in env(
     "*:UEFA Champions League,*:UEFA Europa League,*:World Cup,*:Africa Cup of Nations,"
     "*:CAF Champions League,*:CAF Confederation Cup,Tanzania:Premier League,Tanzania:Ligi Kuu Bara",
 ).split(",") if x.strip()]
+# Odds za kampuni za kimataifa (the-odds-api.com) — ligi kubwa za Ulaya. Tupu = imezimwa (news/odds_api.py).
+ODDS_API_KEY = env("ODDS_API_KEY", "")
+ODDS_API_REGIONS = env("ODDS_API_REGIONS", "eu")        # eu, uk, us, au (kila eneo linaongeza gharama ya ombi)
+ODDS_API_PER_DAY = int(env("ODDS_API_PER_DAY", "14"))   # credits kwa siku (mpango wa bure ~500 kwa mwezi)
 # Timu za wasomaji wa Tanzania: mechi zao zinapata LIVE kamili kila mara (juu ya kikomo cha mechi 5 kwa
 # siku) na zinaonyeshwa kwanza, kwenye mashindano yoyote. Jina kama API inavyoliandika ("SC"/"FC" hazijalishi).
 HIGHLIGHTLY_FAVOURITE_TEAMS = [x.strip() for x in env(

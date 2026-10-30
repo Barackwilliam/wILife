@@ -4637,3 +4637,129 @@ class OddsDiagnosticsTest(TestCase):
         with mock.patch("news.highlightly._get", side_effect=RuntimeError("Highlightly 403: plan")):
             call_command("odds_check", stdout=out)
         self.assertIn("Kosa: Highlightly 403", out.getvalue())
+
+
+def _oddsapi_event(home="Manchester United", away="Tottenham Hotspur", when=None, h=1.9, d=3.6, a=4.2):
+    return {"id": "e1", "sport_key": "soccer_epl", "commence_time": (when or timezone.now()).isoformat(),
+            "home_team": home, "away_team": away, "bookmakers": [
+                {"key": "pinnacle", "title": "Pinnacle", "markets": [
+                    {"key": "h2h", "outcomes": [{"name": home, "price": h}, {"name": away, "price": a},
+                                                {"name": "Draw", "price": d}]},
+                    {"key": "totals", "outcomes": [{"name": "Over", "price": 1.8, "point": 2.5},
+                                                   {"name": "Under", "price": 2.05, "point": 2.5},
+                                                   {"name": "Over", "price": 1.3, "point": 1.5}]}]},
+                {"key": "bet365", "title": "Bet365", "markets": [
+                    {"key": "h2h", "outcomes": [{"name": home, "price": 2.0}, {"name": away, "price": 4.0},
+                                                {"name": "Draw", "price": 3.5}]}]}]}
+
+
+class _OddsApiResp:
+    def __init__(self, data, status=200, headers=None):
+        self._data, self.status_code = data, status
+        self.headers = headers or {"x-requests-remaining": "480", "x-requests-last": "2"}
+        self.text = json.dumps(data)
+
+    def json(self):
+        return self._data
+
+
+@override_settings(ODDS_API_KEY="k", ODDS_API_PER_DAY=14, ODDS_API_REGIONS="eu")
+class OddsSourcesTest(TestCase):
+    """The Odds API kwa ligi kubwa, odds za mhariri (Admin) kwa kampuni za hapa, na mpango wa Highlightly usio na odds."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from news.models import Fixture
+        cache.clear()
+        self.now = timezone.now()
+        self.f = Fixture.objects.create(fixture_id=501, day=timezone.localdate(self.now),
+                                        kickoff=self.now + timedelta(hours=5), competition="Premier League",
+                                        country="England", home="Manchester United", away="Tottenham",
+                                        extra={"prediction": {"home": 60, "draw": 22, "away": 18, "pick": "1",
+                                                              "confidence": "juu", "markets": {"over25": 55}}})
+
+    def test_names_and_kickoff_are_matched(self):
+        from news import odds_api
+        ev = _oddsapi_event(when=self.f.kickoff + timedelta(minutes=30))
+        self.assertEqual(odds_api.match(ev, [self.f]), self.f)
+        self.assertIsNone(odds_api.match(_oddsapi_event(when=self.f.kickoff + timedelta(hours=5)), [self.f]))
+        self.assertIsNone(odds_api.match(_oddsapi_event(home="Arsenal", away="Chelsea", when=self.f.kickoff), [self.f]))
+        p = odds_api.prices(ev)
+        self.assertEqual(p[("1x2", "Pinnacle")], [1.9, 3.6, 4.2])
+        self.assertEqual(p[("ou25", "Pinnacle")], [1.8, 2.05])
+        self.assertNotIn(("ou25", "Bet365"), p)
+
+    def test_fetch_only_leagues_with_our_fixtures_and_respects_daily_credits(self):
+        from news import odds, odds_api
+        from news.models import ModelReport
+        calls = []
+
+        def fake(url, params=None, timeout=None):
+            calls.append(url)
+            return _OddsApiResp([_oddsapi_event(when=self.f.kickoff)])
+        with mock.patch("news.odds_api.requests.get", side_effect=fake):
+            self.assertEqual(odds_api.fetch(self.now), 1)
+            self.assertEqual(odds_api.fetch(self.now + timedelta(hours=1)), 0)        # kila saa 12 tu
+        self.assertEqual(calls, ["https://api.the-odds-api.com/v4/sports/soccer_epl/odds"])
+        self.f.refresh_from_db()
+        o = self.f.extra["odds"]
+        self.assertEqual((o["source"], o["1x2"]["books"], o["1x2"]["avg"]), ("The Odds API", 2, [1.95, 3.55, 4.1]))
+        self.assertEqual(ModelReport.objects.get(key=odds_api.PROGRESS_KEY).data["_hali"]["remaining"], 480)
+        self.assertEqual(odds.view(self.f)["source"], "The Odds API")
+        with override_settings(ODDS_API_KEY=""):
+            self.assertEqual(odds_api.fetch(self.now + timedelta(days=1)), 0)
+
+    def test_editor_odds_from_admin_take_priority(self):
+        from django.contrib.auth.models import User
+        from news import odds
+        from news.models import LiveMatch
+        self.f.extra = {**self.f.extra, "odds": odds.parse([_odds_item(501)])[501]}
+        self.f.save()
+        a = Article.objects.create(title="x", category="dunia", excerpt="x", body="b", status="published",
+                                   published_at=self.now, origin="football")
+        with mock.patch("news.models.Article.render_cover"):
+            live = LiveMatch.objects.create(article=a, fixture_id=501, home="Manchester United", away="Tottenham",
+                                            kickoff=self.f.kickoff)
+        User.objects.create_superuser("ed", "ed@mfano.com", "pw")
+        self.client.login(username="ed", password="pw")
+        url = f"/admin/news/fixture/{self.f.pk}/change/"
+        page = self.client.get(url).content.decode()
+        self.assertIn("Odds za kampuni ya kubeti", page)
+        form = {k: getattr(self.f, k) or "" for k in ("provider", "fixture_id", "day", "rank", "competition", "country",
+                                                       "home", "away", "status")}
+        form.update({"kickoff_0": timezone.localtime(self.f.kickoff).strftime("%Y-%m-%d"),
+                     "kickoff_1": timezone.localtime(self.f.kickoff).strftime("%H:%M:%S"),
+                     "extra": json.dumps(self.f.extra)})
+        bad = self.client.post(url, {**form, "odds_book": "SportPesa", "odds_home": "2.1"})
+        self.assertContains(bad, "Jaza odds zote za soko moja")
+        r = self.client.post(url, {**form, "odds_book": "SportPesa", "odds_home": "2.1", "odds_draw": "3.3",
+                                   "odds_away": "3.9"})
+        self.assertEqual(r.status_code, 302)
+        self.f.refresh_from_db()
+        m = self.f.extra["odds_manual"]
+        self.assertEqual((m["source"], m["1x2"]["avg"], m["manual"]), ("SportPesa", [2.1, 3.3, 3.9], True))
+        self.assertIn("odds", self.f.extra)                                      # za API zinabaki
+        v = odds.view(self.f)
+        self.assertEqual((v["source"], v["manual"], v["value"]["odd"]), ("SportPesa", True, 2.1))
+        live.refresh_from_db()
+        self.assertEqual(live.extra["odds_manual"]["source"], "SportPesa")
+        self.client.post(url, {**form, "extra": json.dumps(self.f.extra), "odds_clear": "on"})
+        self.f.refresh_from_db()
+        self.assertNotIn("odds_manual", self.f.extra)
+
+    def test_highlightly_plan_without_odds_stops_daily_attempts(self):
+        from news import odds
+        from news.models import FootballState, ModelReport
+        state = FootballState.objects.create(day=self.now.date())
+        calls = []
+
+        def fake(path, params, st):
+            calls.append(path)
+            raise RuntimeError("Highlightly 401: Odds are not available in Basic plan. Please upgrade your plan.")
+        with mock.patch("news.football.provider", return_value="highlightly"), \
+                mock.patch("news.highlightly._get", side_effect=fake):
+            self.assertEqual(odds.fetch(state, self.now, 80), 1)              # kesho haijaribiwi baada ya kosa hili
+            self.assertEqual(odds.fetch(state, self.now + timedelta(days=2), 80), 0)
+            self.assertEqual(odds.fetch(state, self.now + timedelta(days=8), 80), 1)   # wiki moja: jaribio jipya
+        self.assertEqual(len(calls), 2)
+        self.assertIn("mpango wa Highlightly", ModelReport.objects.get(key=odds.PROGRESS_KEY).data["_hali"]["sababu"])
