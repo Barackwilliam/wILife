@@ -48,6 +48,20 @@
   </section>
   {% endif %}
 
+  {% if value %}
+  <section>
+    <div class="sh"><h2>Chaguo zenye thamani dhidi ya odds</h2></div>
+    <p class="pr-small">Mechi ambazo utabiri wetu unaona nafasi kubwa kuliko bei ya wastani ya kampuni za kubeti. Thamani si uhakika wa kushinda: ni faida inayotarajiwa kwa mechi nyingi, si kwa mechi moja.</p>
+    <ol class="pr-top-list">{% for r, v in value %}
+      <li><a href="{{ r.url }}">
+        <span class="pr-tp-m"><b>{{ r.home }} vs {{ r.away }}</b><small>{% if v.market == '1x2' %}{% if v.i == 0 %}{{ r.home }} ishinde{% elif v.i == 1 %}Sare{% else %}{{ r.away }} ishinde{% endif %}{% else %}{{ v.label }}{% endif %} · sisi {{ v.ours }}%, soko {{ v.market_p }}%</small></span>
+        <span class="pr-tp-p"><em>odds</em><b>{{ v.odd }}</b></span>
+        <span class="pr-tier t-juu">+{{ v.ev }}%</span>
+      </a></li>{% endfor %}
+    </ol>
+  </section>
+  {% endif %}
+
   <section>
     <div class="sh"><h2>Mechi zinazofuata ({{ upcoming|length }})</h2><a href="{% url 'news:matches_today' %}">Mechi zote za leo {% icon "arrow-right" %}</a></div>
     {% if upcoming %}
@@ -74,6 +88,8 @@
         <p class="pr-big"><b>{{ record.pct }}%</b> <span>{{ record.hits }}/{{ record.total }} matokeo (1X2) sahihi</span></p>
         {% if record.tiers %}<table class="pr-tbl"><thead><tr><th>Kiwango</th><th>Mechi</th><th>Sahihi</th></tr></thead><tbody>{% for k, t in record.tiers.items %}<tr><td><span class="pr-tier t-{{ k }}">{{ t.label }}</span></td><td>{{ t.total }}</td><td><b>{{ t.pct }}%</b></td></tr>{% endfor %}</tbody></table>{% endif %}
         {% if record.markets %}<ul class="pr-mlist">{% for k, mk in record.markets.items %}<li>{{ mk.label }}: <b>{{ mk.pct }}%</b> ({{ mk.hits }}/{{ mk.total }})</li>{% endfor %}</ul>{% endif %}
+        {% if record.market %}<p class="pr-small">Mechi zenye odds ({{ record.market.total }}): kipenzi cha kampuni kilishinda {{ record.market.pct }}%, utabiri wetu ulipatia {{ record.market.ours }}%.</p>{% endif %}
+        {% if record.value %}<p class="pr-small">Chaguo za thamani {{ record.value.total }} (dau la 1 kwa odds za wastani): zilishinda {{ record.value.won }}, {% if record.value.profit >= 0 %}faida{% else %}hasara{% endif %} {{ record.value.profit }} ({{ record.value.roi }}%).</p>{% endif %}
         {% if record.brier is not None %}<p class="pr-small">Alama ya Brier: {{ record.brier }} (chini ni bora; kubahatisha 33/33/33 ni 0.667).</p>{% endif %}
         {% else %}<p class="pr-small">Rekodi inaanza kujazwa mechi zilizotabiriwa zikiisha.</p>{% endif %}
       </div>

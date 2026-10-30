@@ -514,7 +514,7 @@ def predictions(request):
     upcoming = predict.board()
     report = ModelReport.objects.filter(key=predict.REPORT_KEY).values_list("data", flat=True).first() or {}
     return render(request, "news/predictions.html", {
-        "upcoming": upcoming, "top": predict.top_picks(upcoming), "week": predict.record(7),
+        "upcoming": upcoming, "top": predict.top_picks(upcoming), "value": predict.value_picks(upcoming), "week": predict.record(7),
         "record": predict.record(30), "report": report if report.get("models") else None,
         "page_v": _day_version([]) + str(len(upcoming)) + str(report.get("at", "")),
     })

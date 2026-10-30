@@ -1997,7 +1997,7 @@ class HighlightlyProviderTest(TestCase):
         self.assertEqual(out["failed"], 1)
         self.assertIn("Highlightly 401: Invalid API key", FootballState.objects.get().error)
         with mock.patch("news.leagues.refresh_standings", return_value=0), \
-                mock.patch("news.fixtures.read_ahead", return_value=0):
+                mock.patch("news.fixtures.read_ahead", return_value=0), mock.patch("news.odds.fetch", return_value=0):
             self.run_with()                               # dakika inayofuata: hakuna ombi jipya la ratiba
         self.assertEqual(len(self.calls), 1)
 
@@ -2619,7 +2619,7 @@ class OverdueMatchTest(TestCase):
         with mock.patch("news.highlightly.requests.get", return_value=_HLResp([done])) as get, \
                 mock.patch("news.enrich.run", return_value=0), \
                 mock.patch("news.leagues.refresh_standings", return_value=0), \
-                mock.patch("news.fixtures.read_ahead", return_value=0):
+                mock.patch("news.fixtures.read_ahead", return_value=0), mock.patch("news.odds.fetch", return_value=0):
             out = football.run()
             again = football.run()                                      # imeisha: haiombwi tena
         self.assertIn("matokeo ya mwisho yaliyochelewa: maombi 1", out["detail"])
@@ -3715,7 +3715,7 @@ class ScheduleRecoveryTest(TestCase):
         for target in ("news.enrich.run", "news.fixtures.rescan_day", "news.fixtures.refresh_results",
                        "news.fixtures.backfill", "news.football.promote_favourites", "news.football.finalize",
                        "news.football.sync_live", "news.fixtures.read_ahead", "news.leagues.refresh_standings",
-                       "news.results.backfill"):
+                       "news.results.backfill", "news.odds.fetch"):
             p = mock.patch(target, return_value=0)
             p.start()
             self.addCleanup(p.stop)
@@ -4508,3 +4508,98 @@ class PredictionEngineTest(TestCase):
         self.assertEqual(MatchResult.objects.count(), 3)
         prog = ModelReport.objects.get(key=results.PROGRESS_KEY).data
         self.assertTrue(prog["39:2026"]["done"] and prog["39:2025"]["error"])
+
+
+def _odds_item(mid, home=2.0, draw=3.4, away=4.0, over=1.9, under=1.95, books=("Bet365", "Pinnacle")):
+    return {"matchId": mid, "odds": [
+        {"bookmakerName": b, "type": "prematch", "market": "Full Time Result",
+         "values": [{"value": "Home", "odd": home + i * 0.1}, {"value": "Draw", "odd": draw},
+                    {"value": "Away", "odd": away}]} for i, b in enumerate(books)] + [
+        {"bookmakerName": "Bet365", "market": "Over/Under", "values": [
+            {"value": "Over 2.5", "odd": over}, {"value": "Under 2.5", "odd": under},
+            {"value": "Over 1.5", "odd": 1.3}, {"value": "Under 1.5", "odd": 3.2}]},
+        {"bookmakerName": "Bet365", "market": "1st Half Winner", "values": [
+            {"value": "Home", "odd": 9.0}, {"value": "Draw", "odd": 9.0}, {"value": "Away", "odd": 9.0}]}]}
+
+
+class OddsTest(TestCase):
+    """Odds za kampuni: kusoma kwa uvumilivu, soko dhidi ya utabiri, thamani na rekodi ya wazi."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+
+    def test_parse_averages_bookmakers_and_removes_margin(self):
+        from news import odds
+        o = odds.parse([_odds_item(10)])[10]
+        self.assertEqual(o["1x2"]["books"], 2)
+        self.assertEqual(o["1x2"]["avg"], [2.05, 3.4, 4.0])
+        self.assertEqual(o["1x2"]["best"], [2.1, 3.4, 4.0])         # nusu ya kwanza haichanganywi
+        self.assertAlmostEqual(sum(o["fair"]["1x2"]), 1.0, places=3)
+        self.assertGreater(o["margin"]["1x2"], 0)
+        self.assertEqual(o["ou25"]["avg"], [1.9, 1.95])               # mstari wa 2.5 tu
+        self.assertNotIn("btts", o)
+        self.assertEqual(odds.parse([{"matchId": 1, "odds": [{"market": "Full Time Result", "values": []}]},
+                                     {"foo": "bar"}, "x"]), {})
+
+    def test_value_needs_edge_and_confidence(self):
+        from news import odds
+        o = odds.parse([_odds_item(10, home=2.6, draw=3.4, away=2.8)])[10]
+        p = {"home": 55, "draw": 25, "away": 20, "confidence": "wastani", "markets": {"over25": 50, "btts": 50}}
+        rows, value = odds.compare(p, o)
+        self.assertEqual((value["market"], value["i"]), ("1x2", 0))
+        self.assertGreater(value["ev"], 40)
+        self.assertEqual(len(rows), 5)
+        self.assertIsNone(odds.compare({**p, "confidence": "chini"}, o)[1])
+        self.assertIsNone(odds.compare({**p, "home": 37, "draw": 28, "away": 35}, o)[1])      # sawa na soko: hakuna thamani
+
+    def test_fetch_stores_prematch_odds_and_backs_off_on_error(self):
+        from news import odds
+        from news.models import Fixture, FootballState, ModelReport
+        now = timezone.now()
+        f = Fixture.objects.create(fixture_id=10, day=timezone.localdate(now), kickoff=now + timedelta(hours=4),
+                                   home="Lions", away="Snails")
+        state = FootballState.objects.create(day=now.date())
+        calls = []
+
+        def fake(path, params, st):
+            calls.append((path, params["date"]))
+            if len(calls) > 1:
+                raise RuntimeError("Highlightly 403: plan")
+            return {"data": [_odds_item(10)], "pagination": {"totalCount": 1}}
+        with mock.patch("news.football.provider", return_value="highlightly"), \
+                mock.patch("news.highlightly._get", side_effect=fake):
+            self.assertEqual(odds.fetch(state, now, 10), 0)                 # maombi machache: subiri
+            self.assertEqual(odds.fetch(state, now, 80), 2)                 # leo + kesho (kesho ilikosa)
+            self.assertEqual(odds.fetch(state, now + timedelta(hours=1), 80), 0)   # bado mapema / kosa: subiri
+        self.assertEqual(calls[0], ("/odds", timezone.localdate(now).isoformat()))
+        f.refresh_from_db()
+        self.assertEqual(f.extra["odds"]["1x2"]["books"], 2)
+        self.assertIn("Full Time Result", ModelReport.objects.get(key=odds.SAMPLE_KEY).data["raw"])
+        prog = ModelReport.objects.get(key=odds.PROGRESS_KEY).data
+        self.assertTrue(any("error" in v for v in prog.values()))
+
+    def test_value_bet_is_settled_and_shown_with_market_comparison(self):
+        from news import odds, predict
+        from news.models import Fixture
+        _season()
+        now = timezone.now()
+        f = Fixture.objects.create(fixture_id=900, day=timezone.localdate(now), kickoff=now + timedelta(hours=6),
+                                   competition_id=39, competition="Premier League", country="England",
+                                   home="Lions", away="Snails", rank=1)
+        predict.refresh_fixtures(now)
+        f.refresh_from_db()
+        f.extra = {**f.extra, "odds": odds.parse([_odds_item(900, home=2.5, draw=3.6, away=3.0)])[900]}
+        f.save()
+        page = self.client.get("/utabiri/").content.decode()
+        for text in ("Odds za kampuni za kubeti", "Chaguo zenye thamani dhidi ya odds", "Thamani:"):
+            self.assertIn(text, page)
+        f.status, f.home_goals, f.away_goals = "FT", 2, 0
+        f.save()
+        predict.refresh_fixtures(now + timedelta(days=1))
+        f.refresh_from_db()
+        self.assertTrue(f.extra["value_result"]["won"])
+        self.assertEqual(f.extra["value_result"]["profit"], 1.55)         # wastani wa 2.5 na 2.6
+        rec = predict.record()
+        self.assertEqual((rec["value"]["total"], rec["value"]["profit"]), (1, 1.55))
+        self.assertEqual(rec["market"], {"total": 1, "pct": 100, "ours": 100})

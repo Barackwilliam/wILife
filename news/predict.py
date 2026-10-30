@@ -341,6 +341,8 @@ def settle(m):
                "prediction_markets": {"over25": (p.get("over25", 0) >= 50) == (goals >= 3),
                                       "btts": (p.get("btts", 0) >= 50) == bool(m.home_goals and m.away_goals)}}
     type(m).objects.filter(pk=m.pk).update(extra=m.extra)
+    from news import odds
+    odds.settle_value(m)                  # chaguo la thamani dhidi ya odds za kampuni: faida/hasara
 
 
 def pick_text(m, p=None):
@@ -391,9 +393,20 @@ def record(days=30):
             markets[k] = {"label": label, "total": len(group), "hits": sum(group),
                           "pct": round(sum(group) * 100 / len(group))}
     briers = [m.extra["prediction_brier"] for m in rows if "prediction_brier" in m.extra]
+    from news import odds
+    bets = [m.extra["value_result"] for m in rows if "value_result" in m.extra]
+    value = None
+    if bets:
+        profit = sum(b["profit"] for b in bets)
+        value = {"total": len(bets), "won": sum(1 for b in bets if b["won"]), "profit": round(profit, 2),
+                 "roi": round(profit * 100 / len(bets), 1)}
+    fav = [h for h in (odds.market_hit(m) for m in rows) if h is not None]
+    ours_vs = [m.extra.get("prediction_hit") for m in rows if odds.market_hit(m) is not None]
+    market = {"total": len(fav), "pct": round(sum(fav) * 100 / len(fav)),
+              "ours": round(sum(1 for h in ours_vs if h) * 100 / len(ours_vs))} if fav else None
     return {"total": len(rows), "hits": hits, "exact": exact,
             "pct": round(hits * 100 / len(rows)) if rows else 0, "recent": _rows(rows[:30]), "days": days,
-            "tiers": tiers, "markets": markets,
+            "tiers": tiers, "markets": markets, "value": value, "market": market,
             "brier": round(sum(briers) / len(briers), 3) if briers else None}
 
 
@@ -417,6 +430,17 @@ def board(now=None, hours=36, limit=80):
            .exclude(status__in=LiveMatch.FINISHED | LiveMatch.OFF) if f.fixture_id not in seen]
     rows = sorted(lives + fxs, key=lambda o: (o.kickoff, getattr(o, "rank", 99)))[:limit]
     return _rows(rows)
+
+
+def value_picks(rows, n=6):
+    """Mechi ambazo utabiri wetu unaona nafasi kubwa kuliko bei ya kampuni (EV kubwa kwanza)."""
+    from news import odds
+    out = []
+    for r in rows:
+        v = odds.view(r)
+        if v and v["value"]:
+            out.append((r, v["value"]))
+    return sorted(out, key=lambda t: -t[1]["ev"])[:n]
 
 
 def top_picks(rows, n=6):

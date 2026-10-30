@@ -1073,6 +1073,11 @@ a.fx:hover { background: var(--brand-soft); }
 .pr-cal s { width: var(--hap); background: var(--leaf); }
 .pr-cal u { left: var(--said); width: 2px; background: var(--ink); }
 .pr-cal small { grid-column: 2; color: var(--muted); }
+.pr-odds { margin: 12px 0 0; padding: 10px 12px; border-radius: 12px; background: var(--surface-2, var(--bg)); }
+.pr-odds-h { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 10px; margin: 0 0 4px; font-size: .86rem; }
+.pr-odds-h small, .pr-odds td small { color: var(--muted); font-size: .74rem; }
+.pr-odds .pr-tbl td, .pr-odds .pr-tbl th { padding: 6px 4px; }
+.pr-val { margin: 10px 0 0; padding: 8px 10px; border-radius: 10px; background: var(--leaf-soft); color: #17694f; font-size: .84rem; line-height: 1.5; }
 @media (max-width: 560px) { .pr-rec b { font-size: 1.25rem; } }
 @media (prefers-reduced-motion: reduce) { .fx.is-on .fx-t::before { animation: none; } }
 
