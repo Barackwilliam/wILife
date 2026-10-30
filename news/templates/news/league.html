@@ -9,6 +9,7 @@
 
 {% block fullbleed %}
 <section class="lh-hero tm-hero" aria-labelledby="lg-title">
+  {% hero_art %}
   <div class="wrap">
     <nav class="crumbs lh-crumbs" aria-label="breadcrumb"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><a href="{% url 'news:leagues' %}">Ligi</a><span>/</span><span>{{ league.name }}</span></nav>
     <div class="tm-head">

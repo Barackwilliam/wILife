@@ -1,0 +1,23 @@
+{% comment %}
+  Mandhari ya hero za michezo: uwanja wa usiku tulioichora wenyewe (taa, mistari ya kiwanja, mwanga unaosogea) —
+  hakuna picha ya kupakua. Picha za Admin (HeroPhoto) zikiwepo zinabadilishana juu yake, pamoja na jina la mpiga picha.
+{% endcomment %}<div class="ha" aria-hidden="true">
+  <span class="ha-glow"></span>
+  <span class="ha-beam ha-b1"></span><span class="ha-beam ha-b2"></span>
+  <span class="ha-lamp ha-l1"></span><span class="ha-lamp ha-l2"></span>
+  <span class="ha-crowd"></span>
+  <svg class="ha-pitch" viewBox="0 0 1200 300" preserveAspectRatio="none" focusable="false">
+    <defs><linearGradient id="haGrass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a9a5e" stop-opacity=".25"/><stop offset=".4" stop-color="#1f8a52" stop-opacity=".6"/><stop offset="1" stop-color="#0f6b3d" stop-opacity=".95"/></linearGradient></defs>
+    <path d="M250 40 L950 40 L1200 300 L0 300 Z" fill="url(#haGrass)"/>
+    <g fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="2">
+      <path d="M250 40 L950 40 L1200 300 L0 300 Z"/>
+      <path d="M600 40 L600 300"/>
+      <ellipse cx="600" cy="150" rx="150" ry="42"/>
+      <path d="M395 40 L372 92 L828 92 L805 40"/>
+      <path d="M150 300 L210 205 L990 205 L1050 300"/>
+    </g>
+    <g fill="#fff" fill-opacity=".07"><path d="M318 40 L389 40 L216 300 L104 300 Z"/><path d="M459 40 L530 40 L432 300 L320 300 Z"/><path d="M670 40 L741 40 L880 300 L768 300 Z"/><path d="M811 40 L882 40 L1096 300 L984 300 Z"/></g>
+  </svg>
+  {% if photos %}<div class="ha-photos" style="--n:{{ n }}">{% for p in photos %}<figure class="ha-ph" style="--i:{{ forloop.counter0 }}"><img src="{{ p.image }}" alt="" {% if forloop.first %}fetchpriority="high"{% else %}loading="lazy"{% endif %} decoding="async" referrerpolicy="no-referrer"><figcaption>{% if p.caption %}{{ p.caption }} · {% endif %}{{ p.credit }}</figcaption></figure>{% endfor %}</div>{% endif %}
+  <span class="ha-shade"></span>
+</div>

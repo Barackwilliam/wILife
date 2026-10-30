@@ -11,6 +11,7 @@
 
 {% block fullbleed %}
 <section class="lh-hero dy-hero" aria-labelledby="dy-title">
+  {% hero_art %}
   <div class="wrap">
     <nav class="crumbs lh-crumbs" aria-label="breadcrumb"><a href="{% url 'news:home' %}">Mwanzo</a><span>/</span><a href="{% url 'news:live_hub' %}">LIVE</a><span>/</span><span>{% if kind == 'kesho' %}Mechi za kesho{% elif kind == 'leo' %}Mechi za leo{% elif kind == 'jana' %}Matokeo ya jana{% else %}{{ day|date:"d/m/Y" }}{% endif %}</span></nav>
     <div class="lh-head">
@@ -18,6 +19,7 @@
       <h1 id="dy-title">{% if kind == 'kesho' %}Mechi za Kesho{% elif kind == 'leo' %}Mechi za Leo{% elif kind == 'jana' %}Matokeo ya Jana{% else %}Matokeo ya Mechi{% endif %} <span>{{ date_text }}</span></h1>
       <p class="lh-sub">{% if rows %}Jumla ya mechi {{ rows|length }}{% if counts.on %} · {{ counts.on }} zinaendelea{% endif %}{% if counts.done %} · {{ counts.done }} zimeisha{% endif %}{% if counts.soon %} · {{ counts.soon }} bado hazijaanza{% endif %} · Saa za Afrika Mashariki{% else %}Ratiba ya siku hii bado haijapatikana{% endif %}</p>
     </div>
+    {% spotlight day %}
     <nav class="dy-days" aria-label="Siku">
       {% if kind != 'leo' and prev_day %}<a href="{% url 'news:matches_day' prev_day|date:'Y-m-d' %}" rel="prev">‹ {{ prev_day|sw_day }} {{ prev_day|sw_daydate }}</a>{% endif %}
       <a href="{% url 'news:results_yesterday' %}"{% if kind == 'jana' %} class="on" aria-current="page"{% endif %}>Jana</a>

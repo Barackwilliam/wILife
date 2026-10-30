@@ -900,3 +900,25 @@ class League(models.Model):
 
     def get_absolute_url(self):
         return reverse("news:league", args=[self.slug])
+
+
+class HeroPhoto(models.Model):
+    """
+    Picha za michezo zinazobadilishana nyuma ya vichwa vya kurasa (LIVE, Mechi za leo, Utabiri, Video, Ligi).
+    Weka TU picha unazomiliki au zenye leseni ya kutumika (mf. picha zako za uwanjani, au picha ulizonunua) —
+    jina la mpiga picha/chanzo linaonyeshwa juu ya picha. Bila picha, kurasa zinaonyesha mchoro wa uwanja wetu.
+    """
+    image = models.URLField(max_length=400, help_text="URL ya picha (upana 1600px au zaidi, mlalo)")
+    caption = models.CharField(max_length=120, blank=True, help_text="Maelezo mafupi (hiari)")
+    credit = models.CharField(max_length=120, help_text="Mpiga picha / chanzo, mf. 'Picha: wILife' au jina la mpiga picha")
+    active = models.BooleanField(default=True)
+    sort = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["sort", "-created_at"]
+        verbose_name = "Picha ya kichwa (hero)"
+        verbose_name_plural = "Picha za vichwa (hero)"
+
+    def __str__(self):
+        return self.caption or self.image[:60]
