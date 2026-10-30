@@ -33,7 +33,19 @@ RESERVE = 2               # maombi ya akiba yasiyotumika kamwe
 AFRICA = {"Algeria", "Angola", "Botswana", "Burundi", "Cameroon", "Congo", "Congo-DR", "DR Congo", "Egypt",
           "Ethiopia", "Ghana", "Ivory-Coast", "Kenya", "Libya", "Malawi", "Mali", "Morocco", "Mozambique",
           "Namibia", "Nigeria", "Rwanda", "Senegal", "South-Africa", "Sudan", "Tunisia", "Uganda", "Zambia",
-          "Zimbabwe", "Africa"}
+          "Zimbabwe", "Africa", "Congo DR", "Benin", "Burkina-Faso", "Cape-Verde", "Chad", "Comoros", "Djibouti",
+          "Equatorial-Guinea", "Eritrea", "Eswatini", "Gabon", "Gambia", "Guinea", "Guinea-Bissau", "Lesotho",
+          "Liberia", "Madagascar", "Mauritania", "Mauritius", "Niger", "Sierra-Leone", "Somalia", "South-Sudan",
+          "Togo", "Cote D'Ivoire", "Côte d'Ivoire", "Democratic Republic of the Congo", "Seychelles"}
+
+
+def _norm_country(name):
+    """'Congo-DR' / 'DR Congo' / 'Congo DR' -> umbo moja la kulinganisha (watoaji data huandika tofauti)."""
+    words = sorted(name.lower().replace("-", " ").replace("ô", "o").replace("'", " ").split())
+    return " ".join(words)
+
+
+AFRICA_KEYS = {_norm_country(c) for c in AFRICA}
 
 
 class QuotaExhausted(Exception):
@@ -145,7 +157,7 @@ def _category(league):
     name = (league.get("name") or "").lower()
     if country == "Tanzania":
         return Category.TANZANIA
-    if country in AFRICA or "caf" in name or "africa" in name:
+    if _norm_country(country) in AFRICA_KEYS or "caf" in name or "africa" in name:
         return Category.AFRIKA
     return Category.DUNIA
 

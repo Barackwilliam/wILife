@@ -263,7 +263,7 @@ main.pg { padding: 26px 0 64px; }
 .kick.box { background: color-mix(in srgb, var(--cat, var(--brand)) 14%, transparent); padding: 4px 9px; border-radius: 5px; }
 .c-dunia { --cat: var(--sky); } .c-afrika { --cat: #c47f05; } .c-tanzania { --cat: var(--leaf); } .c-jamiitek { --cat: var(--brand-ink); }
 [data-bs-theme="dark"] .c-afrika { --cat: var(--sun); }
-.when { font-size: .74rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; display: inline-flex; gap: 6px; align-items: center; }
+.when { font-size: .74rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; white-space: nowrap; row-gap: 2px; }
 .when .dot { width: 3px; height: 3px; border-radius: 50%; background: currentColor; }
 .ttl { font-family: var(--font-display); font-weight: 600; letter-spacing: -.02em; line-height: 1.12; color: var(--ink); }
 .ttl a { background-image: linear-gradient(var(--brand), var(--brand)); background-size: 0 2px; background-repeat: no-repeat; background-position: 0 100%; transition: background-size .35s; }
@@ -1243,3 +1243,4 @@ a.fx:hover { background: var(--brand-soft); }
 [data-bs-theme="light"] .waj-btn.alt { color: #0b6b37 !important; }
 .fx-tm .crest-sm { width: 24px; height: 24px; box-shadow: 0 0 0 1px rgba(15,23,42,.08); }
 .fx-tm .crest-sm i { font-size: .6rem; }
+@media (max-width: 480px) { .fx-tm .crest-sm { display: none; } }
