@@ -762,6 +762,9 @@ def run(now=None, deadline=None, dry_run=False):
             made, settled = predict.refresh_fixtures(now)
             if made or settled:
                 notes.append(f"utabiri wa ratiba: mpya {made}, uliopimwa {settled}")
+            if active(now):
+                from news import odds
+                odds.waiting(now)               # Admin: kwa nini odds hazijasomwa sasa
             if not active(now):                 # siku iliyokosa ratiba kabisa si ya haraka: isubiri LIVE ziishe
                 n = fixtures.backfill(state, now, daily_limit() - state.requests)
                 if n:
